@@ -29,7 +29,7 @@ export default function Register() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push('/onboarding')
     }
   }
 
