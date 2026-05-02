@@ -176,68 +176,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="py-20 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-gray-900">Prețuri simple și transparente</h2>
-            <p className="text-gray-500 mt-3">Fără surprize, fără costuri ascunse</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-            <div className="border border-gray-200 rounded-2xl p-6">
-              <p className="text-sm font-medium text-gray-500 mb-2">Gratuit</p>
-              <p className="text-4xl font-bold text-gray-900 mb-1">0 RON</p>
-              <p className="text-sm text-gray-400 mb-6">pentru totdeauna</p>
-              <div className="space-y-2 text-sm text-gray-600 mb-6">
-                <p>✓ 5 facturi / lună</p>
-                <p>✓ Completare automată ANAF</p>
-                <p>✓ PDF download</p>
-                <p>✓ 1 utilizator</p>
-              </div>
-              <Link href="/register" className="block w-full border border-gray-200 text-gray-700 text-center py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                Începe gratuit
-              </Link>
-            </div>
-
-            <div className="border-2 border-black rounded-2xl p-6 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-3 py-1 rounded-full font-medium">
-                Recomandat
-              </div>
-              <p className="text-sm font-medium text-gray-500 mb-2">Business</p>
-              <p className="text-4xl font-bold text-gray-900 mb-1">29 RON</p>
-              <p className="text-sm text-gray-400 mb-6">pe lună + TVA</p>
-              <div className="space-y-2 text-sm text-gray-600 mb-6">
-                <p>✓ Facturi nelimitate</p>
-                <p>✓ Completare automată ANAF</p>
-                <p>✓ PDF + trimitere email</p>
-                <p>✓ Dashboard & rapoarte</p>
-                <p>✓ 2 utilizatori</p>
-              </div>
-              <Link href="/register" className="block w-full bg-black text-white text-center py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition">
-                Încearcă 14 zile gratuit
-              </Link>
-            </div>
-
-            <div className="border border-gray-200 rounded-2xl p-6">
-              <p className="text-sm font-medium text-gray-500 mb-2">Growth</p>
-              <p className="text-4xl font-bold text-gray-900 mb-1">69 RON</p>
-              <p className="text-sm text-gray-400 mb-6">pe lună + TVA</p>
-              <div className="space-y-2 text-sm text-gray-600 mb-6">
-                <p>✓ Tot ce include Business</p>
-                <p>✓ Multi-company</p>
-                <p>✓ Rapoarte TVA avansate</p>
-                <p>✓ Acces contabil</p>
-                <p>✓ 5 utilizatori</p>
-              </div>
-              <Link href="/register" className="block w-full border border-gray-200 text-gray-700 text-center py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                Încearcă gratuit
-              </Link>
-            </div>
-
-          </div>
-        </div>
-      </section>
+      
 
       {/* CTA */}
       <section className="py-20 px-6 bg-black">
