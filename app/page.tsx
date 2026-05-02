@@ -17,6 +17,11 @@ export default function Home() {
           </Link>
         </div>
       </div>
+      <p className="text-center text-xs text-gray-400 mt-4">
+  <Link href="/gdpr" className="hover:text-gray-600 transition">
+    Politică de confidențialitate & GDPR
+  </Link>
+</p>
     </div>
   )
 }
