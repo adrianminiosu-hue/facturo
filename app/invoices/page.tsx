@@ -127,67 +127,67 @@ export default function Invoices() {
   const unpaidCount = filteredInvoices.filter(inv => inv.status === 'sent' || inv.status === 'overdue').length
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/dashboard" className="text-xl font-bold text-gray-900">Facturo</Link>
+    <div className="app-shell">
+      <nav className="top-nav">
+        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition">Dashboard</Link>
-          <Link href="/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">Clienți</Link>
-          <Link href="/invoices" className="text-sm font-medium text-gray-900">Facturi</Link>
-          <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-900 transition">Profil</Link>
+          <Link href="/dashboard" className="nav-link">Dashboard</Link>
+          <Link href="/clients" className="nav-link">Clienți</Link>
+          <Link href="/invoices" className="nav-link-active">Facturi</Link>
+          <Link href="/profile" className="nav-link">Profil</Link>
         </div>
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Facturi</h2>
-            <p className="text-gray-500 mt-1">
+            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Facturi</h2>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {filteredInvoices.length} facturi{filtersActive ? ` din ${invoices.length}` : ''} · {unpaidCount} neplatite
             </p>
           </div>
           <Link
             href="/invoices/new"
-            className="bg-black text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition"
+            className="btn btn-primary"
           >
             + Factură nouă
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <p className="text-sm text-gray-500">Total facturi</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{filteredInvoices.length}</p>
+          <div className="card p-6">
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Total facturi</p>
+            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{filteredInvoices.length}</p>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <p className="text-sm text-gray-500">Valoare totală</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{totalValue.toFixed(0)} RON</p>
+          <div className="card p-6">
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Valoare totală</p>
+            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{totalValue.toFixed(0)} RON</p>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <p className="text-sm text-gray-500">Neplatite</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{unpaidCount}</p>
+          <div className="card p-6">
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Neplatite</p>
+            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{unpaidCount}</p>
           </div>
         </div>
 
         {loading ? (
-          <p className="text-gray-400 text-center py-12">Se încarcă...</p>
+          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">Se încarcă...</p>
         ) : invoices.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <p className="text-gray-400">Nu ai nicio factură încă</p>
-            <Link href="/invoices/new" className="text-black font-medium text-sm mt-2 inline-block hover:underline">
+          <div className="card p-12 text-center">
+            <p className="text-[color:var(--color-muted-foreground)]">Nu ai nicio factură încă</p>
+            <Link href="/invoices/new" className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]">
               Creează prima factură →
             </Link>
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+            <div className="card p-4 mb-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Client</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Client</label>
                   <select
                     value={filterClientId}
                     onChange={e => setFilterClientId(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                    className="input bg-white px-3 py-2.5"
                   >
                     <option value="">Toți clienții</option>
                     {clientOptions.map(opt => (
@@ -196,28 +196,28 @@ export default function Invoices() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">De la</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">De la</label>
                   <input
                     type="date"
                     value={filterFrom}
                     onChange={e => setFilterFrom(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    className="input px-3 py-2.5"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Până la</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Până la</label>
                   <input
                     type="date"
                     value={filterTo}
                     onChange={e => setFilterTo(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    className="input px-3 py-2.5"
                   />
                 </div>
                 <div className="flex gap-2 md:justify-end">
                   <button
                     onClick={() => { setFilterClientId(''); setFilterFrom(''); setFilterTo('') }}
                     disabled={!filtersActive}
-                    className="border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                    className="btn btn-outline px-4 py-2.5 disabled:opacity-50"
                   >
                     Resetează
                   </button>
@@ -226,17 +226,17 @@ export default function Invoices() {
             </div>
 
             {filteredInvoices.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-                <p className="text-gray-400">Nu există facturi pentru filtrele selectate</p>
+              <div className="card p-12 text-center">
+                <p className="text-[color:var(--color-muted-foreground)]">Nu există facturi pentru filtrele selectate</p>
                 <button
                   onClick={() => { setFilterClientId(''); setFilterFrom(''); setFilterTo('') }}
-                  className="text-black font-medium text-sm mt-2 inline-block hover:underline"
+                  className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]"
                 >
                   Resetează filtrele →
                 </button>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="card overflow-hidden">
                 <div className="grid grid-cols-12 px-6 py-3 border-b border-gray-50">
                   <span className="col-span-2 text-xs font-medium text-gray-400">NUMĂR</span>
                   <span className="col-span-3 text-xs font-medium text-gray-400">CLIENT</span>
@@ -247,19 +247,19 @@ export default function Invoices() {
                 </div>
                 {filteredInvoices.map((invoice, i) => (
                   <div key={invoice.id} className={`grid grid-cols-12 px-6 py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                    <span className="col-span-2 text-sm font-medium text-gray-900">
+                    <span className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)]">
                       {invoice.series}{invoice.invoice_number}
                     </span>
-                    <span className="col-span-3 text-sm text-gray-700">
+                    <span className="col-span-3 text-sm text-[color:var(--color-muted-foreground)]">
                       {invoice.clients?.company_name || '—'}
                     </span>
-                    <span className="col-span-2 text-sm text-gray-500">{invoice.issue_date}</span>
+                    <span className="col-span-2 text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
                     <span className="col-span-1">
                       <span className={`text-xs px-2 py-1 rounded-lg font-medium ${statusLabel[invoice.status]?.style}`}>
                         {statusLabel[invoice.status]?.label}
                       </span>
                     </span>
-                    <span className="col-span-2 text-sm font-medium text-gray-900 text-right">
+                    <span className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)] text-right">
                       {invoice.total.toFixed(0)} RON
                     </span>
                     <div className="col-span-2 flex items-center justify-end gap-1">

@@ -210,66 +210,66 @@ export default function EditInvoice() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <p className="text-gray-500">Se încarcă...</p>
+    <div className="app-shell flex items-center justify-center">
+      <p className="text-[color:var(--color-muted-foreground)]">Se încarcă...</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/dashboard" className="text-xl font-bold text-gray-900">Facturo</Link>
+    <div className="app-shell">
+      <nav className="top-nav">
+        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition">Dashboard</Link>
-          <Link href="/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">Clienți</Link>
-          <Link href="/invoices" className="text-sm font-medium text-gray-900">Facturi</Link>
+          <Link href="/dashboard" className="nav-link">Dashboard</Link>
+          <Link href="/clients" className="nav-link">Clienți</Link>
+          <Link href="/invoices" className="nav-link-active">Facturi</Link>
         </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Editează factură</h2>
-            <p className="text-gray-500 mt-1">{form.series}{form.invoice_number}</p>
+            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Editează factură</h2>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}</p>
           </div>
-          <Link href="/invoices" className="text-sm text-gray-500 hover:text-gray-900 transition">
+          <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
             ← Înapoi la facturi
           </Link>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Detalii factură</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Detalii factură</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Serie</label>
                 <input type="text" value={form.series}
                   onChange={e => setForm(f => ({ ...f, series: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black" />
+                  className="input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Număr</label>
                 <input type="text" value={form.invoice_number}
                   onChange={e => setForm(f => ({ ...f, invoice_number: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black" />
+                  className="input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Data emiterii</label>
                 <input type="date" value={form.issue_date}
                   onChange={e => setForm(f => ({ ...f, issue_date: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black" />
+                  className="input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Scadență</label>
                 <input type="date" value={form.due_date}
                   onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black" />
+                  className="input" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Client</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Client</h3>
             {clients.length === 0 ? (
               <p className="text-gray-400 text-sm">Nu ai clienți adăugați.</p>
             ) : (
@@ -281,8 +281,8 @@ export default function EditInvoice() {
             )}
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Produse / Servicii</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Produse / Servicii</h3>
             <div className="space-y-3">
               {items.map((item, index) => (
                 <div key={index} className="grid grid-cols-12 gap-2 items-end">
@@ -290,27 +290,27 @@ export default function EditInvoice() {
                     {index === 0 && <label className="block text-xs text-gray-500 mb-1">Descriere</label>}
                     <input type="text" value={item.description}
                       onChange={e => updateItem(index, 'description', e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                      className="input px-3 py-2.5"
                       placeholder="Serviciu / produs" />
                   </div>
                   <div className="col-span-4 md:col-span-2">
                     {index === 0 && <label className="block text-xs text-gray-500 mb-1">Cantitate</label>}
                     <input type="number" value={item.quantity}
                       onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black" min="0" />
+                      className="input px-3 py-2.5" min="0" />
                   </div>
                   <div className="col-span-4 md:col-span-2">
                     {index === 0 && <label className="block text-xs text-gray-500 mb-1">Preț unitar</label>}
                     <input type="number" value={item.unit_price}
                       onChange={e => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black" min="0" />
+                      className="input px-3 py-2.5" min="0" />
                   </div>
                   <div className="col-span-3 md:col-span-2">
                     {index === 0 && <label className="block text-xs text-gray-500 mb-1">TVA %</label>}
                     <select
                       value={item.tva_rate}
                       onChange={e => updateItem(index, 'tva_rate', parseFloat(e.target.value))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                      className="input bg-white px-3 py-2.5"
                     >
                       <option value={21}>21%</option>
                       <option value={9}>9%</option>
@@ -320,7 +320,7 @@ export default function EditInvoice() {
                   </div>
                   <div className="col-span-3 md:col-span-1">
                     {index === 0 && <label className="block text-xs text-gray-500 mb-1">Total</label>}
-                    <p className="text-sm font-medium text-gray-900 py-2.5">{item.total.toFixed(2)}</p>
+                    <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{item.total.toFixed(2)}</p>
                   </div>
                   <div className="col-span-1">
                     {index === 0 && <div className="mb-1 h-4"></div>}
@@ -330,43 +330,43 @@ export default function EditInvoice() {
               ))}
             </div>
             <button onClick={addItem}
-              className="mt-4 text-sm text-gray-500 hover:text-gray-900 transition border border-dashed border-gray-200 rounded-xl px-4 py-2 w-full hover:border-gray-400">
+              className="mt-4 btn btn-outline w-full border-dashed">
               + Adaugă linie
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="card p-6">
             <div className="flex flex-col items-end gap-2">
               <div className="flex justify-between w-64">
                 <span className="text-sm text-gray-500">Subtotal</span>
-                <span className="text-sm font-medium text-gray-900">{subtotal.toFixed(2)} RON</span>
+                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{subtotal.toFixed(2)} RON</span>
               </div>
               <div className="flex justify-between w-64">
                 <span className="text-sm text-gray-500">TVA</span>
-                <span className="text-sm font-medium text-gray-900">{tvaAmount.toFixed(2)} RON</span>
+                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{tvaAmount.toFixed(2)} RON</span>
               </div>
               <div className="flex justify-between w-64 pt-2 border-t border-gray-100">
-                <span className="font-bold text-gray-900">Total</span>
-                <span className="font-bold text-gray-900 text-lg">{total.toFixed(2)} RON</span>
+                <span className="font-bold text-[color:var(--color-foreground)]">Total</span>
+                <span className="font-bold text-[color:var(--color-foreground)] text-lg">{total.toFixed(2)} RON</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Mențiuni</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Mențiuni</h3>
             <textarea value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black text-sm"
+              className="input text-sm"
               rows={3} placeholder="Mențiuni suplimentare..." />
           </div>
 
           <div className="flex gap-3 pb-8">
             <button onClick={() => saveInvoice('draft')} disabled={saving}
-              className="border border-gray-200 text-gray-700 px-6 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+              className="btn btn-outline px-6 py-3 disabled:opacity-50">
               {saving ? 'Se salvează...' : 'Salvează ciornă'}
             </button>
             <button onClick={() => saveInvoice('sent')} disabled={saving}
-              className="bg-black text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50">
+              className="btn btn-primary px-6 py-3 disabled:opacity-50">
               {saving ? 'Se salvează...' : 'Emite factură'}
             </button>
           </div>

@@ -100,95 +100,95 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/dashboard" className="text-xl font-bold text-gray-900">Facturo</Link>
+    <div className="app-shell">
+      <nav className="top-nav">
+        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition">Dashboard</Link>
-          <Link href="/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">Clienți</Link>
-          <Link href="/invoices" className="text-sm text-gray-500 hover:text-gray-900 transition">Facturi</Link>
-          <Link href="/profile" className="text-sm font-medium text-gray-900">Profil</Link>
+          <Link href="/dashboard" className="nav-link">Dashboard</Link>
+          <Link href="/clients" className="nav-link">Clienți</Link>
+          <Link href="/invoices" className="nav-link">Facturi</Link>
+          <Link href="/profile" className="nav-link-active">Profil</Link>
         </div>
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Profilul companiei</h2>
-          <p className="text-gray-500 mt-1">Aceste date apar pe toate facturile tale</p>
+          <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Profilul companiei</h2>
+          <p className="mt-1 text-[color:var(--color-muted-foreground)]">Aceste date apar pe toate facturile tale</p>
         </div>
 
         <div className="space-y-6">
 
           {/* Company details */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Date fiscale</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Date fiscale</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">CUI / CIF</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">CUI / CIF</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={form.cui}
                     onChange={e => setForm(f => ({ ...f, cui: e.target.value }))}
-                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    className="input flex-1"
                     placeholder="ex: 12345678"
                   />
                   <button
                     onClick={lookupCUI}
                     disabled={cuiLoading}
-                    className="bg-black text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 whitespace-nowrap"
+                    className="btn btn-primary px-4 py-3 disabled:opacity-50 whitespace-nowrap"
                   >
                     {cuiLoading ? 'Se caută...' : 'Caută ANAF'}
                   </button>
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Denumire companie *</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Denumire companie *</label>
                 <input
                   type="text"
                   value={form.company_name}
                   onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="SC Compania Mea SRL"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Nr. Reg. Comerț</label>
                 <input
                   type="text"
                   value={form.reg_com}
                   onChange={e => setForm(f => ({ ...f, reg_com: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="J40/1234/2020"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Județ</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Județ</label>
                 <input
                   type="text"
                   value={form.county}
                   onChange={e => setForm(f => ({ ...f, county: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="București"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă</label>
                 <input
                   type="text"
                   value={form.address}
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="Str. Exemplu, nr. 1, sector 1"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Oraș</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Oraș</label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="București"
                 />
               </div>
@@ -196,26 +196,26 @@ export default function Profile() {
           </div>
 
           {/* Bank details */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Date bancare</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Date bancare</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bancă</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Bancă</label>
                 <input
                   type="text"
                   value={form.bank_name}
                   onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="Banca Transilvania"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">IBAN</label>
                 <input
                   type="text"
                   value={form.iban}
                   onChange={e => setForm(f => ({ ...f, iban: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="RO49AAAA1B31007593840000"
                 />
               </div>
@@ -223,21 +223,21 @@ export default function Profile() {
           </div>
 
           {/* Contact */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Contact</h3>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Contact</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
                 <input
                   type="email"
                   value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="contact@companie.ro"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Telefon</label>
                 <input
                   type="text"
                   value={form.phone}
@@ -255,28 +255,28 @@ export default function Profile() {
           </div>
 
           {/* Invoice settings */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-1">Setări facturare</h3>
-            <p className="text-xs text-gray-400 mb-4">Seria și numărul de start pentru facturile tale</p>
+          <div className="card p-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">Setări facturare</h3>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mb-4">Seria și numărul de start pentru facturile tale</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Serie factură</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Serie factură</label>
                 <input
                   type="text"
                   value={form.invoice_series}
                   onChange={e => setForm(f => ({ ...f, invoice_series: e.target.value.toUpperCase() }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="FCT"
                   maxLength={5}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Număr de start</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Număr de start</label>
                 <input
                   type="number"
                   value={form.invoice_start_number}
                   onChange={e => setForm(f => ({ ...f, invoice_start_number: parseInt(e.target.value) || 1 }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   min={1}
                 />
               </div>
@@ -288,7 +288,7 @@ export default function Profile() {
             <button
               onClick={saveProfile}
               disabled={saving}
-              className="bg-black text-white px-8 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50"
+              className="btn btn-primary px-8 py-3 disabled:opacity-50"
             >
               {saving ? 'Se salvează...' : 'Salvează profilul'}
             </button>

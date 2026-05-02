@@ -66,20 +66,20 @@ export default function Dashboard() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <p className="text-gray-500">Se încarcă...</p>
+    <div className="app-shell flex items-center justify-center">
+      <p className="text-[color:var(--color-muted-foreground)]">Se încarcă...</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Facturo</h1>
+    <div className="app-shell">
+      <nav className="top-nav">
+        <h1 className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</h1>
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm font-medium text-gray-900">Dashboard</Link>
-          <Link href="/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">Clienți</Link>
-          <Link href="/invoices" className="text-sm text-gray-500 hover:text-gray-900 transition">Facturi</Link>
-          <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-900 transition">Profil</Link>
+          <Link href="/dashboard" className="nav-link-active">Dashboard</Link>
+          <Link href="/clients" className="nav-link">Clienți</Link>
+          <Link href="/invoices" className="nav-link">Facturi</Link>
+          <Link href="/profile" className="nav-link">Profil</Link>
         </div>
         <div className="flex items-center gap-4">
           <svg
@@ -104,8 +104,8 @@ export default function Dashboard() {
               opacity="0.6"
             />
           </svg>
-          <span className="text-sm text-gray-500">{user?.email}</span>
-          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-900 transition">
+          <span className="text-sm text-[color:var(--color-muted-foreground)]">{user?.email}</span>
+          <button onClick={handleLogout} className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
             Deconectare
           </button>
         </div>
@@ -113,50 +113,50 @@ export default function Dashboard() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Bună ziua! 👋</h2>
-          <p className="text-gray-500 mt-1">Bine ai venit în Facturo</p>
+          <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Bună ziua! 👋</h2>
+          <p className="mt-1 text-[color:var(--color-muted-foreground)]">Bine ai venit în Facturo</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <p className="text-sm text-gray-500">Facturi luna aceasta</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{stats.invoicesThisMonth}</p>
+          <div className="card p-6">
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Facturi luna aceasta</p>
+            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{stats.invoicesThisMonth}</p>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <p className="text-sm text-gray-500">Total facturat</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalAmount.toFixed(0)} RON</p>
+          <div className="card p-6">
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Total facturat</p>
+            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{stats.totalAmount.toFixed(0)} RON</p>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <p className="text-sm text-gray-500">Facturi neplatite</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{stats.unpaidCount}</p>
+          <div className="card p-6">
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Facturi neplatite</p>
+            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{stats.unpaidCount}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="card p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-gray-900">Facturi recente</h3>
-            <Link href="/invoices/new" className="bg-black text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-800 transition">
+            <h3 className="font-bold text-[color:var(--color-foreground)]">Facturi recente</h3>
+            <Link href="/invoices/new" className="btn btn-primary px-4 py-2">
               + Factură nouă
             </Link>
           </div>
           {stats.recentInvoices.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-400 text-sm">Nu ai nicio factură încă</p>
-              <p className="text-gray-400 text-sm mt-1">Creează prima ta factură!</p>
+              <p className="text-[color:var(--color-muted-foreground)] text-sm">Nu ai nicio factură încă</p>
+              <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1">Creează prima ta factură!</p>
             </div>
           ) : (
             <div className="space-y-3">
               {stats.recentInvoices.map((invoice: any) => (
                 <div key={invoice.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-gray-900">{invoice.series}{invoice.invoice_number}</span>
-                    <span className="text-sm text-gray-500">{invoice.clients?.company_name || '—'}</span>
+                    <span className="text-sm font-medium text-[color:var(--color-foreground)]">{invoice.series}{invoice.invoice_number}</span>
+                    <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.clients?.company_name || '—'}</span>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className={`text-xs px-2 py-1 rounded-lg font-medium ${statusLabel[invoice.status]?.style}`}>
                       {statusLabel[invoice.status]?.label}
                     </span>
-                    <span className="text-sm font-medium text-gray-900">{Number(invoice.total).toFixed(0)} RON</span>
+                    <span className="text-sm font-medium text-[color:var(--color-foreground)]">{Number(invoice.total).toFixed(0)} RON</span>
                   </div>
                 </div>
               ))}

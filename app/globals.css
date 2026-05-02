@@ -1,26 +1,175 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Theme (light) */
+  --background: #f6f8fc;
+  --foreground: #0b1220;
+
+  --card: #ffffff;
+  --card-foreground: #0b1220;
+
+  --muted: #eef2ff;
+  --muted-foreground: #5b6476;
+
+  --border: rgba(15, 23, 42, 0.08);
+  --ring: rgba(0, 31, 84, 0.22);
+
+  --primary: #001f54; /* deep navy */
+  --primary-foreground: #ffffff;
+
+  --accent: #2f6bff;
+  --accent-foreground: #ffffff;
+
+  --danger: #dc2626;
+  --success: #16a34a;
+
+  --radius: 16px;
+  --shadow: 0 1px 1px rgba(2, 6, 23, 0.04), 0 12px 40px rgba(2, 6, 23, 0.06);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --radius-lg: var(--radius);
+  --shadow-elevated: var(--shadow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #070b14;
+    --foreground: #e7edf9;
+
+    --card: #0b1020;
+    --card-foreground: #e7edf9;
+
+    --muted: rgba(47, 107, 255, 0.14);
+    --muted-foreground: rgba(231, 237, 249, 0.72);
+
+    --border: rgba(231, 237, 249, 0.12);
+    --ring: rgba(47, 107, 255, 0.35);
+
+    --primary: #2f6bff;
+    --primary-foreground: #070b14;
+
+    --accent: #001f54;
+    --accent-foreground: #ffffff;
+
+    --danger: #ef4444;
+    --success: #22c55e;
+
+    --shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 16px 60px rgba(0, 0, 0, 0.35);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  ::selection {
+    background: rgba(47, 107, 255, 0.25);
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(47, 107, 255, 0.16), transparent 55%),
+      radial-gradient(700px 420px at 88% 0%, rgba(0, 31, 84, 0.14), transparent 55%),
+      var(--background);
+  }
+
+  .top-nav {
+    @apply border-b px-6 py-4 flex items-center justify-between;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(12px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .top-nav {
+      background: rgba(11, 16, 32, 0.72);
+    }
+  }
+
+  .card {
+    @apply border;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium transition outline-none;
+    border-radius: 14px;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .btn-primary:hover {
+    filter: brightness(0.96);
+  }
+  .btn-primary:focus-visible {
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .btn-soft {
+    background: rgba(47, 107, 255, 0.1);
+    color: var(--foreground);
+  }
+  .btn-soft:hover {
+    background: rgba(47, 107, 255, 0.14);
+  }
+
+  .btn-outline {
+    @apply border;
+    background: transparent;
+    color: var(--foreground);
+  }
+  .btn-outline:hover {
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  .nav-link {
+    @apply text-sm transition;
+    color: rgba(91, 100, 118, 1);
+  }
+  .nav-link:hover {
+    color: var(--foreground);
+  }
+  .nav-link-active {
+    @apply text-sm font-medium;
+    color: var(--foreground);
+  }
+
+  .input {
+    @apply w-full border px-4 py-3 text-sm outline-none transition;
+    background: var(--card);
+    border-radius: 14px;
+  }
+  .input:focus {
+    box-shadow: 0 0 0 4px var(--ring);
+  }
 }

@@ -25,31 +25,31 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 w-full max-w-md">
+    <div className="app-shell flex items-center justify-center">
+      <div className="card p-8 w-full max-w-md">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Bună ziua!</h1>
-          <p className="text-gray-500 mt-1">Autentifică-te în contul tău Facturo</p>
+          <h1 className="text-2xl font-bold text-[color:var(--color-foreground)]">Bună ziua!</h1>
+          <p className="mt-1 text-sm text-[color:var(--color-muted-foreground)]">Autentifică-te în contul tău Facturo</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+              className="input"
               placeholder="email@companie.ro"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Parolă</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Parolă</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+              className="input"
               placeholder="••••••••"
               required
             />
@@ -58,14 +58,14 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-50"
+            className="btn btn-primary w-full disabled:opacity-50"
           >
             {loading ? 'Se încarcă...' : 'Autentificare'}
           </button>
         </form>
-        <p className="text-center text-gray-500 text-sm mt-6">
+        <p className="text-center text-sm mt-6 text-[color:var(--color-muted-foreground)]">
           Nu ai cont?{' '}
-          <Link href="/register" className="text-black font-medium hover:underline">
+          <Link href="/register" className="font-medium hover:underline text-[color:var(--color-foreground)]">
             Înregistrează-te
           </Link>
         </p>

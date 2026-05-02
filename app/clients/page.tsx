@@ -169,43 +169,43 @@ export default function Clients() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/dashboard" className="text-xl font-bold text-gray-900">Facturo</Link>
+    <div className="app-shell">
+      <nav className="top-nav">
+        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition">Dashboard</Link>
-          <Link href="/clients" className="text-sm font-medium text-gray-900">Clienți</Link>
-          <Link href="/invoices" className="text-sm text-gray-500 hover:text-gray-900 transition">Facturi</Link>
-          <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-900 transition">Profil</Link>
+          <Link href="/dashboard" className="nav-link">Dashboard</Link>
+          <Link href="/clients" className="nav-link-active">Clienți</Link>
+          <Link href="/invoices" className="nav-link">Facturi</Link>
+          <Link href="/profile" className="nav-link">Profil</Link>
         </div>
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Clienți</h2>
-            <p className="text-gray-500 mt-1">
+            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Clienți</h2>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {filteredClients.length} clienți{normalizedFilterCui ? ` din ${clients.length}` : ''}
             </p>
           </div>
           <button
             onClick={openNew}
-            className="bg-black text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition"
+            className="btn btn-primary"
           >
             + Client nou
           </button>
         </div>
 
         {!loading && clients.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">
+          <div className="card p-4 mb-6">
             <div className="flex flex-col md:flex-row md:items-end gap-3">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Caută după CUI / CIF</label>
+                <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Caută după CUI / CIF</label>
                 <input
                   type="text"
                   value={filterCui}
                   onChange={e => setFilterCui(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="ex: RO12345678 sau 12345678"
                 />
               </div>
@@ -213,7 +213,7 @@ export default function Clients() {
                 <button
                   onClick={() => setFilterCui('')}
                   disabled={!normalizedFilterCui}
-                  className="border border-gray-200 text-gray-700 px-5 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                  className="btn btn-outline px-5 py-3 disabled:opacity-50"
                 >
                   Resetează
                 </button>
@@ -223,30 +223,30 @@ export default function Clients() {
         )}
 
         {showForm && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-            <h3 className="font-bold text-gray-900 mb-1">
+          <div className="card p-6 mb-6">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">
               {editClient ? 'Editează client' : 'Client nou'}
             </h3>
             {editClient && (
-              <p className="text-xs text-gray-400 mb-6">Datele fiscale sunt preluate din ANAF și nu pot fi modificate.</p>
+              <p className="text-xs text-[color:var(--color-muted-foreground)] mb-6">Datele fiscale sunt preluate din ANAF și nu pot fi modificate.</p>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!editClient && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CUI / CIF</label>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">CUI / CIF</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={form.cui}
                       onChange={e => setForm(f => ({ ...f, cui: e.target.value }))}
-                      className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                      className="input flex-1"
                       placeholder="ex: 12345678"
                     />
                     <button
                       onClick={lookupCUI}
                       disabled={cuiLoading}
-                      className="bg-black text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 whitespace-nowrap"
+                      className="btn btn-primary px-4 py-3 disabled:opacity-50 whitespace-nowrap"
                     >
                       {cuiLoading ? 'Se caută...' : 'Caută ANAF'}
                     </button>
@@ -255,45 +255,45 @@ export default function Clients() {
               )}
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Denumire companie</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Denumire companie</label>
                 <input
                   type="text"
                   value={form.company_name}
                   disabled={!!editClient}
-                  className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                  className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   placeholder="SC Exemplu SRL"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Nr. Reg. Comerț</label>
                 <input
                   type="text"
                   value={form.reg_com}
                   disabled={!!editClient}
-                  className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                  className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   placeholder="J40/1234/2020"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Oraș</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Oraș</label>
                 <input
                   type="text"
                   value={form.city}
                   disabled={!!editClient}
-                  className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                  className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   placeholder="București"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă</label>
                 <input
                   type="text"
                   value={form.address}
                   disabled={!!editClient}
-                  className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                  className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   placeholder="Str. Exemplu, nr. 1"
                 />
               </div>
@@ -306,7 +306,7 @@ export default function Clients() {
                   type="email"
                   value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="input"
                   placeholder="contact@companie.ro"
                 />
               </div>
@@ -336,7 +336,7 @@ export default function Clients() {
                 <select
                   value={form.bank_name}
                   onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                  className="input bg-white"
                 >
                   <option value="">Selectează banca...</option>
                   <option value="Banca Transilvania">Banca Transilvania</option>
@@ -389,13 +389,13 @@ export default function Clients() {
               <button
                 onClick={saveClient}
                 disabled={saving || !form.company_name}
-                className="bg-black text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50"
+                className="btn btn-primary px-6 py-3 disabled:opacity-50"
               >
                 {saving ? 'Se salvează...' : editClient ? 'Salvează modificările' : 'Salvează client'}
               </button>
               <button
                 onClick={() => { setShowForm(false); setEditClient(null) }}
-                className="border border-gray-200 text-gray-700 px-6 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+                className="btn btn-outline px-6 py-3"
               >
                 Anulează
               </button>
@@ -404,34 +404,34 @@ export default function Clients() {
         )}
 
         {loading ? (
-          <p className="text-gray-400 text-center py-12">Se încarcă...</p>
+          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">Se încarcă...</p>
         ) : clients.length === 0 && !showForm ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <p className="text-gray-400">Nu ai niciun client încă</p>
-            <p className="text-gray-400 text-sm mt-1">Adaugă primul tău client!</p>
+          <div className="card p-12 text-center">
+            <p className="text-[color:var(--color-muted-foreground)]">Nu ai niciun client încă</p>
+            <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1">Adaugă primul tău client!</p>
           </div>
         ) : filteredClients.length === 0 && !showForm ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <p className="text-gray-400">Nu există clienți pentru filtrul selectat</p>
+          <div className="card p-12 text-center">
+            <p className="text-[color:var(--color-muted-foreground)]">Nu există clienți pentru filtrul selectat</p>
             <button
               onClick={() => setFilterCui('')}
-              className="text-black font-medium text-sm mt-2 inline-block hover:underline"
+              className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]"
             >
               Resetează filtrul →
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="card overflow-hidden">
             {filteredClients.map((client, i) => (
               <div key={client.id} className={`flex items-center justify-between px-6 py-4 ${i !== filteredClients.length - 1 ? 'border-b border-gray-50' : ''}`}>
                 <div>
-                  <p className="font-medium text-gray-900">{client.company_name}</p>
-                  <p className="text-sm text-gray-500">CUI: {client.cui || '—'} {client.city ? `· ${client.city}` : ''}</p>
+                  <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
+                  <p className="text-sm text-[color:var(--color-muted-foreground)]">CUI: {client.cui || '—'} {client.city ? `· ${client.city}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">{client.email || '—'}</p>
-                    <p className="text-sm text-gray-400">{client.bank_name ? `${client.bank_name} · ${client.iban || '—'}` : client.phone || '—'}</p>
+                    <p className="text-sm text-[color:var(--color-muted-foreground)]">{client.email || '—'}</p>
+                    <p className="text-sm text-[color:var(--color-muted-foreground)] opacity-80">{client.bank_name ? `${client.bank_name} · ${client.iban || '—'}` : client.phone || '—'}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
