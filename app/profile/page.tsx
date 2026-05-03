@@ -5,6 +5,19 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
 
+const ROMANIAN_BANKS = [
+  'Banca Transilvania',
+  'UniCredit Bank',
+  'Raiffeisen Bank',
+  'BCR',
+  'BRD',
+  'ING Bank',
+  'Alpha Bank',
+  'CEC Bank',
+  'OTP Bank',
+  'Garanti BBVA'
+]
+
 export default function Profile() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -19,12 +32,16 @@ export default function Profile() {
     county: '',
     bank_name: '',
     iban: '',
+    contact_person: '',
+    contact_role: '',
     email: '',
     phone: '',
     invoice_series: 'FCT',
     invoice_start_number: 1
   })
+
   const phoneValid = !form.phone || isValidRomanianMobile(form.phone)
+  const ibanValid = !form.iban || (form.iban.startsWith('RO') && form.iban.length === 24)
 
   useEffect(() => {
     const init = async () => {
@@ -45,6 +62,8 @@ export default function Profile() {
           county: profile.county || '',
           bank_name: profile.bank_name || '',
           iban: profile.iban || '',
+          contact_person: profile.contact_person || '',
+          contact_role: profile.contact_role || '',
           email: profile.email || '',
           phone: profile.phone || '',
           invoice_series: profile.invoice_series || 'FCT',
@@ -88,6 +107,10 @@ export default function Profile() {
       alert('Număr de mobil invalid. Format acceptat: 07xxxxxxxx sau +407xxxxxxxx.')
       return
     }
+    if (form.iban && !ibanValid) {
+      alert('IBAN invalid! Trebuie să înceapă cu RO și să aibă exact 24 de caractere.')
+      return
+    }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('profiles').upsert({
@@ -111,7 +134,7 @@ export default function Profile() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Profilul companiei</h2>
           <p className="mt-1 text-[color:var(--color-muted-foreground)]">Aceste date apar pe toate facturile tale</p>
@@ -120,9 +143,9 @@ export default function Profile() {
         <div className="space-y-6">
 
           {/* Company details */}
-          <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Date fiscale</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card p-8">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Date fiscale</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">CUI / CIF</label>
                 <div className="flex gap-2">
@@ -196,36 +219,75 @@ export default function Profile() {
           </div>
 
           {/* Bank details */}
-          <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Date bancare</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card p-8">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Date bancare</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Bancă</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Bancă emitentă</label>
+                <select
                   value={form.bank_name}
                   onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))}
-                  className="input"
-                  placeholder="Banca Transilvania"
-                />
+                  className="input bg-white"
+                >
+                  <option value="">Selectează banca...</option>
+                  {ROMANIAN_BANKS.map(bank => (
+                    <option key={bank} value={bank}>{bank}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">IBAN</label>
                 <input
                   type="text"
                   value={form.iban}
-                  onChange={e => setForm(f => ({ ...f, iban: e.target.value }))}
-                  className="input"
+                  onChange={e => setForm(f => ({ ...f, iban: e.target.value.toUpperCase() }))}
+                  className={`input ${
+                    form.iban && !ibanValid
+                      ? 'border-red-300 bg-red-50'
+                      : form.iban && ibanValid
+                      ? 'border-green-300 bg-green-50'
+                      : ''
+                  }`}
                   placeholder="RO49AAAA1B31007593840000"
+                  maxLength={24}
                 />
+                {form.iban && !form.iban.startsWith('RO') && (
+                  <p className="text-red-500 text-xs mt-1">IBAN-ul trebuie să înceapă cu RO</p>
+                )}
+                {form.iban && form.iban.startsWith('RO') && form.iban.length !== 24 && (
+                  <p className="text-amber-500 text-xs mt-1">{24 - form.iban.length} caractere rămase</p>
+                )}
+                {form.iban && ibanValid && (
+                  <p className="text-green-500 text-xs mt-1">✓ IBAN valid</p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Contact */}
-          <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Contact</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card p-8">
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Contact</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Persoană de contact</label>
+                <input
+                  type="text"
+                  value={form.contact_person}
+                  onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
+                  className="input"
+                  placeholder="Ion Popescu"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Funcție</label>
+                <input
+                  type="text"
+                  value={form.contact_role}
+                  onChange={e => setForm(f => ({ ...f, contact_role: e.target.value }))}
+                  className="input"
+                  placeholder="Director General"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
                 <input
@@ -242,9 +304,7 @@ export default function Profile() {
                   type="text"
                   value={form.phone}
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                  className={`w-full border rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black ${
-                    form.phone && !phoneValid ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                  }`}
+                  className={`input ${form.phone && !phoneValid ? 'border-red-300 bg-red-50' : ''}`}
                   placeholder="0721 234 567"
                 />
                 {form.phone && !phoneValid && (
@@ -255,10 +315,10 @@ export default function Profile() {
           </div>
 
           {/* Invoice settings */}
-          <div className="card p-6">
+          <div className="card p-8">
             <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">Setări facturare</h3>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mb-4">Seria și numărul de start pentru facturile tale</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mb-5">Seria și numărul de start pentru facturile tale</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Serie factură</label>
                 <input
