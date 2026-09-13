@@ -240,6 +240,9 @@ export default function Dashboard() {
               <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">Ultimele 5 facturi emise</p>
             </div>
             <div className="flex gap-3">
+              <Link href="/incasari" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
+                Încasări →
+              </Link>
               <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
                 Vezi toate →
               </Link>

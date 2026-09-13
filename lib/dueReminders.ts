@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { loadSeller } from '@/lib/loadSeller'
-import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
+import { calendarDateInBucharest, daysUntilDue, formatRoDate } from '@/lib/dates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -18,9 +18,18 @@ export type ReminderResult = {
   reason?: string
 }
 
-function reminderHtml(invoice: any, client: any, seller: any) {
+function reminderHeadline(daysUntil: number) {
+  if (daysUntil < 0) {
+    const n = Math.abs(daysUntil)
+    return `Factura este restantă de ${n} ${n === 1 ? 'zi' : 'zile'}.`
+  }
+  if (daysUntil === 0) return 'Factura scade astăzi.'
+  return `Scadența este în ${daysUntil} ${daysUntil === 1 ? 'zi' : 'zile'}.`
+}
+
+function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number) {
   const ref = `${invoice.series}${invoice.invoice_number}`
-  const total = Number(invoice.total).toFixed(2)
+  const outstanding = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid || 0)).toFixed(2)
   const due = formatRoDate(invoice.due_date || invoice.issue_date)
   const sellerName = seller?.company_name || 'Facturo'
 
@@ -29,7 +38,7 @@ function reminderHtml(invoice: any, client: any, seller: any) {
       <p style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #3e536b; margin: 0 0 16px;">
         Reminder de plată
       </p>
-      <h1 style="font-size: 28px; font-weight: 400; margin: 0 0 16px;">Scadența este în 2 zile.</h1>
+      <h1 style="font-size: 28px; font-weight: 400; margin: 0 0 16px;">${reminderHeadline(daysUntil)}</h1>
       <p style="font-family: Arial, sans-serif; color: #5c6573; line-height: 1.6;">
         Bună ziua${client?.company_name ? `, <strong style="color:#0e1218">${client.company_name}</strong>` : ''},
       </p>
@@ -49,7 +58,7 @@ function reminderHtml(invoice: any, client: any, seller: any) {
         </tr>
         <tr style="background: #f4f6f9;">
           <td style="padding: 12px; border: 1px solid #e4e8ef;">Total de plată</td>
-          <td style="padding: 12px; border: 1px solid #e4e8ef; font-weight: bold;">${total} RON</td>
+          <td style="padding: 12px; border: 1px solid #e4e8ef; font-weight: bold;">${outstanding} RON</td>
         </tr>
       </table>
       ${seller?.iban ? `
@@ -87,6 +96,42 @@ async function pdfAttachment(invoice: any) {
   }
 }
 
+export async function sendInvoiceReminder(invoice: any): Promise<ReminderResult> {
+  const invoiceRef = `${invoice.series}${invoice.invoice_number}`
+  const { data: client } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', invoice.client_id)
+    .single()
+
+  if (!client?.email) {
+    return { invoiceId: invoice.id, invoiceRef, status: 'skipped', reason: 'Clientul nu are email' }
+  }
+
+  const seller = await loadSeller(supabase, invoice, invoice.user_id)
+  const attachment = await pdfAttachment(invoice)
+  const daysUntil = daysUntilDue(invoice.due_date || invoice.issue_date)
+
+  const { error: sendError } = await resend.emails.send({
+    from: `${seller?.company_name || 'Facturo'} <onboarding@resend.dev>`,
+    to: [client.email],
+    subject: `Reminder de plată · factura ${invoiceRef} · ${formatRoDate(invoice.due_date || invoice.issue_date)}`,
+    html: reminderHtml(invoice, client, seller, daysUntil),
+    attachments: attachment ? [attachment] : undefined
+  })
+
+  if (sendError) {
+    return { invoiceId: invoice.id, invoiceRef, clientEmail: client.email, status: 'failed', reason: sendError.message }
+  }
+
+  await supabase
+    .from('invoices')
+    .update({ reminder_sent_at: new Date().toISOString() })
+    .eq('id', invoice.id)
+
+  return { invoiceId: invoice.id, invoiceRef, clientEmail: client.email, status: 'sent' }
+}
+
 export async function runDueReminders(options: { dryRun?: boolean } = {}) {
   const dueDate = calendarDateInBucharest(2)
   const first = await supabase
@@ -116,44 +161,11 @@ export async function runDueReminders(options: { dryRun?: boolean } = {}) {
 
   for (const invoice of due) {
     const invoiceRef = `${invoice.series}${invoice.invoice_number}`
-    const { data: client } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('id', invoice.client_id)
-      .single()
-
-    if (!client?.email) {
-      results.push({ invoiceId: invoice.id, invoiceRef, status: 'skipped', reason: 'Clientul nu are email' })
-      continue
-    }
-
     if (options.dryRun) {
-      results.push({ invoiceId: invoice.id, invoiceRef, clientEmail: client.email, status: 'skipped', reason: 'dry-run' })
+      results.push({ invoiceId: invoice.id, invoiceRef, status: 'skipped', reason: 'dry-run' })
       continue
     }
-
-    const seller = await loadSeller(supabase, invoice, invoice.user_id)
-    const attachment = await pdfAttachment(invoice)
-
-    const { error: sendError } = await resend.emails.send({
-      from: `${seller?.company_name || 'Facturo'} <onboarding@resend.dev>`,
-      to: [client.email],
-      subject: `Reminder de plată · factura ${invoiceRef} scade pe ${formatRoDate(invoice.due_date)}`,
-      html: reminderHtml(invoice, client, seller),
-      attachments: attachment ? [attachment] : undefined
-    })
-
-    if (sendError) {
-      results.push({ invoiceId: invoice.id, invoiceRef, clientEmail: client.email, status: 'failed', reason: sendError.message })
-      continue
-    }
-
-    await supabase
-      .from('invoices')
-      .update({ reminder_sent_at: new Date().toISOString() })
-      .eq('id', invoice.id)
-
-    results.push({ invoiceId: invoice.id, invoiceRef, clientEmail: client.email, status: 'sent' })
+    results.push(await sendInvoiceReminder(invoice))
   }
 
   return {

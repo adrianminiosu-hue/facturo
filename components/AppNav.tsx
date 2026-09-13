@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useCompany } from '@/components/CompanyProvider'
 import BrandLockup from '@/components/BrandLockup'
 
-export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'profile' | 'companies' }) {
+export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'receivables' | 'profile' | 'companies' }) {
   const router = useRouter()
   const { userEmail, companies, company, setActiveCompanyId, createCompany } = useCompany()
 
@@ -42,6 +42,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
         <Link href="/dashboard" className={linkClass('dashboard')}>Dashboard</Link>
         <Link href="/clients" className={linkClass('clients')}>Clienți</Link>
         <Link href="/invoices" className={linkClass('invoices')}>Facturi</Link>
+        <Link href="/incasari" className={linkClass('receivables')}>Încasări</Link>
         <Link href="/profile" className={linkClass('profile')}>Profil firmă</Link>
         <Link href="/companies" className={linkClass('companies')}>Firme</Link>
       </div>
