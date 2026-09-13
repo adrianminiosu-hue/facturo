@@ -63,6 +63,24 @@ export default function Invoices() {
     window.open(url, '_blank')
   }
 
+  const downloadXML = async (invoice: Invoice) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const url = `/api/invoice-xml?id=${invoice.id}&userId=${user?.id}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Eroare XML' }))
+      alert(data.error || 'Nu s-a putut genera XML-ul e-Factura. Completează județul, adresa și UM.')
+      return
+    }
+    const blob = await res.blob()
+    const href = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = href
+    link.download = `e-Factura-${invoice.series}${invoice.invoice_number}.xml`
+    link.click()
+    URL.revokeObjectURL(href)
+  }
+
   const sendInvoice = async (invoice: Invoice) => {
     if (!confirm(`Trimiți factura ${invoice.series}${invoice.invoice_number} pe email?`)) return
     const { data: { user } } = await supabase.auth.getUser()
@@ -272,8 +290,14 @@ export default function Invoices() {
                             Editează
                           </Link>
                           <button
+                            onClick={() => downloadXML(invoice)}
+                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                          >
+                            XML SPV
+                          </button>
+                          <button
                             onClick={() => deleteInvoice(invoice.id)}
-                            className="text-xs border border-red-100 text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition"
+                            className="text-xs border border-red-100 text-red-500 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
                           >
                             Șterge
                           </button>
@@ -294,6 +318,12 @@ export default function Invoices() {
                             className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
                           >
                             PDF ↓
+                          </button>
+                          <button
+                            onClick={() => downloadXML(invoice)}
+                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                          >
+                            XML SPV
                           </button>
                           <button
                             onClick={() => sendInvoice(invoice)}

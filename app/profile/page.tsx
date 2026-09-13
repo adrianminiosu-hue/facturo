@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
+import RoAddressFields from '@/components/RoAddressFields'
+import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
 
 const ROMANIAN_BANKS = [
   'Banca Transilvania',
@@ -30,8 +32,13 @@ export default function Profile() {
     address: '',
     city: '',
     county: '',
+    county_code: '',
+    postal_code: '',
+    country: 'RO',
+    vat_registered: true,
     bank_name: '',
     iban: '',
+    bic: '',
     contact_person: '',
     contact_role: '',
     email: '',
@@ -60,8 +67,13 @@ export default function Profile() {
           address: profile.address || '',
           city: profile.city || '',
           county: profile.county || '',
+          county_code: profile.county_code || countyCodeFromName(profile.county) || '',
+          postal_code: profile.postal_code || '',
+          country: profile.country || 'RO',
+          vat_registered: profile.vat_registered !== false,
           bank_name: profile.bank_name || '',
           iban: profile.iban || '',
+          bic: profile.bic || '',
           contact_person: profile.contact_person || '',
           contact_role: profile.contact_role || '',
           email: profile.email || '',
@@ -91,7 +103,10 @@ export default function Profile() {
           reg_com: data.reg_com || f.reg_com,
           address: data.address || f.address,
           city: data.city || f.city,
-          county: data.county || f.county
+          county: data.county || f.county,
+          county_code: data.county_code || f.county_code,
+          postal_code: data.postal_code || f.postal_code,
+          vat_registered: data.vat_registered ?? f.vat_registered
         }))
       } else {
         alert('CUI negăsit în ANAF.')
@@ -115,7 +130,8 @@ export default function Profile() {
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('profiles').upsert({
       id: user?.id,
-      ...form
+      ...form,
+      county: countyNameFromCode(form.county_code) || form.county
     })
     setSaving(false)
     setSaved(true)
@@ -185,35 +201,34 @@ export default function Profile() {
                   placeholder="J40/1234/2020"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Județ</label>
-                <input
-                  type="text"
-                  value={form.county}
-                  onChange={e => setForm(f => ({ ...f, county: e.target.value }))}
-                  className="input"
-                  placeholder="București"
-                />
-              </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă *</label>
                 <input
                   type="text"
                   value={form.address}
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   className="input"
-                  placeholder="Str. Exemplu, nr. 1, sector 1"
+                  placeholder="Str. Exemplu, nr. 1"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Oraș</label>
-                <input
-                  type="text"
-                  value={form.city}
-                  onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                  className="input"
-                  placeholder="București"
-                />
+              <RoAddressFields
+                value={{
+                  county_code: form.county_code,
+                  postal_code: form.postal_code,
+                  city: form.city,
+                  country: form.country
+                }}
+                onChange={address => setForm(f => ({ ...f, ...address }))}
+              />
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={form.vat_registered}
+                    onChange={e => setForm(f => ({ ...f, vat_registered: e.target.checked }))}
+                  />
+                  Platitor de TVA (identificatorul TVA RO+CUI este obligatoriu în e-Factura)
+                </label>
               </div>
             </div>
           </div>
@@ -234,6 +249,17 @@ export default function Profile() {
                     <option key={bank} value={bank}>{bank}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">BIC / SWIFT</label>
+                <input
+                  type="text"
+                  value={form.bic}
+                  onChange={e => setForm(f => ({ ...f, bic: e.target.value.toUpperCase() }))}
+                  className="input"
+                  placeholder="BTRLRO22"
+                  maxLength={11}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">IBAN</label>

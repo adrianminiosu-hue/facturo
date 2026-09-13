@@ -156,7 +156,14 @@ export default function Dashboard() {
                 </div>
                 <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Adaugă datele companiei tale — apar pe toate facturile.</p>
                 {steps.profile ? (
-                  <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                  <div className="flex flex-col gap-3">
+                    <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                    {!steps.client && (
+                      <Link href="/clients" className="inline-block btn btn-primary text-sm px-4 py-2">
+                        Mergi la pasul 2 →
+                      </Link>
+                    )}
+                  </div>
                 ) : (
                   <Link href="/profile" className="inline-block btn btn-primary text-sm px-4 py-2">Configurează →</Link>
                 )}
@@ -171,7 +178,14 @@ export default function Dashboard() {
                 </div>
                 <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Adaugă un client cu completare automată din ANAF.</p>
                 {steps.client ? (
-                  <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                  <div className="flex flex-col gap-3">
+                    <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                    {!steps.invoice && (
+                      <Link href="/invoices/new" className="inline-block btn btn-primary text-sm px-4 py-2">
+                        Mergi la pasul 3 →
+                      </Link>
+                    )}
+                  </div>
                 ) : (
                   <Link href="/clients" className={`inline-block btn btn-primary text-sm px-4 py-2 ${!steps.profile ? 'pointer-events-none opacity-40' : ''}`}>Adaugă client →</Link>
                 )}

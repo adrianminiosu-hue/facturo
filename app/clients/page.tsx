@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
+import RoAddressFields from '@/components/RoAddressFields'
+import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
 
 const ROMANIAN_BANKS = [
   'Banca Transilvania',
@@ -26,6 +28,10 @@ interface Client {
   address: string
   city: string
   county: string
+  county_code?: string
+  postal_code?: string
+  country?: string
+  vat_registered?: boolean
   email: string
   phone: string
   bank_name: string
@@ -39,6 +45,10 @@ const emptyForm = {
   address: '',
   city: '',
   county: '',
+  county_code: '',
+  postal_code: '',
+  country: 'RO',
+  vat_registered: true,
   email: '',
   phone: '',
   bank_name: '',
@@ -105,7 +115,10 @@ export default function Clients() {
           reg_com: data.reg_com || f.reg_com,
           address: data.address || f.address,
           city: data.city || f.city,
-          county: data.county || f.county
+          county: data.county || f.county,
+          county_code: data.county_code || f.county_code,
+          postal_code: data.postal_code || f.postal_code,
+          vat_registered: data.vat_registered ?? f.vat_registered
         }))
       } else {
         alert('CUI negăsit în ANAF. Verifică numărul și încearcă din nou.')
@@ -133,6 +146,10 @@ export default function Clients() {
       address: client.address || '',
       city: client.city || '',
       county: client.county || '',
+      county_code: client.county_code || countyCodeFromName(client.county) || '',
+      postal_code: client.postal_code || '',
+      country: client.country || 'RO',
+      vat_registered: client.vat_registered !== false,
       email: client.email || '',
       phone: client.phone || '',
       bank_name: client.bank_name || '',
@@ -154,14 +171,29 @@ export default function Clients() {
       return
     }
     setSaving(true)
+    const payload = {
+      ...form,
+      county: countyNameFromCode(form.county_code) || form.county
+    }
     if (editClient) {
       const { error } = await supabase
         .from('clients')
-        .update({ email: form.email, phone: form.phone, bank_name: form.bank_name, iban: form.iban })
+        .update({
+          email: form.email,
+          phone: form.phone,
+          bank_name: form.bank_name,
+          iban: form.iban,
+          county_code: form.county_code,
+          postal_code: form.postal_code,
+          country: form.country,
+          city: form.city,
+          county: payload.county,
+          vat_registered: form.vat_registered
+        })
         .eq('id', editClient.id)
       if (!error) { setShowForm(false); setEditClient(null); loadClients(userId) }
     } else {
-      const { error } = await supabase.from('clients').insert({ ...form, user_id: userId })
+      const { error } = await supabase.from('clients').insert({ ...payload, user_id: userId })
       if (!error) { setShowForm(false); setForm(emptyForm); loadClients(userId) }
     }
     setSaving(false)
@@ -331,23 +363,9 @@ export default function Clients() {
                   />
                 </div>
 
-                {/* City */}
-                <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Oraș</label>
-                  <input
-                    type="text"
-                    value={form.city}
-                    disabled={!!editClient}
-                    readOnly={!!editClient}
-                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                    className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
-                    placeholder="București"
-                  />
-                </div>
-
                 {/* Address */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă</label>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă *</label>
                   <input
                     type="text"
                     value={form.address}
@@ -357,6 +375,25 @@ export default function Clients() {
                     className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                     placeholder="Str. Exemplu, nr. 1"
                   />
+                </div>
+                <RoAddressFields
+                  value={{
+                    county_code: form.county_code,
+                    postal_code: form.postal_code,
+                    city: form.city,
+                    country: form.country
+                  }}
+                  onChange={address => setForm(f => ({ ...f, ...address }))}
+                />
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
+                    <input
+                      type="checkbox"
+                      checked={form.vat_registered}
+                      onChange={e => setForm(f => ({ ...f, vat_registered: e.target.checked }))}
+                    />
+                    Client plătitor de TVA
+                  </label>
                 </div>
               </div>
             </div>

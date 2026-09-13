@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import RoAddressFields from '@/components/RoAddressFields'
+import { countyNameFromCode } from '@/lib/romania'
 
 export default function Onboarding() {
   const router = useRouter()
@@ -18,6 +20,10 @@ export default function Onboarding() {
     address: '',
     city: '',
     county: '',
+    county_code: '',
+    postal_code: '',
+    country: 'RO',
+    vat_registered: true,
     bank_name: '',
     iban: '',
     email: '',
@@ -33,6 +39,10 @@ export default function Onboarding() {
     address: '',
     city: '',
     county: '',
+    county_code: '',
+    postal_code: '',
+    country: 'RO',
+    vat_registered: true,
     email: '',
     phone: '',
     bank_name: '',
@@ -99,7 +109,10 @@ export default function Onboarding() {
             reg_com: data.reg_com || f.reg_com,
             address: data.address || f.address,
             city: data.city || f.city,
-            county: data.county || f.county
+            county: data.county || f.county,
+            county_code: data.county_code || f.county_code,
+            postal_code: data.postal_code || f.postal_code,
+            vat_registered: data.vat_registered ?? f.vat_registered
           }))
         } else {
           setClient(f => ({
@@ -108,7 +121,10 @@ export default function Onboarding() {
             reg_com: data.reg_com || f.reg_com,
             address: data.address || f.address,
             city: data.city || f.city,
-            county: data.county || f.county
+            county: data.county || f.county,
+            county_code: data.county_code || f.county_code,
+            postal_code: data.postal_code || f.postal_code,
+            vat_registered: data.vat_registered ?? f.vat_registered
           }))
         }
       } else {
@@ -123,7 +139,11 @@ export default function Onboarding() {
   const saveProfile = async () => {
     if (!profile.company_name) { alert('Introdu denumirea companiei!'); return }
     setSaving(true)
-    await supabase.from('profiles').upsert({ id: userId, ...profile })
+    await supabase.from('profiles').upsert({
+      id: userId,
+      ...profile,
+      county: countyNameFromCode(profile.county_code) || profile.county
+    })
     setSaving(false)
     setStep(2)
   }
@@ -131,7 +151,11 @@ export default function Onboarding() {
   const saveClient = async () => {
     if (!client.company_name) { alert('Introdu denumirea clientului!'); return }
     setSaving(true)
-    await supabase.from('clients').insert({ ...client, user_id: userId })
+    await supabase.from('clients').insert({
+      ...client,
+      county: countyNameFromCode(client.county_code) || client.county,
+      user_id: userId
+    })
     setSaving(false)
     setStep(3)
   }
@@ -217,31 +241,19 @@ export default function Onboarding() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
-                  <input
-                    type="text"
-                    value={profile.reg_com}
-                    onChange={e => setProfile(f => ({ ...f, reg_com: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="J40/1234/2020"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Oraș</label>
-                  <input
-                    type="text"
-                    value={profile.city}
-                    onChange={e => setProfile(f => ({ ...f, city: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="București"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
+                <input
+                  type="text"
+                  value={profile.reg_com}
+                  onChange={e => setProfile(f => ({ ...f, reg_com: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="J40/1234/2020"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă *</label>
                 <input
                   type="text"
                   value={profile.address}
@@ -250,6 +262,26 @@ export default function Onboarding() {
                   placeholder="Str. Exemplu, nr. 1"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <RoAddressFields
+                  value={{
+                    county_code: profile.county_code,
+                    postal_code: profile.postal_code,
+                    city: profile.city,
+                    country: profile.country
+                  }}
+                  onChange={address => setProfile(f => ({ ...f, ...address }))}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={profile.vat_registered}
+                  onChange={e => setProfile(f => ({ ...f, vat_registered: e.target.checked }))}
+                />
+                Plătitor de TVA
+              </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -353,31 +385,19 @@ export default function Onboarding() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
-                  <input
-                    type="text"
-                    value={client.reg_com}
-                    onChange={e => setClient(f => ({ ...f, reg_com: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="J40/1234/2020"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Oraș</label>
-                  <input
-                    type="text"
-                    value={client.city}
-                    onChange={e => setClient(f => ({ ...f, city: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="București"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
+                <input
+                  type="text"
+                  value={client.reg_com}
+                  onChange={e => setClient(f => ({ ...f, reg_com: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="J40/1234/2020"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă *</label>
                 <input
                   type="text"
                   value={client.address}
@@ -386,6 +406,26 @@ export default function Onboarding() {
                   placeholder="Str. Exemplu, nr. 1"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <RoAddressFields
+                  value={{
+                    county_code: client.county_code,
+                    postal_code: client.postal_code,
+                    city: client.city,
+                    country: client.country
+                  }}
+                  onChange={address => setClient(f => ({ ...f, ...address }))}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={client.vat_registered}
+                  onChange={e => setClient(f => ({ ...f, vat_registered: e.target.checked }))}
+                />
+                Client plătitor de TVA
+              </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

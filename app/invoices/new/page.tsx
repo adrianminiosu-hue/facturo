@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
+import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
 
 interface Client {
   id: string
@@ -10,14 +12,6 @@ interface Client {
   cui: string
   address: string
   city: string
-}
-
-interface LineItem {
-  description: string
-  quantity: number
-  unit_price: number
-  tva_rate: number
-  total: number
 }
 function ClientSearch({ clients, selectedClient, onSelect }: {
     clients: Client[]
@@ -93,11 +87,17 @@ export default function NewInvoice() {
     invoice_number: '',
     issue_date: new Date().toISOString().split('T')[0],
     due_date: '',
-    notes: ''
+    notes: '',
+    invoice_type_code: '380',
+    currency: 'RON',
+    payment_means_code: '42',
+    delivery_date: '',
+    buyer_reference: '',
+    order_reference: '',
+    period_start: '',
+    period_end: ''
   })
-  const [items, setItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, unit_price: 0, tva_rate: 21, total: 0 }
-  ])
+  const [items, setItems] = useState<InvoiceLineItem[]>([emptyInvoiceLine()])
 
   useEffect(() => {
     const init = async () => {
@@ -131,26 +131,6 @@ export default function NewInvoice() {
     setForm(f => ({ ...f, invoice_number: String(nextNum).padStart(4, '0') }))
   }
 
-  const updateItem = (index: number, field: string, value: any) => {
-    setItems(prev => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      const item = updated[index]
-      const subtotal = item.quantity * item.unit_price
-      updated[index].total = subtotal + (subtotal * item.tva_rate / 100)
-      return updated
-    })
-  }
-
-  const addItem = () => {
-    setItems(prev => [...prev, { description: '', quantity: 1, unit_price: 0, tva_rate: 19, total: 0 }])
-  }
-
-  const removeItem = (index: number) => {
-    if (items.length === 1) return
-    setItems(prev => prev.filter((_, i) => i !== index))
-  }
-
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   const tvaAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.tva_rate / 100), 0)
   const total = subtotal + tvaAmount
@@ -172,15 +152,23 @@ export default function NewInvoice() {
         due_date: form.due_date || form.issue_date,
         status,
         subtotal,
-        tva_rate: 19,
+        tva_rate: items[0]?.tva_rate ?? 21,
         tva_amount: tvaAmount,
         total,
-        notes: form.notes
+        notes: form.notes,
+        invoice_type_code: form.invoice_type_code,
+        currency: form.currency,
+        payment_means_code: form.payment_means_code,
+        delivery_date: form.delivery_date || null,
+        buyer_reference: form.buyer_reference || null,
+        order_reference: form.order_reference || null,
+        period_start: form.period_start || null,
+        period_end: form.period_end || null
       })
       .select()
       .single()
 
-    if (error) { alert('Eroare la salvare!'); setSaving(false); return }
+    if (error) { alert('Eroare la salvare! Rulează migrarea e-Factura în Supabase dacă ai adăugat coloane noi.'); setSaving(false); return }
 
     await supabase.from('invoice_items').insert(
       items.map(item => ({
@@ -189,7 +177,10 @@ export default function NewInvoice() {
         quantity: item.quantity,
         unit_price: item.unit_price,
         tva_rate: item.tva_rate,
-        total: item.total
+        total: item.total,
+        unit_code: item.unit_code,
+        vat_category: item.vat_category,
+        vat_exemption_reason: item.vat_exemption_reason || null
       }))
     )
 
@@ -279,78 +270,13 @@ export default function NewInvoice() {
               </div>
             )}
           </div>
-          {/* Line items */}
-          <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Produse / Servicii</h3>
-            <div className="space-y-3">
-              {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-12 md:col-span-4">
-                    {index === 0 && <label className="block text-xs text-gray-500 mb-1">Descriere</label>}
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={e => updateItem(index, 'description', e.target.value)}
-                      className="input px-3 py-2.5"
-                      placeholder="Serviciu / produs"
-                    />
-                  </div>
-                  <div className="col-span-4 md:col-span-2">
-                    {index === 0 && <label className="block text-xs text-gray-500 mb-1">Cantitate</label>}
-                    <input
-                      type="number"
-                      value={item.quantity}
-                      onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="input px-3 py-2.5"
-                      min="0"
-                    />
-                  </div>
-                  <div className="col-span-4 md:col-span-2">
-                    {index === 0 && <label className="block text-xs text-gray-500 mb-1">Preț unitar</label>}
-                    <input
-                      type="number"
-                      value={item.unit_price}
-                      onChange={e => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                      className="input px-3 py-2.5"
-                      min="0"
-                    />
-                  </div>
-                  <div className="col-span-3 md:col-span-2">
-                    {index === 0 && <label className="block text-xs text-gray-500 mb-1">TVA %</label>}
-                    <select
-                      value={item.tva_rate}
-                      onChange={e => updateItem(index, 'tva_rate', parseFloat(e.target.value))}
-                      className="input bg-white px-3 py-2.5"
-                    >
-                      <option value={21}>21%</option>
-                      <option value={9}>9%</option>
-                      <option value={5}>5%</option>
-                      <option value={0}>0%</option>
-                    </select>
-                  </div>
-                  <div className="col-span-3 md:col-span-1">
-                    {index === 0 && <label className="block text-xs text-gray-500 mb-1">Total</label>}
-                    <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{item.total.toFixed(2)}</p>
-                  </div>
-                  <div className="col-span-1">
-                    {index === 0 && <div className="mb-1 h-4"></div>}
-                    <button
-                      onClick={() => removeItem(index)}
-                      className="text-red-400 hover:text-red-600 transition text-lg leading-none py-2.5"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={addItem}
-              className="mt-4 btn btn-outline w-full border-dashed"
-            >
-              + Adaugă linie
-            </button>
-          </div>
+
+          <InvoiceEfacturaFields
+            value={form as InvoiceEfacturaValue}
+            onChange={efactura => setForm(f => ({ ...f, ...efactura }))}
+          />
+
+          <InvoiceLineItems items={items} onChange={setItems} />
 
           {/* Totals */}
           <div className="card p-6">
