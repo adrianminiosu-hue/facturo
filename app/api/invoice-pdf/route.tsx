@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import ReactPDF, { Document, Page, Text, View, StyleSheet, Font, Svg, Rect, Path, Circle } from '@react-pdf/renderer'
+import { loadSeller } from '@/lib/loadSeller'
 Font.register({
   family: 'Roboto',
   fonts: [
@@ -315,7 +316,12 @@ export async function GET(request: NextRequest) {
       .from('invoices')
       .select('*')
       .eq('id', invoiceId)
+      .eq('user_id', userId)
       .single()
+
+    if (!invoice) {
+      return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
+    }
 
     const { data: items } = await supabase
       .from('invoice_items')
@@ -328,11 +334,7 @@ export async function GET(request: NextRequest) {
       .eq('id', invoice.client_id)
       .single()
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    const profile = await loadSeller(supabase, invoice, userId)
 
     const stream = await ReactPDF.renderToStream(
       <InvoicePDF

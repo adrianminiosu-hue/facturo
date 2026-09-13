@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
+import { loadSeller } from '@/lib/loadSeller'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,15 +40,11 @@ export async function GET(request: NextRequest) {
       .eq('id', invoice.client_id)
       .single()
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    const seller = await loadSeller(supabase, invoice, userId)
 
     const xml = generateEfacturaXml({
       invoice,
-      seller: profile,
+      seller,
       buyer: client,
       items: items || []
     })

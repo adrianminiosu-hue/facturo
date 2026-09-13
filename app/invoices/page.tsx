@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AppNav from '@/components/AppNav'
+import { useCompany } from '@/components/CompanyProvider'
 
 interface Invoice {
   id: string
@@ -14,33 +16,51 @@ interface Invoice {
   total: number
   client_id?: string
   clients?: { id?: string; company_name?: string } | null
+  efactura_status?: string | null
+  efactura_index?: string | null
+  efactura_error?: string | null
 }
 
 export default function Invoices() {
   const router = useRouter()
+  const { userId, company, loading: companyLoading } = useCompany()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState<string>('')
   const [filterClientId, setFilterClientId] = useState('')
   const [filterFrom, setFilterFrom] = useState('') // yyyy-mm-dd
   const [filterTo, setFilterTo] = useState('') // yyyy-mm-dd
+  const [spvBusyId, setSpvBusyId] = useState('')
+  const [spvResult, setSpvResult] = useState<{
+    invoiceRef: string
+    simulated: true
+    environment: string
+    endpoint: string
+    executionStatus: string
+    indexIncarcare?: string
+    stare?: string
+    error?: string
+    uploadResponseXml: string
+    statusResponseXml?: string
+    note: string
+  } | null>(null)
 
   useEffect(() => {
     const init = async () => {
+      if (companyLoading || !userId) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      setUserId(user.id)
-      loadInvoices(user.id)
+      loadInvoices()
     }
     init()
-  }, [])
+  }, [company?.id, userId, companyLoading])
 
-  const loadInvoices = async (uid: string) => {
-    const { data } = await supabase
+  const loadInvoices = async () => {
+    let query = supabase
       .from('invoices')
       .select('*, clients(id, company_name)')
-      .eq('user_id', uid)
       .order('created_at', { ascending: false })
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    const { data } = await query
     setInvoices(data || [])
     setLoading(false)
   }
@@ -54,7 +74,7 @@ export default function Invoices() {
 
   const markAsPaid = async (id: string) => {
     await supabase.from('invoices').update({ status: 'paid' }).eq('id', id)
-    loadInvoices(userId)
+    loadInvoices()
   }
 
   const downloadPDF = async (invoice: Invoice) => {
@@ -81,6 +101,28 @@ export default function Invoices() {
     URL.revokeObjectURL(href)
   }
 
+  const sendToSpvTest = async (invoice: Invoice) => {
+    if (!confirm(`Simulezi trimiterea ${invoice.series}${invoice.invoice_number} în e-Factura SPV (mediu TEST)?\n\nNu se folosește certificat și nu se trimite nimic la ANAF.`)) return
+    setSpvBusyId(invoice.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const res = await fetch('/api/efactura/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: invoice.id, userId: user?.id })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'Eroare simulare SPV')
+        return
+      }
+      setSpvResult(data)
+      loadInvoices()
+    } finally {
+      setSpvBusyId('')
+    }
+  }
+
   const sendInvoice = async (invoice: Invoice) => {
     if (!confirm(`Trimiți factura ${invoice.series}${invoice.invoice_number} pe email?`)) return
     const { data: { user } } = await supabase.auth.getUser()
@@ -92,7 +134,7 @@ export default function Invoices() {
     const data = await res.json()
     if (data.success) {
       alert('✓ Factura a fost trimisă cu succes!')
-      loadInvoices(userId)
+      loadInvoices()
     } else {
       alert(`Eroare: ${data.error}`)
     }
@@ -101,7 +143,7 @@ export default function Invoices() {
     if (!confirm('Ești sigur că vrei să ștergi această ciornă?')) return
     await supabase.from('invoice_items').delete().eq('invoice_id', id)
     await supabase.from('invoices').delete().eq('id', id)
-    loadInvoices(userId)
+    loadInvoices()
   }
 
   const parseDate = (value: string) => {
@@ -146,21 +188,14 @@ export default function Invoices() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <Link href="/clients" className="nav-link">Clienți</Link>
-          <Link href="/invoices" className="nav-link-active">Facturi</Link>
-          <Link href="/profile" className="nav-link">Profil</Link>
-        </div>
-      </nav>
+      <AppNav active="invoices" />
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Facturi</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
+              {company?.company_name ? `${company.company_name} · ` : ''}
               {filteredInvoices.length} facturi{filtersActive ? ` din ${invoices.length}` : ''} · {unpaidCount} neplatite
             </p>
           </div>
@@ -255,32 +290,38 @@ export default function Invoices() {
               </div>
             ) : (
               <div className="card overflow-hidden">
-                <div className="grid grid-cols-12 px-6 py-3 border-b border-gray-50">
-                  <span className="col-span-2 text-xs font-medium text-gray-400">NUMĂR</span>
-                  <span className="col-span-3 text-xs font-medium text-gray-400">CLIENT</span>
-                  <span className="col-span-2 text-xs font-medium text-gray-400">DATA</span>
-                  <span className="col-span-1 text-xs font-medium text-gray-400">STATUS</span>
-                  <span className="col-span-2 text-xs font-medium text-gray-400 text-right">TOTAL</span>
-                  <span className="col-span-2 text-xs font-medium text-gray-400 text-right">ACȚIUNI</span>
+                <div className="grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(18rem,auto)] gap-x-4 px-6 py-3 border-b border-gray-50">
+                  <span className="text-xs font-medium text-gray-400">NUMĂR</span>
+                  <span className="text-xs font-medium text-gray-400">CLIENT</span>
+                  <span className="text-xs font-medium text-gray-400">DATA</span>
+                  <span className="text-xs font-medium text-gray-400">STATUS</span>
+                  <span className="text-xs font-medium text-gray-400 text-right">TOTAL</span>
+                  <span className="text-xs font-medium text-gray-400 text-right">ACȚIUNI</span>
                 </div>
                 {filteredInvoices.map((invoice, i) => (
-                  <div key={invoice.id} className={`grid grid-cols-12 px-6 py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                    <span className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)]">
+                  <div key={invoice.id} className={`grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(18rem,auto)] gap-x-4 px-6 py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                    <span className="text-sm font-medium text-[color:var(--color-foreground)]">
                       {invoice.series}{invoice.invoice_number}
                     </span>
-                    <span className="col-span-3 text-sm text-[color:var(--color-muted-foreground)]">
+                    <span className="text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
                       {invoice.clients?.company_name || '—'}
                     </span>
-                    <span className="col-span-2 text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
-                    <span className="col-span-1">
-                      <span className={`text-xs px-2 py-1 rounded-lg font-medium ${statusLabel[invoice.status]?.style}`}>
+                    <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
+                    <span>
+                      <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${statusLabel[invoice.status]?.style}`}>
                         {statusLabel[invoice.status]?.label}
                       </span>
+                      {invoice.efactura_status === 'accepted' && (
+                        <p className="text-[10px] text-green-600 mt-1 font-medium">SPV test · acceptat</p>
+                      )}
+                      {invoice.efactura_status === 'rejected' && (
+                        <p className="text-[10px] text-red-500 mt-1 font-medium">SPV test · respins</p>
+                      )}
                     </span>
-                    <span className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)] text-right">
+                    <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
                       {invoice.total.toFixed(0)} RON
                     </span>
-                    <div className="col-span-2 flex items-center justify-end gap-1">
+                    <div className="flex flex-nowrap items-center justify-end gap-1.5">
                       {invoice.status === 'draft' && (
                         <>
                           <Link
@@ -294,6 +335,13 @@ export default function Invoices() {
                             className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
                           >
                             XML SPV
+                          </button>
+                          <button
+                            onClick={() => sendToSpvTest(invoice)}
+                            disabled={spvBusyId === invoice.id}
+                            className="text-xs border border-amber-200 text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition disabled:opacity-50"
+                          >
+                            {spvBusyId === invoice.id ? 'SPV...' : 'SPV test'}
                           </button>
                           <button
                             onClick={() => deleteInvoice(invoice.id)}
@@ -326,6 +374,13 @@ export default function Invoices() {
                             XML SPV
                           </button>
                           <button
+                            onClick={() => sendToSpvTest(invoice)}
+                            disabled={spvBusyId === invoice.id}
+                            className="text-xs border border-amber-200 text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition disabled:opacity-50"
+                          >
+                            {spvBusyId === invoice.id ? 'SPV...' : 'SPV test'}
+                          </button>
+                          <button
                             onClick={() => sendInvoice(invoice)}
                             className="text-xs border border-blue-100 text-blue-600 px-2 py-1.5 rounded-lg hover:bg-blue-50 transition"
                           >
@@ -341,6 +396,39 @@ export default function Invoices() {
           </>
         )}
       </div>
+
+      {spvResult && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSpvResult(null)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Simulare e-Factura SPV (test)</h3>
+                <p className="text-sm text-gray-500 mt-1">{spvResult.invoiceRef}</p>
+              </div>
+              <button onClick={() => setSpvResult(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
+              {spvResult.note}
+            </p>
+            <p className="text-xs text-gray-500 mb-1">Endpoint simulat</p>
+            <p className="text-sm font-mono break-all mb-4">{spvResult.endpoint}</p>
+            <p className={`text-sm font-medium mb-3 ${spvResult.executionStatus === '0' ? 'text-green-600' : 'text-red-600'}`}>
+              {spvResult.executionStatus === '0'
+                ? `Acceptat · index_incarcare ${spvResult.indexIncarcare} · stare ${spvResult.stare}`
+                : spvResult.error}
+            </p>
+            <p className="text-xs text-gray-500 mb-1">Răspuns upload (XML ANAF)</p>
+            <pre className="text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 overflow-x-auto mb-3 whitespace-pre-wrap">{spvResult.uploadResponseXml}</pre>
+            {spvResult.statusResponseXml && (
+              <>
+                <p className="text-xs text-gray-500 mb-1">Răspuns stareMesaj</p>
+                <pre className="text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap">{spvResult.statusResponseXml}</pre>
+              </>
+            )}
+            <button onClick={() => setSpvResult(null)} className="mt-5 btn btn-primary">Închide</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

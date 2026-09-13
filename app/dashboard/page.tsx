@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AppNav from '@/components/AppNav'
+import { useCompany } from '@/components/CompanyProvider'
 
 export default function Dashboard() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const { userId, company, loading: companyLoading } = useCompany()
   const [loading, setLoading] = useState(true)
   const [onboarding, setOnboarding] = useState(false)
   const [steps, setSteps] = useState({
@@ -25,44 +27,42 @@ export default function Dashboard() {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      setUser(user)
-      await checkOnboarding(user.id)
-      await loadStats(user.id)
+      if (companyLoading) return
+      await checkOnboarding()
+      await loadStats()
     }
     getUser()
-  }, [])
+  }, [company?.id, companyLoading])
 
-  const checkOnboarding = async (uid: string) => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .single()
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('user_id', uid)
-      .limit(1)
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('id')
-      .eq('user_id', uid)
-      .limit(1)
-    const hasProfile = !!(profile?.company_name)
+  const checkOnboarding = async () => {
+    let hasProfile = !!(company?.company_name)
+    if (!hasProfile && userId) {
+      const { data: profile } = await supabase.from('profiles').select('company_name').eq('id', userId).single()
+      hasProfile = !!(profile?.company_name)
+    }
+    const clientQuery = supabase.from('clients').select('id').limit(1)
+    const invoiceQuery = supabase.from('invoices').select('id').limit(1)
+    const { data: clients } = company?.id
+      ? await clientQuery.eq('company_id', company.id)
+      : await clientQuery.eq('user_id', userId)
+    const { data: invoices } = company?.id
+      ? await invoiceQuery.eq('company_id', company.id)
+      : await invoiceQuery.eq('user_id', userId)
     const hasClient = !!(clients && clients.length > 0)
     const hasInvoice = !!(invoices && invoices.length > 0)
     setSteps({ profile: hasProfile, client: hasClient, invoice: hasInvoice })
-    if (!hasProfile || !hasClient || !hasInvoice) setOnboarding(true)
+    setOnboarding(!hasProfile || !hasClient || !hasInvoice)
   }
 
-  const loadStats = async (uid: string) => {
+  const loadStats = async () => {
     const now = new Date()
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-    const { data: invoices } = await supabase
+    let query = supabase
       .from('invoices')
       .select('*, clients(company_name)')
-      .eq('user_id', uid)
       .order('created_at', { ascending: false })
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    const { data: invoices } = await query
     const all = invoices || []
     const thisMonth = all.filter((inv: any) => inv.issue_date >= firstDay && inv.status !== 'draft')
     const unpaid = all.filter((inv: any) => inv.status === 'sent' || inv.status === 'overdue')
@@ -78,11 +78,6 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
   const statusLabel: Record<string, { label: string, style: string }> = {
     draft: { label: 'Ciornă', style: 'bg-gray-100 text-gray-600' },
     sent: { label: 'Emisă', style: 'bg-blue-50 text-blue-600' },
@@ -93,7 +88,7 @@ export default function Dashboard() {
   const completedSteps = Object.values(steps).filter(Boolean).length
   const progressPct = (completedSteps / 3) * 100
 
-  if (loading) return (
+  if (loading || companyLoading) return (
     <div className="app-shell flex items-center justify-center">
       <p className="text-gray-500">Se încarcă...</p>
     </div>
@@ -101,24 +96,7 @@ export default function Dashboard() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <h1 className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</h1>
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="nav-link-active">Dashboard</Link>
-          <Link href="/clients" className="nav-link">Clienți</Link>
-          <Link href="/invoices" className="nav-link">Facturi</Link>
-          <Link href="/profile" className="nav-link">Profil</Link>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[color:var(--color-muted-foreground)]">{user?.email}</span>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition"
-          >
-            Deconectare
-          </button>
-        </div>
-      </nav>
+      <AppNav active="dashboard" />
 
       <div className="max-w-5xl mx-auto px-8 py-8">
 
@@ -127,7 +105,7 @@ export default function Dashboard() {
           <div className="card p-8 mb-8">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-[color:var(--color-foreground)]">Bun venit în Facturo! 👋</h2>
+                <h2 className="text-2xl text-[color:var(--color-foreground)]">Bun venit în Facturo</h2>
                 <p className="text-[color:var(--color-muted-foreground)] mt-1">Completează cei 3 pași pentru a emite prima ta factură</p>
               </div>
               <button
@@ -220,8 +198,9 @@ export default function Dashboard() {
 
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Bună ziua! 👋</h2>
-          <p className="text-[color:var(--color-muted-foreground)] mt-1">
+          <h2 className="text-4xl text-[color:var(--color-foreground)]">Bună ziua</h2>
+          <p className="text-[color:var(--color-muted-foreground)] mt-2">
+            {company?.company_name ? `${company.company_name} · ` : ''}
             {new Date().toLocaleDateString('ro-RO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
@@ -230,29 +209,26 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-[color:var(--color-muted-foreground)]">Facturi luna aceasta</p>
-              <span className="text-xl">📄</span>
+              <p className="kicker">Luna aceasta</p>
             </div>
-            <p className="text-3xl font-bold text-[color:var(--color-foreground)]">{stats.invoicesThisMonth}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">facturi emise</p>
+            <p className="text-4xl brand text-[color:var(--color-foreground)]">{stats.invoicesThisMonth}</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">facturi emise</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-[color:var(--color-muted-foreground)]">Total facturat</p>
-              <span className="text-xl">💰</span>
+              <p className="kicker">Total facturat</p>
             </div>
-            <p className="text-3xl font-bold text-[color:var(--color-foreground)]">{stats.totalAmount.toFixed(0)}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">RON total emis</p>
+            <p className="text-4xl brand text-[color:var(--color-foreground)]">{stats.totalAmount.toFixed(0)}</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">RON emis</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-[color:var(--color-muted-foreground)]">Facturi neîncasate</p>
-              <span className="text-xl">⏳</span>
+              <p className="kicker">Neîncasate</p>
             </div>
-            <p className={`text-3xl font-bold ${stats.unpaidCount > 0 ? 'text-amber-500' : 'text-[color:var(--color-foreground)]'}`}>
+            <p className={`text-4xl brand ${stats.unpaidCount > 0 ? 'text-amber-700' : 'text-[color:var(--color-foreground)]'}`}>
               {stats.unpaidCount}
             </p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">în așteptare</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">în așteptare</p>
           </div>
         </div>
 
@@ -260,7 +236,7 @@ export default function Dashboard() {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-[color:var(--color-foreground)]">Facturi recente</h3>
+              <h3 className="brand text-xl text-[color:var(--color-foreground)]">Facturi recente</h3>
               <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">Ultimele 5 facturi emise</p>
             </div>
             <div className="flex gap-3">
@@ -275,8 +251,7 @@ export default function Dashboard() {
 
           {stats.recentInvoices.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-2xl mb-3">📋</p>
-              <p className="text-[color:var(--color-muted-foreground)] text-sm">Nu ai nicio factură încă</p>
+              <p className="text-[color:var(--color-muted-foreground)] text-sm">Nicio factură pe firma activă</p>
               <Link href="/invoices/new" className="inline-block mt-3 text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
                 Creează prima factură →
               </Link>

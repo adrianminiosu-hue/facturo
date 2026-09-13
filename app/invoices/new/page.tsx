@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
+import AppNav from '@/components/AppNav'
+import { useCompany } from '@/components/CompanyProvider'
 
 interface Client {
   id: string
@@ -79,6 +81,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
   }
 export default function NewInvoice() {
   const router = useRouter()
+  const { userId, company } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
@@ -103,31 +106,28 @@ export default function NewInvoice() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      loadClients(user.id)
+      setSelectedClient(null)
+      loadClients()
       generateInvoiceNumber()
+      if (company?.invoice_series) setForm(f => ({ ...f, series: company.invoice_series }))
     }
     init()
-  }, [])
+  }, [company?.id, userId])
 
-  const loadClients = async (uid: string) => {
-    const { data } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', uid)
-      .order('company_name')
+  const loadClients = async () => {
+    let query = supabase.from('clients').select('*').order('company_name')
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    const { data } = await query
     setClients(data || [])
   }
 
   const generateInvoiceNumber = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data } = await supabase
-      .from('invoices')
-      .select('invoice_number')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
+    const series = company?.invoice_series || 'FCT'
+    let query = supabase.from('invoices').select('invoice_number').eq('series', series).order('created_at', { ascending: false }).limit(1)
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    const { data } = await query
     const last = data?.[0]?.invoice_number
-    const nextNum = last ? parseInt(last.replace(/\D/g, '')) + 1 : 1
+    const nextNum = last ? parseInt(last.replace(/\D/g, '')) + 1 : (company?.invoice_start_number || 1)
     setForm(f => ({ ...f, invoice_number: String(nextNum).padStart(4, '0') }))
   }
 
@@ -145,6 +145,7 @@ export default function NewInvoice() {
       .from('invoices')
       .insert({
         user_id: user?.id,
+        ...(company?.id ? { company_id: company.id } : {}),
         client_id: selectedClient.id,
         invoice_number: form.invoice_number,
         series: form.series,
@@ -190,19 +191,12 @@ export default function NewInvoice() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <Link href="/clients" className="nav-link">Clienți</Link>
-          <Link href="/invoices" className="nav-link-active">Facturi</Link>
-        </div>
-      </nav>
+      <AppNav active="invoices" />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Factură nouă</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Factură nouă</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">Completează detaliile facturii</p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">

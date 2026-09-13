@@ -1,18 +1,19 @@
 import Link from 'next/link'
+import BrandLockup from '@/components/BrandLockup'
 
 export default function GDPR() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold text-gray-900">Facturo</Link>
-        <Link href="/login" className="text-sm text-gray-500 hover:text-gray-900 transition">
+    <div className="min-h-screen app-shell">
+      <nav className="top-nav">
+        <BrandLockup href="/" />
+        <Link href="/login" className="nav-link">
           Autentificare
         </Link>
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-10">
-          <h1 className="text-3xl font-bold text-gray-900">Politica de confidențialitate & GDPR</h1>
+          <h1 className="text-4xl text-[color:var(--color-foreground)]">Politica de confidențialitate</h1>
           <p className="text-gray-500 mt-2">Ultima actualizare: Mai 2026</p>
         </div>
 

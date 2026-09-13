@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import BrandLockup from '@/components/BrandLockup'
 
 export default function Register() {
   const router = useRouter()
@@ -34,11 +35,16 @@ export default function Register() {
   }
 
   return (
-    <div className="app-shell flex items-center justify-center">
-      <div className="card p-8 w-full max-w-md">
+    <div className="app-shell flex flex-col">
+      <nav className="top-nav">
+        <BrandLockup href="/" />
+      </nav>
+      <div className="flex-1 flex items-center justify-center px-6 py-16">
+      <div className="card p-10 w-full max-w-md">
+        <p className="kicker mb-4">Cont nou</p>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[color:var(--color-foreground)]">Cont nou</h1>
-          <p className="mt-1 text-sm text-[color:var(--color-muted-foreground)]">Creează-ți contul Facturo gratuit</p>
+          <h1 className="text-4xl text-[color:var(--color-foreground)]">Cont nou.</h1>
+          <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">Un spațiu pentru toate firmele pe care le administrezi.</p>
         </div>
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
@@ -89,6 +95,7 @@ export default function Register() {
             Autentifică-te
           </Link>
         </p>
+      </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
+import { loadSeller } from '@/lib/loadSeller'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -18,7 +19,12 @@ export async function POST(request: NextRequest) {
       .from('invoices')
       .select('*')
       .eq('id', invoiceId)
+      .eq('user_id', userId)
       .single()
+
+    if (!invoice) {
+      return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
+    }
 
     const { data: client } = await supabase
       .from('clients')
@@ -26,11 +32,7 @@ export async function POST(request: NextRequest) {
       .eq('id', invoice.client_id)
       .single()
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    const profile = await loadSeller(supabase, invoice, userId)
 
     if (!client?.email) {
       return NextResponse.json({ error: 'Clientul nu are email setat' }, { status: 400 })

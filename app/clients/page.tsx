@@ -2,10 +2,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
 import RoAddressFields from '@/components/RoAddressFields'
 import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
+import AppNav from '@/components/AppNav'
+import { useCompany } from '@/components/CompanyProvider'
 
 const ROMANIAN_BANKS = [
   'Banca Transilvania',
@@ -57,13 +58,13 @@ const emptyForm = {
 
 export default function Clients() {
   const router = useRouter()
+  const { userId, company, loading: companyLoading } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
   const [cuiLoading, setCuiLoading] = useState(false)
-  const [userId, setUserId] = useState<string>('')
   const [form, setForm] = useState(emptyForm)
   const [search, setSearch] = useState('')
   const [manualEdit, setManualEdit] = useState(false)
@@ -80,20 +81,18 @@ export default function Clients() {
 
   useEffect(() => {
     const init = async () => {
+      if (companyLoading || !userId) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      setUserId(user.id)
-      loadClients(user.id)
+      loadClients()
     }
     init()
-  }, [])
+  }, [company?.id, userId, companyLoading])
 
-  const loadClients = async (uid: string) => {
-    const { data } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: false })
+  const loadClients = async () => {
+    let query = supabase.from('clients').select('*').order('created_at', { ascending: false })
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    const { data } = await query
     setClients(data || [])
     setLoading(false)
   }
@@ -191,10 +190,10 @@ export default function Clients() {
           vat_registered: form.vat_registered
         })
         .eq('id', editClient.id)
-      if (!error) { setShowForm(false); setEditClient(null); loadClients(userId) }
+      if (!error) { setShowForm(false); setEditClient(null); loadClients() }
     } else {
-      const { error } = await supabase.from('clients').insert({ ...payload, user_id: userId })
-      if (!error) { setShowForm(false); setForm(emptyForm); loadClients(userId) }
+      const { error } = await supabase.from('clients').insert({ ...payload, user_id: userId, ...(company?.id ? { company_id: company.id } : {}) })
+      if (!error) { setShowForm(false); setForm(emptyForm); loadClients() }
     }
     setSaving(false)
   }
@@ -202,28 +201,21 @@ export default function Clients() {
   const deleteClient = async (id: string) => {
     if (!confirm('Ești sigur că vrei să ștergi acest client?')) return
     await supabase.from('clients').delete().eq('id', id)
-    loadClients(userId)
+    loadClients()
   }
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <Link href="/clients" className="nav-link-active">Clienți</Link>
-          <Link href="/invoices" className="nav-link">Facturi</Link>
-          <Link href="/profile" className="nav-link">Profil</Link>
-        </div>
-      </nav>
+      <AppNav active="clients" />
 
       <div className="max-w-5xl mx-auto px-8 py-8">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Clienți</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Clienți</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
+              {company?.company_name ? `${company.company_name} · ` : ''}
               {filteredClients.length} {search ? `din ${clients.length} clienți` : 'clienți înregistrați'}
             </p>
           </div>

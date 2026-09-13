@@ -4,9 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import RoAddressFields from '@/components/RoAddressFields'
 import { countyNameFromCode } from '@/lib/romania'
+import { useCompany } from '@/components/CompanyProvider'
+import BrandLockup from '@/components/BrandLockup'
 
 export default function Onboarding() {
   const router = useRouter()
+  const { company, createCompany, refreshCompanies, setActiveCompanyId } = useCompany()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [cuiLoading, setCuiLoading] = useState(false)
@@ -56,34 +59,34 @@ export default function Onboarding() {
       setUserId(user.id)
 
       // Check if already onboarded
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('company_name')
-        .eq('id', user.id)
-        .single()
+      const { data: existingCompanies } = await supabase
+        .from('companies')
+        .select('id, company_name')
+        .eq('user_id', user.id)
+        .limit(1)
 
       const { data: existingClients } = await supabase
         .from('clients')
         .select('id')
-        .eq('user_id', user.id)
+        .eq(existingCompanies?.[0]?.id ? 'company_id' : 'user_id', existingCompanies?.[0]?.id || user.id)
         .limit(1)
 
       const { data: existingInvoices } = await supabase
         .from('invoices')
         .select('id')
-        .eq('user_id', user.id)
+        .eq(existingCompanies?.[0]?.id ? 'company_id' : 'user_id', existingCompanies?.[0]?.id || user.id)
         .limit(1)
 
-      // Skip steps already completed
-      if (existingProfile?.company_name && existingClients?.length && existingInvoices?.length) {
+      const hasCompany = !!(existingCompanies?.[0]?.company_name || company?.company_name)
+      if (hasCompany && existingClients?.length && existingInvoices?.length) {
         router.push('/dashboard')
         return
       }
-      if (existingProfile?.company_name && existingClients?.length) {
+      if (hasCompany && existingClients?.length) {
         setStep(3)
         return
       }
-      if (existingProfile?.company_name) {
+      if (hasCompany) {
         setStep(2)
         return
       }
@@ -139,22 +142,32 @@ export default function Onboarding() {
   const saveProfile = async () => {
     if (!profile.company_name) { alert('Introdu denumirea companiei!'); return }
     setSaving(true)
-    await supabase.from('profiles').upsert({
-      id: userId,
+    const payload = {
       ...profile,
       county: countyNameFromCode(profile.county_code) || profile.county
-    })
+    }
+    if (company?.id) {
+      await supabase.from('companies').update(payload).eq('id', company.id)
+    } else {
+      const created = await createCompany(payload)
+      if (created) setActiveCompanyId(created.id)
+    }
+    await refreshCompanies()
     setSaving(false)
     setStep(2)
   }
 
   const saveClient = async () => {
     if (!client.company_name) { alert('Introdu denumirea clientului!'); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    const companyId = company?.id
+    if (!companyId) { alert('Salvează mai întâi firma.'); return }
     setSaving(true)
     await supabase.from('clients').insert({
       ...client,
       county: countyNameFromCode(client.county_code) || client.county,
-      user_id: userId
+      user_id: user?.id || userId,
+      company_id: companyId
     })
     setSaving(false)
     setStep(3)
@@ -169,12 +182,11 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <span className="text-xl font-bold text-gray-900">Facturo</span>
-          <button onClick={skipToApp} className="text-sm text-gray-400 hover:text-gray-600 transition">
+    <div className="app-shell">
+      <div className="top-nav">
+        <div className="max-w-2xl mx-auto w-full flex items-center justify-between">
+          <BrandLockup href="/dashboard" />
+          <button onClick={skipToApp} className="nav-link">
             Sari peste →
           </button>
         </div>
@@ -206,7 +218,7 @@ export default function Onboarding() {
         {/* Step 1 — Company profile */}
         {step === 1 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Configurează compania ta</h2>
+            <h2 className="text-3xl text-gray-900 mb-1">Configurează compania ta</h2>
             <p className="text-gray-500 mb-8">Aceste date vor apărea pe toate facturile tale.</p>
 
             <div className="space-y-4">
@@ -350,7 +362,7 @@ export default function Onboarding() {
         {/* Step 2 — First client */}
         {step === 2 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Adaugă primul client</h2>
+            <h2 className="text-3xl text-gray-900 mb-1">Adaugă primul client</h2>
             <p className="text-gray-500 mb-8">Introdu CUI-ul și datele se completează automat din ANAF.</p>
 
             <div className="space-y-4">
@@ -477,7 +489,7 @@ export default function Onboarding() {
             <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">🎉</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Ești gata!</h2>
+            <h2 className="text-3xl text-gray-900 mb-3">Ești gata</h2>
             <p className="text-gray-500 mb-8 max-w-sm mx-auto">
               Compania și primul client sunt configurate. Acum poți emite prima ta factură profesională.
             </p>

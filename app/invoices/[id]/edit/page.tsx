@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
+import AppNav from '@/components/AppNav'
+import { useCompany } from '@/components/CompanyProvider'
 
 interface Client {
   id: string
@@ -80,6 +82,7 @@ export default function EditInvoice() {
   const router = useRouter()
   const params = useParams()
   const invoiceId = params.id as string
+  const { userId, company } = useCompany()
 
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
@@ -106,18 +109,16 @@ export default function EditInvoice() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      await loadClients(user.id)
+      await loadClients()
       await loadInvoice()
     }
     init()
-  }, [])
+  }, [company?.id, invoiceId, userId])
 
-  const loadClients = async (uid: string) => {
-    const { data } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', uid)
-      .order('company_name')
+  const loadClients = async () => {
+    let query = supabase.from('clients').select('*').order('company_name')
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    const { data } = await query
     setClients(data || [])
     return data || []
   }
@@ -130,6 +131,10 @@ export default function EditInvoice() {
       .single()
 
     if (!invoice) { router.push('/invoices'); return }
+    if (invoice.company_id && company?.id && invoice.company_id !== company.id) {
+      router.push('/invoices')
+      return
+    }
 
     setForm({
       series: invoice.series,
@@ -218,19 +223,12 @@ export default function EditInvoice() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <Link href="/clients" className="nav-link">Clienți</Link>
-          <Link href="/invoices" className="nav-link-active">Facturi</Link>
-        </div>
-      </nav>
+      <AppNav active="invoices" />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Editează factură</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Editează factură</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}</p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">

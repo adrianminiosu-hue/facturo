@@ -1,30 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  /* Theme (light) */
-  --background: #f6f8fc;
-  --foreground: #0b1220;
-
+  --background: #eef1f5;
+  --foreground: #0e1218;
   --card: #ffffff;
-  --card-foreground: #0b1220;
-
-  --muted: #eef2ff;
-  --muted-foreground: #5b6476;
-
-  --border: rgba(15, 23, 42, 0.08);
-  --ring: rgba(0, 31, 84, 0.22);
-
-  --primary: #001f54; /* deep navy */
-  --primary-foreground: #ffffff;
-
-  --accent: #2f6bff;
-  --accent-foreground: #ffffff;
-
-  --danger: #dc2626;
-  --success: #16a34a;
-
-  --radius: 16px;
-  --shadow: 0 1px 1px rgba(2, 6, 23, 0.04), 0 12px 40px rgba(2, 6, 23, 0.06);
+  --card-foreground: #0e1218;
+  --muted: #e4e8ef;
+  --muted-foreground: #5c6573;
+  --border: rgba(15, 22, 34, 0.08);
+  --ring: rgba(62, 83, 107, 0.22);
+  --primary: #0e1218;
+  --primary-foreground: #f4f6f9;
+  --accent: #3e536b;
+  --accent-foreground: #f4f6f9;
+  --danger: #b42318;
+  --success: #3f6b4a;
+  --radius: 18px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 18px 40px -24px rgba(15, 22, 34, 0.22);
 }
 
 @theme inline {
@@ -46,39 +38,35 @@
   --shadow-elevated: var(--shadow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-instrument);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #070b14;
-    --foreground: #e7edf9;
-
-    --card: #0b1020;
-    --card-foreground: #e7edf9;
-
-    --muted: rgba(47, 107, 255, 0.14);
-    --muted-foreground: rgba(231, 237, 249, 0.72);
-
-    --border: rgba(231, 237, 249, 0.12);
-    --ring: rgba(47, 107, 255, 0.35);
-
-    --primary: #2f6bff;
-    --primary-foreground: #070b14;
-
-    --accent: #001f54;
-    --accent-foreground: #ffffff;
-
-    --danger: #ef4444;
-    --success: #22c55e;
-
-    --shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 16px 60px rgba(0, 0, 0, 0.35);
+    --background: #0b0e13;
+    --foreground: #e8edf4;
+    --card: #131820;
+    --card-foreground: #e8edf4;
+    --muted: #1b222c;
+    --muted-foreground: #9aa5b4;
+    --border: rgba(232, 237, 244, 0.1);
+    --ring: rgba(140, 163, 188, 0.28);
+    --primary: #d5dde8;
+    --primary-foreground: #0e1218;
+    --accent: #8ca3bc;
+    --accent-foreground: #0e1218;
+    --danger: #f87171;
+    --success: #86efac;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 50px -28px rgba(0, 0, 0, 0.7);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.011em;
+  text-rendering: optimizeLegibility;
 }
 
 @layer base {
@@ -86,61 +74,110 @@ body {
     border-color: var(--border);
   }
 
+  html {
+    background: var(--background);
+  }
+
+  h1, h2 {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+  }
+
   ::selection {
-    background: rgba(47, 107, 255, 0.25);
+    background: rgba(62, 83, 107, 0.22);
+    color: var(--foreground);
   }
 }
 
 @layer components {
   .app-shell {
-    @apply min-h-screen;
+    @apply min-h-screen relative;
     background:
-      radial-gradient(900px 500px at 12% -10%, rgba(47, 107, 255, 0.16), transparent 55%),
-      radial-gradient(700px 420px at 88% 0%, rgba(0, 31, 84, 0.14), transparent 55%),
-      var(--background);
+      radial-gradient(1100px 520px at 8% -8%, rgba(120, 145, 175, 0.16), transparent 58%),
+      radial-gradient(900px 480px at 100% 0%, rgba(14, 18, 24, 0.05), transparent 52%),
+      linear-gradient(180deg, #f7f8fb 0%, var(--background) 48%, #e8edf3 100%);
+  }
+
+  .app-shell::before {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    opacity: 0.18;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+  }
+
+  .app-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .brand {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--foreground);
+  }
+
+  .kicker {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--accent);
   }
 
   .top-nav {
-    @apply border-b px-6 py-4 flex items-center justify-between;
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(12px);
+    @apply px-6 py-3.5 flex items-center justify-between sticky top-0 z-40;
+    background: rgba(255, 255, 255, 0.78);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(18px) saturate(1.2);
   }
 
   @media (prefers-color-scheme: dark) {
+    .app-shell {
+      background:
+        radial-gradient(900px 480px at 10% -10%, rgba(140, 163, 188, 0.12), transparent 55%),
+        radial-gradient(800px 400px at 100% 0%, rgba(0, 0, 0, 0.35), transparent 50%),
+        var(--background);
+    }
     .top-nav {
-      background: rgba(11, 16, 32, 0.72);
+      background: rgba(11, 14, 19, 0.78);
     }
   }
 
   .card {
-    @apply border;
-    background: var(--card);
+    background: color-mix(in srgb, var(--card) 92%, white 8%);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium transition outline-none;
-    border-radius: 14px;
+    border-radius: 999px;
+    letter-spacing: 0.01em;
   }
 
   .btn-primary {
     background: var(--primary);
     color: var(--primary-foreground);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 10px 24px -16px rgba(22, 19, 15, 0.8);
   }
   .btn-primary:hover {
-    filter: brightness(0.96);
+    opacity: 0.92;
   }
   .btn-primary:focus-visible {
     box-shadow: 0 0 0 4px var(--ring);
   }
 
   .btn-soft {
-    background: rgba(47, 107, 255, 0.1);
+    background: rgba(62, 83, 107, 0.1);
     color: var(--foreground);
   }
   .btn-soft:hover {
-    background: rgba(47, 107, 255, 0.14);
+    background: rgba(62, 83, 107, 0.16);
   }
 
   .btn-outline {
@@ -149,27 +186,44 @@ body {
     color: var(--foreground);
   }
   .btn-outline:hover {
-    background: rgba(15, 23, 42, 0.04);
+    background: rgba(22, 19, 15, 0.04);
   }
 
   .nav-link {
-    @apply text-sm transition;
-    color: rgba(91, 100, 118, 1);
+    @apply text-[13px] transition tracking-wide;
+    color: var(--muted-foreground);
   }
   .nav-link:hover {
     color: var(--foreground);
   }
   .nav-link-active {
-    @apply text-sm font-medium;
+    @apply text-[13px] tracking-wide;
     color: var(--foreground);
+    box-shadow: inset 0 -1px 0 var(--accent);
+    padding-bottom: 2px;
   }
 
   .input {
     @apply w-full border px-4 py-3 text-sm outline-none transition;
-    background: var(--card);
+    background: color-mix(in srgb, var(--card) 70%, #fff 30%);
     border-radius: 14px;
+    color: var(--foreground);
   }
   .input:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
     box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .select {
+    width: auto;
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    outline: none;
+    max-width: 240px;
+    min-width: 160px;
+    background: var(--card);
+    border-radius: 14px;
+    color: var(--foreground);
   }
 }

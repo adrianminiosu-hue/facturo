@@ -2,10 +2,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
 import RoAddressFields from '@/components/RoAddressFields'
 import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
+import AppNav from '@/components/AppNav'
+import { useCompany } from '@/components/CompanyProvider'
 
 const ROMANIAN_BANKS = [
   'Banca Transilvania',
@@ -22,6 +23,7 @@ const ROMANIAN_BANKS = [
 
 export default function Profile() {
   const router = useRouter()
+  const { company, userId, refreshCompanies, createCompany } = useCompany()
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [cuiLoading, setCuiLoading] = useState(false)
@@ -54,37 +56,63 @@ export default function Profile() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      if (profile) {
-        setForm({
-          company_name: profile.company_name || '',
-          cui: profile.cui || '',
-          reg_com: profile.reg_com || '',
-          address: profile.address || '',
-          city: profile.city || '',
-          county: profile.county || '',
-          county_code: profile.county_code || countyCodeFromName(profile.county) || '',
-          postal_code: profile.postal_code || '',
-          country: profile.country || 'RO',
-          vat_registered: profile.vat_registered !== false,
-          bank_name: profile.bank_name || '',
-          iban: profile.iban || '',
-          bic: profile.bic || '',
-          contact_person: profile.contact_person || '',
-          contact_role: profile.contact_role || '',
-          email: profile.email || '',
-          phone: profile.phone || '',
-          invoice_series: profile.invoice_series || 'FCT',
-          invoice_start_number: profile.invoice_start_number || 1
-        })
-      }
     }
     init()
   }, [])
+
+  useEffect(() => {
+    if (company) {
+      setForm({
+        company_name: company.company_name || '',
+        cui: company.cui || '',
+        reg_com: company.reg_com || '',
+        address: company.address || '',
+        city: company.city || '',
+        county: company.county || '',
+        county_code: company.county_code || countyCodeFromName(company.county) || '',
+        postal_code: company.postal_code || '',
+        country: company.country || 'RO',
+        vat_registered: company.vat_registered !== false,
+        bank_name: company.bank_name || '',
+        iban: company.iban || '',
+        bic: company.bic || '',
+        contact_person: company.contact_person || '',
+        contact_role: company.contact_role || '',
+        email: company.email || '',
+        phone: company.phone || '',
+        invoice_series: company.invoice_series || 'FCT',
+        invoice_start_number: company.invoice_start_number || 1
+      })
+      return
+    }
+    const loadLegacy = async () => {
+      if (!userId) return
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single()
+      if (!profile) return
+      setForm({
+        company_name: profile.company_name || '',
+        cui: profile.cui || '',
+        reg_com: profile.reg_com || '',
+        address: profile.address || '',
+        city: profile.city || '',
+        county: profile.county || '',
+        county_code: profile.county_code || countyCodeFromName(profile.county) || '',
+        postal_code: profile.postal_code || '',
+        country: profile.country || 'RO',
+        vat_registered: profile.vat_registered !== false,
+        bank_name: profile.bank_name || '',
+        iban: profile.iban || '',
+        bic: profile.bic || '',
+        contact_person: profile.contact_person || '',
+        contact_role: profile.contact_role || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        invoice_series: profile.invoice_series || 'FCT',
+        invoice_start_number: profile.invoice_start_number || 1
+      })
+    }
+    loadLegacy()
+  }, [company?.id, userId])
 
   const lookupCUI = async () => {
     if (!form.cui || form.cui.length < 2) return
@@ -127,12 +155,21 @@ export default function Profile() {
       return
     }
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('profiles').upsert({
-      id: user?.id,
+    const payload = {
       ...form,
       county: countyNameFromCode(form.county_code) || form.county
-    })
+    }
+    if (company?.id) {
+      const { error } = await supabase.from('companies').update(payload).eq('id', company.id)
+      if (error) alert(error.message || 'Nu s-a putut salva. Rulează migrarea multi-company în Supabase.')
+    } else {
+      const created = await createCompany(payload)
+      if (!created) {
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('profiles').upsert({ id: user?.id, ...payload })
+      }
+    }
+    await refreshCompanies()
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
@@ -140,20 +177,14 @@ export default function Profile() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <Link href="/dashboard" className="text-xl font-bold text-[color:var(--color-foreground)]">Facturo</Link>
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <Link href="/clients" className="nav-link">Clienți</Link>
-          <Link href="/invoices" className="nav-link">Facturi</Link>
-          <Link href="/profile" className="nav-link-active">Profil</Link>
-        </div>
-      </nav>
+      <AppNav active="profile" />
 
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-[color:var(--color-foreground)]">Profilul companiei</h2>
-          <p className="mt-1 text-[color:var(--color-muted-foreground)]">Aceste date apar pe toate facturile tale</p>
+          <h2 className="text-3xl text-[color:var(--color-foreground)]">Profilul firmei active</h2>
+          <p className="mt-1 text-[color:var(--color-muted-foreground)]">
+            Datele apar pe facturile firmei selectate în meniu. Poți adăuga alte firme din Firme.
+          </p>
         </div>
 
         <div className="space-y-6">

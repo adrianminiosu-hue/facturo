@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import BrandLockup from '@/components/BrandLockup'
 
 export default function Login() {
   const router = useRouter()
@@ -25,11 +26,16 @@ export default function Login() {
   }
 
   return (
-    <div className="app-shell flex items-center justify-center px-6 py-12">
-      <div className="card p-8 w-full max-w-md">
+    <div className="app-shell flex flex-col">
+      <nav className="top-nav">
+        <BrandLockup href="/" />
+      </nav>
+      <div className="flex-1 flex items-center justify-center px-6 py-16">
+      <div className="card p-10 w-full max-w-md">
+        <p className="kicker mb-4">Cont</p>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[color:var(--color-foreground)]">Bună ziua!</h1>
-          <p className="mt-1 text-sm text-[color:var(--color-muted-foreground)]">Autentifică-te în contul tău Facturo</p>
+          <h1 className="text-4xl text-[color:var(--color-foreground)]">Bun venit.</h1>
+          <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">Autentifică-te în atelierul tău de facturi.</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -74,6 +80,7 @@ export default function Login() {
             ← Înapoi la pagina principală
           </Link>
         </p>
+      </div>
       </div>
     </div>
   )
