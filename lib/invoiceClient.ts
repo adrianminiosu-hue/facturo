@@ -27,11 +27,48 @@ export async function sendInvoiceEmail(invoiceId: string, userId: string) {
   if (!data.success) throw new Error(data.error || 'Emailul nu a plecat')
 }
 
-export async function simulateSpvUpload(invoiceId: string, userId: string) {
+export type SimulatedSpvUpload = {
+  invoiceRef: string
+  simulated: true
+  environment: string
+  endpoint: string
+  executionStatus: string
+  indexIncarcare?: string
+  stare?: string
+  error?: string
+  uploadResponseXml: string
+  statusResponseXml?: string
+  note: string
+}
+
+export type BulkSpvOutcome = 'accepted' | 'rejected' | 'skipped' | 'error'
+
+export type BulkSpvResultItem = {
+  invoiceId: string
+  invoiceRef: string
+  outcome: BulkSpvOutcome
+  error?: string
+}
+
+export async function simulateSpvUpload(invoiceId: string, userId: string): Promise<SimulatedSpvUpload> {
   const res = await fetch('/api/efactura/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ invoiceId, userId })
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Eroare simulare SPV')
+  return data
+}
+
+export async function simulateSpvUploads(
+  invoiceIds: string[],
+  userId: string
+): Promise<{ simulated: true; note: string; results: BulkSpvResultItem[] }> {
+  const res = await fetch('/api/efactura/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invoiceIds, userId })
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Eroare simulare SPV')

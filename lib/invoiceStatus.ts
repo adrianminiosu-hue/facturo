@@ -9,6 +9,11 @@ export function isDraftInvoice(status?: string | null) {
   return status === 'draft' || !status
 }
 
+/** Issued documents only — drafts are not sent to e-Factura. */
+export function canSendToEfactura(status?: string | null) {
+  return !isDraftInvoice(status)
+}
+
 export function isCreditNote(typeCode?: string | null) {
   return typeCode === '381'
 }

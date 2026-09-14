@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -7,7 +7,8 @@ import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
-import { INVOICE_STATUS_LABEL, isDraftInvoice } from '@/lib/invoiceStatus'
+import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/lib/invoiceClient'
+import { INVOICE_STATUS_LABEL, canSendToEfactura, isDraftInvoice } from '@/lib/invoiceStatus'
 
 interface Invoice {
   id: string
@@ -24,6 +25,19 @@ interface Invoice {
   efactura_error?: string | null
 }
 
+const LIST_GRID = 'grid w-full grid-cols-[2rem_6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(9rem,auto)] gap-x-4 px-6'
+
+function invoiceRef(invoice: Invoice) {
+  return `${invoice.series}${invoice.invoice_number}`
+}
+
+const OUTCOME_LABEL: Record<BulkSpvOutcome, { label: string; style: string }> = {
+  accepted: { label: 'Acceptat', style: 'text-green-600' },
+  rejected: { label: 'Respins', style: 'text-red-500' },
+  skipped: { label: 'Omis', style: 'text-[color:var(--color-muted-foreground)]' },
+  error: { label: 'Eroare', style: 'text-red-500' }
+}
+
 export default function Invoices() {
   const router = useRouter()
   const { userId, company, loading: companyLoading } = useCompany()
@@ -33,19 +47,15 @@ export default function Invoices() {
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
   const [spvBusyId, setSpvBusyId] = useState('')
-  const [spvResult, setSpvResult] = useState<{
-    invoiceRef: string
-    simulated: true
-    environment: string
-    endpoint: string
-    executionStatus: string
-    indexIncarcare?: string
-    stare?: string
-    error?: string
-    uploadResponseXml: string
-    statusResponseXml?: string
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; invoiceRef: string } | null>(null)
+  const [bulkSummary, setBulkSummary] = useState<{
     note: string
+    results: BulkSpvResultItem[]
   } | null>(null)
+  const selectAllRef = useRef<HTMLInputElement>(null)
+  const [spvResult, setSpvResult] = useState<SimulatedSpvUpload | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -132,6 +142,118 @@ export default function Invoices() {
   })
 
   const filtersActive = !!filterClientId || !!filterFrom || !!filterTo
+  const filteredIdSet = new Set(filteredInvoices.map(inv => inv.id))
+  const visibleSelectedIds = selectedIds.filter(id => filteredIdSet.has(id))
+  const eligibleFiltered = filteredInvoices.filter(inv => canSendToEfactura(inv.status))
+  const allEligibleSelected = eligibleFiltered.length > 0 && eligibleFiltered.every(inv => selectedIds.includes(inv.id))
+  const someEligibleSelected = eligibleFiltered.some(inv => selectedIds.includes(inv.id))
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someEligibleSelected && !allEligibleSelected
+    }
+  }, [someEligibleSelected, allEligibleSelected])
+
+  useEffect(() => {
+    const allowed = new Set(filteredInvoices.map(inv => inv.id))
+    setSelectedIds(prev => {
+      const next = prev.filter(id => allowed.has(id))
+      return next.length === prev.length ? prev : next
+    })
+  }, [filterClientId, filterFrom, filterTo, invoices])
+
+  const toggleSelected = (id: string, eligible: boolean) => {
+    if (!eligible || bulkBusy) return
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const toggleSelectAll = () => {
+    if (bulkBusy || eligibleFiltered.length === 0) return
+    if (allEligibleSelected) {
+      const eligibleIds = new Set(eligibleFiltered.map(inv => inv.id))
+      setSelectedIds(prev => prev.filter(id => !eligibleIds.has(id)))
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        eligibleFiltered.forEach(inv => next.add(inv.id))
+        return [...next]
+      })
+    }
+  }
+
+  const clearSelection = () => {
+    if (bulkBusy) return
+    setSelectedIds([])
+  }
+
+  const sendBulkToSpv = async () => {
+    const selected = filteredInvoices.filter(inv => visibleSelectedIds.includes(inv.id))
+    if (selected.length === 0) return
+
+    const skipped = selected.filter(inv => !canSendToEfactura(inv.status))
+    const toSend = selected.filter(inv => canSendToEfactura(inv.status))
+    const countLabel = toSend.length === 1 ? 'o factură emisă' : `${toSend.length} facturi emise`
+
+    if (toSend.length === 0) {
+      setBulkSummary({
+        note: 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.',
+        results: skipped.map(inv => ({
+          invoiceId: inv.id,
+          invoiceRef: invoiceRef(inv),
+          outcome: 'skipped' as const,
+          error: 'Ciornă — nu se trimite în e-Factura.'
+        }))
+      })
+      setSelectedIds([])
+      return
+    }
+
+    if (!confirm(
+      `Simulezi trimiterea a ${countLabel} în e-Factura SPV (mediu TEST)?\n\nNu se folosește certificat și nu se trimite nimic la ANAF.` +
+      (skipped.length ? `\n${skipped.length === 1 ? 'O ciornă va fi omisă.' : `${skipped.length} ciorne vor fi omise.`}` : '')
+    )) return
+
+    setBulkBusy(true)
+    const results: BulkSpvResultItem[] = skipped.map(inv => ({
+      invoiceId: inv.id,
+      invoiceRef: invoiceRef(inv),
+      outcome: 'skipped',
+      error: 'Ciornă — nu se trimite în e-Factura.'
+    }))
+
+    try {
+      for (let i = 0; i < toSend.length; i++) {
+        const inv = toSend[i]
+        setBulkProgress({ current: i + 1, total: toSend.length, invoiceRef: invoiceRef(inv) })
+        try {
+          const data = await simulateSpvUpload(inv.id, userId)
+          results.push({
+            invoiceId: inv.id,
+            invoiceRef: data.invoiceRef || invoiceRef(inv),
+            outcome: data.executionStatus === '0' ? 'accepted' : 'rejected',
+            error: data.error
+          })
+        } catch (e) {
+          results.push({
+            invoiceId: inv.id,
+            invoiceRef: invoiceRef(inv),
+            outcome: 'error',
+            error: e instanceof Error ? e.message : 'Eroare simulare SPV'
+          })
+        }
+      }
+
+      setBulkSummary({
+        note: 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.',
+        results
+      })
+      setSelectedIds([])
+      await loadInvoices()
+    } finally {
+      setBulkBusy(false)
+      setBulkProgress(null)
+    }
+  }
 
   const clientOptions = Array.from(
     new Map(
@@ -145,6 +267,15 @@ export default function Invoices() {
 
   const totalValue = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0)
   const unpaidCount = filteredInvoices.filter(inv => inv.status === 'sent' || inv.status === 'overdue').length
+  const selectedCount = visibleSelectedIds.length
+  const summaryCounts = bulkSummary
+    ? {
+        accepted: bulkSummary.results.filter(r => r.outcome === 'accepted').length,
+        rejected: bulkSummary.results.filter(r => r.outcome === 'rejected').length,
+        skipped: bulkSummary.results.filter(r => r.outcome === 'skipped').length,
+        error: bulkSummary.results.filter(r => r.outcome === 'error').length
+      }
+    : null
 
   return (
     <div className="app-shell">
@@ -235,6 +366,43 @@ export default function Invoices() {
               </div>
             </div>
 
+            {selectedCount > 0 && (
+              <div className="card p-4 mb-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[color:var(--color-foreground)]">
+                    {selectedCount === 1 ? '1 factură selectată' : `${selectedCount} facturi selectate`}
+                  </p>
+                  {bulkBusy && bulkProgress ? (
+                    <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                      Se trimite {bulkProgress.current} din {bulkProgress.total} · {bulkProgress.invoiceRef} (simulare SPV, fără ANAF)
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                      Trimitere simulată în e-Factura SPV (mediu TEST). Ciornele sunt omise.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={sendBulkToSpv}
+                    disabled={bulkBusy}
+                    className="btn btn-primary disabled:opacity-50"
+                  >
+                    {bulkBusy ? 'Se trimite...' : 'Trimite în e-Factura'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    disabled={bulkBusy}
+                    className="btn btn-outline disabled:opacity-50"
+                  >
+                    Anulează selecția
+                  </button>
+                </div>
+              </div>
+            )}
+
             {filteredInvoices.length === 0 ? (
               <div className="card p-12 text-center">
                 <p className="text-[color:var(--color-muted-foreground)]">Nu există facturi pentru filtrele selectate</p>
@@ -247,7 +415,17 @@ export default function Invoices() {
               </div>
             ) : (
               <div className="card overflow-hidden">
-                <div className="grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(9rem,auto)] gap-x-4 px-6 py-3 border-b border-gray-50">
+                <div className={`${LIST_GRID} py-3 border-b border-gray-50 items-center`}>
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allEligibleSelected}
+                    disabled={eligibleFiltered.length === 0 || bulkBusy}
+                    onChange={toggleSelectAll}
+                    aria-label="Selectează toate facturile emise din listă"
+                    title={eligibleFiltered.length === 0 ? 'Nu există facturi emise în listă' : 'Selectează toate facturile emise'}
+                    className="h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
+                  />
                   <span className="text-xs font-medium text-gray-400">NUMĂR</span>
                   <span className="text-xs font-medium text-gray-400">CLIENT</span>
                   <span className="text-xs font-medium text-gray-400">DATA</span>
@@ -255,80 +433,130 @@ export default function Invoices() {
                   <span className="text-xs font-medium text-gray-400 text-right">TOTAL</span>
                   <span className="text-xs font-medium text-gray-400 text-right">ACȚIUNI</span>
                 </div>
-                {filteredInvoices.map((invoice, i) => (
-                  <div key={invoice.id} className={`grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(9rem,auto)] gap-x-4 px-6 py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                    <Link href={`/invoices/${invoice.id}`} className="text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
-                      {invoice.series}{invoice.invoice_number}
-                    </Link>
-                    <span className="text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
-                      {invoice.clients?.company_name || '—'}
-                    </span>
-                    <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
-                    <span>
-                      <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${INVOICE_STATUS_LABEL[invoice.status]?.style}`}>
-                        {INVOICE_STATUS_LABEL[invoice.status]?.label}
-                      </span>
-                      {invoice.efactura_status === 'accepted' && (
-                        <p className="text-[10px] text-green-600 mt-1 font-medium">SPV test · acceptat</p>
-                      )}
-                      {invoice.efactura_status === 'rejected' && (
-                        <p className="text-[10px] text-red-500 mt-1 font-medium">SPV test · respins</p>
-                      )}
-                    </span>
-                    <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
-                      {invoice.total.toFixed(0)} RON
-                    </span>
-                    <div className="flex flex-nowrap items-center justify-end gap-1.5">
-                      {isDraftInvoice(invoice.status) ? (
-                        <Link
-                          href={`/invoices/${invoice.id}/edit`}
-                          className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                        >
-                          Editează
-                        </Link>
-                      ) : (
-                        <Link
-                          href={`/invoices/${invoice.id}`}
-                          className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                        >
-                          Deschide
-                        </Link>
-                      )}
-                      <InvoiceOverflow
-                        actions={[
-                          ...(!isDraftInvoice(invoice.status) ? [{
-                            label: 'PDF',
-                            onClick: () => downloadInvoicePdf(invoice.id, userId)
-                          }] : []),
-                          {
-                            label: 'XML e-Factura',
-                            onClick: () => runXml(invoice)
-                          },
-                          {
-                            label: 'Email',
-                            onClick: () => sendInvoice(invoice),
-                            disabled: isDraftInvoice(invoice.status)
-                          },
-                          {
-                            label: 'SPV test (simulare)',
-                            onClick: () => sendToSpvTest(invoice),
-                            disabled: spvBusyId === invoice.id
-                          },
-                          ...(isDraftInvoice(invoice.status) ? [{
-                            label: 'Șterge ciorna',
-                            onClick: () => deleteInvoice(invoice.id),
-                            danger: true
-                          }] : [])
-                        ]}
+                {filteredInvoices.map((invoice, i) => {
+                  const eligible = canSendToEfactura(invoice.status)
+                  const checked = selectedIds.includes(invoice.id)
+                  return (
+                    <div key={invoice.id} className={`${LIST_GRID} py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!eligible || bulkBusy}
+                        onChange={() => toggleSelected(invoice.id, eligible)}
+                        aria-label={`Selectează ${invoiceRef(invoice)}`}
+                        title={eligible ? `Selectează ${invoiceRef(invoice)}` : 'Ciornele nu se trimit în e-Factura'}
+                        className="h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
                       />
+                      <Link href={`/invoices/${invoice.id}`} className="text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
+                        {invoice.series}{invoice.invoice_number}
+                      </Link>
+                      <span className="text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
+                        {invoice.clients?.company_name || '—'}
+                      </span>
+                      <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
+                      <span>
+                        <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${INVOICE_STATUS_LABEL[invoice.status]?.style}`}>
+                          {INVOICE_STATUS_LABEL[invoice.status]?.label}
+                        </span>
+                        {invoice.efactura_status === 'accepted' && (
+                          <p className="text-[10px] text-green-600 mt-1 font-medium">SPV test · acceptat</p>
+                        )}
+                        {invoice.efactura_status === 'rejected' && (
+                          <p className="text-[10px] text-red-500 mt-1 font-medium">SPV test · respins</p>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
+                        {invoice.total.toFixed(0)} RON
+                      </span>
+                      <div className="flex flex-nowrap items-center justify-end gap-1.5">
+                        {isDraftInvoice(invoice.status) ? (
+                          <Link
+                            href={`/invoices/${invoice.id}/edit`}
+                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                          >
+                            Editează
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/invoices/${invoice.id}`}
+                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                          >
+                            Deschide
+                          </Link>
+                        )}
+                        <InvoiceOverflow
+                          actions={[
+                            ...(!isDraftInvoice(invoice.status) ? [{
+                              label: 'PDF',
+                              onClick: () => downloadInvoicePdf(invoice.id, userId)
+                            }] : []),
+                            {
+                              label: 'XML e-Factura',
+                              onClick: () => runXml(invoice)
+                            },
+                            {
+                              label: 'Email',
+                              onClick: () => sendInvoice(invoice),
+                              disabled: isDraftInvoice(invoice.status)
+                            },
+                            {
+                              label: 'SPV test (simulare)',
+                              onClick: () => sendToSpvTest(invoice),
+                              disabled: bulkBusy || spvBusyId === invoice.id
+                            },
+                            ...(isDraftInvoice(invoice.status) ? [{
+                              label: 'Șterge ciorna',
+                              onClick: () => deleteInvoice(invoice.id),
+                              danger: true
+                            }] : [])
+                          ]}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>
         )}
       </div>
+
+      {bulkSummary && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setBulkSummary(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Simulare e-Factura SPV (test)</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {summaryCounts
+                    ? `${summaryCounts.accepted} acceptate · ${summaryCounts.rejected} respinse · ${summaryCounts.skipped} omise · ${summaryCounts.error} erori`
+                    : ''}
+                </p>
+              </div>
+              <button onClick={() => setBulkSummary(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
+              {bulkSummary.note}
+            </p>
+            <ul className="space-y-2">
+              {bulkSummary.results.map(item => (
+                <li key={item.invoiceId} className="text-sm border border-gray-100 rounded-xl px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-gray-900">{item.invoiceRef}</span>
+                    <span className={`text-xs font-medium ${OUTCOME_LABEL[item.outcome].style}`}>
+                      {OUTCOME_LABEL[item.outcome].label}
+                    </span>
+                  </div>
+                  {item.error && (
+                    <p className="text-xs text-gray-500 mt-1">{item.error}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button onClick={() => setBulkSummary(null)} className="mt-5 btn btn-primary">Închide</button>
+          </div>
+        </div>
+      )}
 
       {spvResult && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSpvResult(null)}>
