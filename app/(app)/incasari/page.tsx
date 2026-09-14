@@ -7,6 +7,7 @@ import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import { agingKey, calendarDateInBucharest, daysUntilDue, formatRoDate, type AgingKey } from '@/lib/dates'
 import PaymentModal from '@/components/PaymentModal'
+import StatementImportModal from '@/components/StatementImportModal'
 
 type Row = {
   id: string
@@ -22,6 +23,17 @@ type Row = {
   promised_pay_date?: string | null
   amount_paid?: number | null
   clients?: { company_name?: string; email?: string } | null
+}
+
+type Unallocated = {
+  id: string
+  amount: number
+  paid_on: string
+  counterpart_name?: string | null
+  counterpart_iban?: string | null
+  notes?: string | null
+  reference?: string | null
+  company_id?: string | null
 }
 
 const buckets: { id: '' | AgingKey | 'week_risk'; label: string }[] = [
@@ -43,7 +55,7 @@ function ron(n: number) {
 
 export default function IncasariPage() {
   const router = useRouter()
-  const { userId, companies, loading: companyLoading } = useCompany()
+  const { userId, companies, company, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [firmId, setFirmId] = useState('')
@@ -53,6 +65,8 @@ export default function IncasariPage() {
   const [bucket, setBucket] = useState<'' | AgingKey | 'week_risk'>('')
   const [busyId, setBusyId] = useState('')
   const [payRow, setPayRow] = useState<Row | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [unallocated, setUnallocated] = useState<Unallocated[]>([])
 
   const today = calendarDateInBucharest(0)
   const companyName = (id?: string | null) =>
@@ -77,6 +91,14 @@ export default function IncasariPage() {
     } else {
       setRows(((data || []) as unknown as Row[]).filter(row => (row as Row & { invoice_type_code?: string }).invoice_type_code !== '381'))
     }
+    const extras = await supabase
+      .from('invoice_payments')
+      .select('id, amount, paid_on, counterpart_name, counterpart_iban, notes, reference, company_id')
+      .eq('user_id', userId)
+      .is('invoice_id', null)
+      .order('paid_on', { ascending: false })
+    if (!extras.error) setUnallocated((extras.data || []) as Unallocated[])
+    else setUnallocated([])
     setLoading(false)
   }
 
@@ -153,12 +175,22 @@ export default function IncasariPage() {
     <div className="app-shell">
       <AppNav active="receivables" />
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <p className="kicker mb-2">Portofoliu</p>
-          <h2 className="text-3xl text-[color:var(--color-foreground)]">Încasări</h2>
-          <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-            Toate firmele · facturi emise, încă neîncasate · sortate după scadență
-          </p>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="kicker mb-2">Portofoliu</p>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Încasări</h2>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">
+              Toate firmele · facturi emise, încă neîncasate · sortate după scadență
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            disabled={!company?.id}
+            className="btn btn-primary disabled:opacity-40"
+          >
+            Importă extras
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
@@ -293,6 +325,27 @@ export default function IncasariPage() {
             </div>
           </div>
         )}
+        {unallocated.filter(p => !firmId || p.company_id === firmId).length > 0 && (
+          <div className="card p-5 mt-6">
+            <p className="kicker mb-3">Încasări nealocate</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mb-3">
+              Din extras, fără factură — nu modifică restul unei facturi până le înregistrezi manual pe document.
+            </p>
+            <div className="space-y-2">
+              {unallocated.filter(p => !firmId || p.company_id === firmId).map(p => (
+                <div key={p.id} className="flex justify-between gap-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate">{p.counterpart_name || 'Plătitor necunoscut'}</p>
+                    <p className="text-xs text-[color:var(--color-muted-foreground)] truncate">
+                      {p.paid_on} · {p.counterpart_iban || p.reference || p.notes || 'extras XML 940'}
+                    </p>
+                  </div>
+                  <p className="font-medium shrink-0">{ron(Number(p.amount))}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {payRow && (
           <PaymentModal
             invoice={payRow}
@@ -300,6 +353,15 @@ export default function IncasariPage() {
             firmName={companyName(payRow.company_id)}
             onClose={() => setPayRow(null)}
             onSaved={() => { setPayRow(null); load() }}
+          />
+        )}
+        {importOpen && company?.id && (
+          <StatementImportModal
+            userId={userId}
+            companyId={company.id}
+            companyName={company.company_name}
+            onClose={() => setImportOpen(false)}
+            onImported={() => { load() }}
           />
         )}
       </div>

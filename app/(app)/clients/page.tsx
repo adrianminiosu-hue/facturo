@@ -3,10 +3,26 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
-import RoAddressFields from '@/components/RoAddressFields'
-import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
+import ClientContactsFields from '@/components/ClientContactsFields'
+import ClientAddressesFields from '@/components/ClientAddressesFields'
+import { countyCodeFromName } from '@/lib/romania'
+import {
+  addressInsertRows,
+  addressTypeLabel,
+  addressesFromClient,
+  applyCuiToDefaultAddress,
+  contactInsertRows,
+  contactsFromRows,
+  defaultAddressFields,
+  defaultAddressFromList,
+  emptyClientAddress,
+  type ClientAddressDraft,
+  type ClientAddressRow,
+  type ClientContactDraft,
+  type ClientContactRow
+} from '@/lib/clientDirectory'
 
 const ROMANIAN_BANKS = [
   'Banca Transilvania',
@@ -23,6 +39,8 @@ const ROMANIAN_BANKS = [
 
 interface Client {
   id: string
+  user_id?: string
+  company_id?: string | null
   company_name: string
   cui: string
   reg_com: string
@@ -37,18 +55,14 @@ interface Client {
   phone: string
   bank_name: string
   iban: string
+  client_contacts?: ClientContactRow[]
+  client_addresses?: ClientAddressRow[]
 }
 
 const emptyForm = {
   company_name: '',
   cui: '',
   reg_com: '',
-  address: '',
-  city: '',
-  county: '',
-  county_code: '',
-  postal_code: '',
-  country: 'RO',
   vat_registered: true,
   email: '',
   phone: '',
@@ -66,6 +80,8 @@ export default function Clients() {
   const [saving, setSaving] = useState(false)
   const [cuiLoading, setCuiLoading] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [contacts, setContacts] = useState<ClientContactDraft[]>([])
+  const [addresses, setAddresses] = useState<ClientAddressDraft[]>([emptyClientAddress(true)])
   const [search, setSearch] = useState('')
   const [manualEdit, setManualEdit] = useState(false)
 
@@ -90,10 +106,20 @@ export default function Clients() {
   }, [company?.id, userId, companyLoading])
 
   const loadClients = async () => {
-    let query = supabase.from('clients').select('*').order('created_at', { ascending: false })
+    let query = supabase
+      .from('clients')
+      .select('*, client_contacts(*), client_addresses(*)')
+      .order('created_at', { ascending: false })
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
-    const { data } = await query
-    setClients(data || [])
+    const { data, error } = await query
+    if (error) {
+      let fallback = supabase.from('clients').select('*').order('created_at', { ascending: false })
+      fallback = company?.id ? fallback.eq('company_id', company.id) : fallback.eq('user_id', userId)
+      const { data: rows } = await fallback
+      setClients((rows || []) as Client[])
+    } else {
+      setClients((data || []) as Client[])
+    }
     setLoading(false)
   }
 
@@ -112,12 +138,14 @@ export default function Clients() {
           ...f,
           company_name: data.company_name || f.company_name,
           reg_com: data.reg_com || f.reg_com,
-          address: data.address || f.address,
-          city: data.city || f.city,
-          county: data.county || f.county,
-          county_code: data.county_code || f.county_code,
-          postal_code: data.postal_code || f.postal_code,
           vat_registered: data.vat_registered ?? f.vat_registered
+        }))
+        setAddresses(current => applyCuiToDefaultAddress(current, {
+          address: data.address,
+          city: data.city,
+          county: data.county,
+          county_code: data.county_code,
+          postal_code: data.postal_code
         }))
       } else {
         alert('CUI negăsit în registrul public. Verifică numărul și încearcă din nou.')
@@ -131,6 +159,8 @@ export default function Clients() {
   const openNew = () => {
     setEditClient(null)
     setForm(emptyForm)
+    setContacts([])
+    setAddresses([emptyClientAddress(true)])
     setManualEdit(false)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -142,21 +172,40 @@ export default function Clients() {
       company_name: client.company_name,
       cui: client.cui || '',
       reg_com: client.reg_com || '',
-      address: client.address || '',
-      city: client.city || '',
-      county: client.county || '',
-      county_code: client.county_code || countyCodeFromName(client.county) || '',
-      postal_code: client.postal_code || '',
-      country: client.country || 'RO',
       vat_registered: client.vat_registered !== false,
       email: client.email || '',
       phone: client.phone || '',
       bank_name: client.bank_name || '',
       iban: client.iban || ''
     })
+    setContacts(contactsFromRows(client.client_contacts))
+    const loaded = addressesFromClient({
+      ...client,
+      county_code: client.county_code || countyCodeFromName(client.county) || ''
+    })
+    setAddresses(loaded.length ? loaded : [emptyClientAddress(true)])
     setManualEdit(false)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const saveRelations = async (clientId: string) => {
+    const companyId = company?.id || editClient?.company_id
+    await supabase.from('client_contacts').delete().eq('client_id', clientId)
+    const contactRows = contactInsertRows(clientId, userId, companyId, contacts)
+    if (contactRows.length) {
+      const { error } = await supabase.from('client_contacts').insert(contactRows)
+      if (error) return error.message
+    }
+
+    await supabase.from('client_addresses').delete().eq('client_id', clientId).eq('is_default', false)
+    await supabase.from('client_addresses').delete().eq('client_id', clientId)
+    const addressRows = addressInsertRows(clientId, userId, companyId, addresses)
+    if (addressRows.length) {
+      const { error } = await supabase.from('client_addresses').insert(addressRows)
+      if (error) return error.message
+    }
+    return null
   }
 
   const saveClient = async () => {
@@ -169,10 +218,21 @@ export default function Clients() {
       alert('IBAN invalid! Trebuie să înceapă cu RO și să aibă exact 24 de caractere.')
       return
     }
+    for (const contact of contacts) {
+      if (contact.phone && !isValidRomanianMobile(contact.phone)) {
+        alert(`Telefon invalid pentru ${contact.name || 'persoana de contact'}. Folosește 07xxxxxxxx sau +407xxxxxxxx.`)
+        return
+      }
+    }
+    if (!addresses.length) {
+      alert('Adaugă cel puțin o adresă (cea implicită este folosită în e-Factura).')
+      return
+    }
     setSaving(true)
+    const addressFields = defaultAddressFields(addresses)
     const payload = {
       ...form,
-      county: countyNameFromCode(form.county_code) || form.county
+      ...addressFields
     }
     if (editClient) {
       const { error } = await supabase
@@ -182,18 +242,50 @@ export default function Clients() {
           phone: form.phone,
           bank_name: form.bank_name,
           iban: form.iban,
-          county_code: form.county_code,
-          postal_code: form.postal_code,
-          country: form.country,
-          city: form.city,
+          address: payload.address,
+          county_code: payload.county_code,
+          postal_code: payload.postal_code,
+          country: payload.country,
+          city: payload.city,
           county: payload.county,
           vat_registered: form.vat_registered
         })
         .eq('id', editClient.id)
-      if (!error) { setShowForm(false); setEditClient(null); loadClients() }
+      if (error) {
+        alert(error.message)
+        setSaving(false)
+        return
+      }
+      const relError = await saveRelations(editClient.id)
+      if (relError) {
+        alert(`Clientul a fost salvat, dar adresele/contactele nu: ${relError}`)
+        setSaving(false)
+        return
+      }
+      setShowForm(false)
+      setEditClient(null)
+      loadClients()
     } else {
-      const { error } = await supabase.from('clients').insert({ ...payload, user_id: userId, ...(company?.id ? { company_id: company.id } : {}) })
-      if (!error) { setShowForm(false); setForm(emptyForm); loadClients() }
+      const { data, error } = await supabase
+        .from('clients')
+        .insert({ ...payload, user_id: userId, ...(company?.id ? { company_id: company.id } : {}) })
+        .select('*')
+        .single()
+      if (error || !data) {
+        alert(error?.message || 'Clientul nu a putut fi salvat.')
+        setSaving(false)
+        return
+      }
+      const relError = await saveRelations(data.id)
+      if (relError) {
+        alert(`Clientul a fost salvat, dar adresele/contactele nu: ${relError}`)
+        setEditClient(data)
+        setSaving(false)
+        return
+      }
+      setShowForm(false)
+      setForm(emptyForm)
+      loadClients()
     }
     setSaving(false)
   }
@@ -354,29 +446,6 @@ export default function Clients() {
                     placeholder="J40/1234/2020"
                   />
                 </div>
-
-                {/* Address */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă *</label>
-                  <input
-                    type="text"
-                    value={form.address}
-                    disabled={!!editClient}
-                    readOnly={!!editClient}
-                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                    className={`input ${editClient ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
-                    placeholder="Str. Exemplu, nr. 1"
-                  />
-                </div>
-                <RoAddressFields
-                  value={{
-                    county_code: form.county_code,
-                    postal_code: form.postal_code,
-                    city: form.city,
-                    country: form.country
-                  }}
-                  onChange={address => setForm(f => ({ ...f, ...address }))}
-                />
                 <div className="md:col-span-2">
                   <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
                     <input
@@ -389,6 +458,9 @@ export default function Clients() {
                 </div>
               </div>
             </div>
+
+            <ClientAddressesFields addresses={addresses} onChange={setAddresses} />
+            <ClientContactsFields contacts={contacts} onChange={setContacts} />
 
             {/* Editable section */}
             <div className="border-t border-gray-100 pt-6">
@@ -507,43 +579,61 @@ export default function Clients() {
               <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Bancă</span>
               <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">Acțiuni</span>
             </div>
-            {filteredClients.map((client, i) => (
-              <div
-                key={client.id}
-                className={`grid grid-cols-12 px-6 py-4 items-center ${i !== filteredClients.length - 1 ? 'border-b border-gray-50' : ''}`}
-              >
-                <div className="col-span-4">
-                  <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
-                  <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                    CUI: {client.cui || '—'}{client.city ? ` · ${client.city}` : ''}
-                  </p>
+            {filteredClients.map((client, i) => {
+              const defaultAddress = defaultAddressFromList(client.client_addresses || [])
+              const city = defaultAddress?.city || client.city
+              const street = defaultAddress?.address || client.address
+              const contactCount = client.client_contacts?.length || 0
+              const primaryContact = client.client_contacts?.[0]
+              return (
+                <div
+                  key={client.id}
+                  className={`grid grid-cols-12 px-6 py-4 items-center ${i !== filteredClients.length - 1 ? 'border-b border-gray-50' : ''}`}
+                >
+                  <div className="col-span-4">
+                    <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
+                    <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                      CUI: {client.cui || '—'}{city ? ` · ${city}` : ''}
+                    </p>
+                    {street && (
+                      <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5 truncate" title={street}>
+                        {defaultAddress?.address_type ? `${addressTypeLabel(defaultAddress.address_type)} · ` : ''}{street}
+                      </p>
+                    )}
+                  </div>
+                  <div className="col-span-3">
+                    <p className="text-sm text-[color:var(--color-muted-foreground)]">{client.email || '—'}</p>
+                    <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5">{client.phone || '—'}</p>
+                    {contactCount > 0 && (
+                      <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                        {primaryContact?.name || 'Contact'}{primaryContact?.contact_role ? ` · ${primaryContact.contact_role}` : ''}
+                        {contactCount > 1 ? ` · ${contactCount} persoane` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className="col-span-3">
+                    <p className="text-sm text-[color:var(--color-muted-foreground)]">{client.bank_name || '—'}</p>
+                    <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5 font-mono">
+                      {client.iban ? `${client.iban.substring(0, 8)}...` : '—'}
+                    </p>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => openEdit(client)}
+                      className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                    >
+                      Editează
+                    </button>
+                    <button
+                      onClick={() => deleteClient(client.id)}
+                      className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
+                    >
+                      Șterge
+                    </button>
+                  </div>
                 </div>
-                <div className="col-span-3">
-                  <p className="text-sm text-[color:var(--color-muted-foreground)]">{client.email || '—'}</p>
-                  <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5">{client.phone || '—'}</p>
-                </div>
-                <div className="col-span-3">
-                  <p className="text-sm text-[color:var(--color-muted-foreground)]">{client.bank_name || '—'}</p>
-                  <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5 font-mono">
-                    {client.iban ? `${client.iban.substring(0, 8)}...` : '—'}
-                  </p>
-                </div>
-                <div className="col-span-2 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => openEdit(client)}
-                    className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                  >
-                    Editează
-                  </button>
-                  <button
-                    onClick={() => deleteClient(client.id)}
-                    className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
-                  >
-                    Șterge
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

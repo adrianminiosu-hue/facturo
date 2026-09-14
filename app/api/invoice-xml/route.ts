@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
+import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
 
 const supabase = createClient(
@@ -34,11 +35,10 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('invoice_id', invoiceId)
 
-    const { data: client } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('id', invoice.client_id)
-      .single()
+    const client = await loadBuyer(supabase, invoice.client_id)
+    if (!client) {
+      return NextResponse.json({ error: 'Clientul nu a fost găsit' }, { status: 404 })
+    }
 
     const seller = await loadSeller(supabase, invoice, userId)
 

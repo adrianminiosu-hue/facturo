@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
 import { simulateSpvUpload } from '@/lib/efacturaSpv'
+import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
 import { isDraftInvoice } from '@/lib/invoiceStatus'
 
@@ -65,11 +66,7 @@ async function processOne(
     .select('*')
     .eq('invoice_id', invoiceId)
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('id', invoice.client_id)
-    .single()
+  const client = await loadBuyer(supabase, invoice.client_id)
 
   const seller = await loadSeller(supabase, invoice, userId)
 

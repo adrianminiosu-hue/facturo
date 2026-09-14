@@ -67,9 +67,9 @@ export default function AccountPage() {
     if (!confirm('Confirmi ștergerea definitivă?')) return
     setBusy('delete')
     const invoiceIds = (await supabase.from('invoices').select('id').eq('user_id', userId)).data || []
+    await supabase.from('invoice_payments').delete().eq('user_id', userId)
     for (const row of invoiceIds) {
       await supabase.from('invoice_items').delete().eq('invoice_id', row.id)
-      await supabase.from('invoice_payments').delete().eq('invoice_id', row.id)
     }
     await supabase.from('invoices').delete().eq('user_id', userId)
     await supabase.from('clients').delete().eq('user_id', userId)

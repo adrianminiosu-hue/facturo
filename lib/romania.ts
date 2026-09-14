@@ -45,7 +45,7 @@ export const RO_COUNTIES = [
 
 export const BUCHAREST_SECTORS = ['Sector 1', 'Sector 2', 'Sector 3', 'Sector 4', 'Sector 5', 'Sector 6'] as const
 
-function stripDiacritics(value: string) {
+export function stripDiacritics(value: string) {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

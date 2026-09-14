@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>FACTURO-SAMPLE-940</MsgId>
+      <CreDtTm>2026-09-14T10:15:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>EXTRAS-2026-0914</Id>
+      <CreDtTm>2026-09-14T10:15:00</CreDtTm>
+      <Acct>
+        <Id>
+          <IBAN>RO49AAAA1B31007593840000</IBAN>
+        </Id>
+        <Ccy>RON</Ccy>
+      </Acct>
+      <Ntry>
+        <NtryRef>NTRY-001</NtryRef>
+        <Amt Ccy="RON">1500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-12</Dt></BookgDt>
+        <ValDt><Dt>2026-09-12</Dt></ValDt>
+        <AcctSvcrRef>BCRREF001234</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>OP-88921</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>SC Pădurea Verde SRL</Nm>
+                <Id>
+                  <OrgId>
+                    <Othr>
+                      <Id>RO12345678</Id>
+                    </Othr>
+                  </OrgId>
+                </Id>
+              </Dbtr>
+              <DbtrAcct>
+                <Id>
+                  <IBAN>RO12BBBB1B31007593840000</IBAN>
+                </Id>
+              </DbtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Plată factură FCT00012 — restanță august</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>NTRY-002</NtryRef>
+        <Amt Ccy="RON">820.50</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-13</Dt></BookgDt>
+        <ValDt><Dt>2026-09-13</Dt></ValDt>
+        <AcctSvcrRef>BCRREF001235</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Ion Popescu PFA</Nm>
+              </Dbtr>
+              <DbtrAcct>
+                <Id>
+                  <IBAN>RO66CCCC1B31007593840000</IBAN>
+                </Id>
+              </DbtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Transfer fără explicații</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>NTRY-003</NtryRef>
+        <Amt Ccy="RON">250.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-13</Dt></BookgDt>
+        <AcctSvcrRef>BCRREF001236</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Comision administrare cont</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Comision extras</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

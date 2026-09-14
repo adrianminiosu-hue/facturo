@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BankStatement>
+  <BankAccNo>RO98RNCB0000000000000001</BankAccNo>
+  <StatementNo>77</StatementNo>
+  <StatementDate>14.09.2026</StatementDate>
+  <Transactions>
+    <Transaction>
+      <TranDate>14.09.2026</TranDate>
+      <ValueDate>14.09.2026</ValueDate>
+      <TranType>C</TranType>
+      <Amount>2.340,00</Amount>
+      <Currency>RON</Currency>
+      <PartnerName>SC Atelierul de Lemn SRL</PartnerName>
+      <PartnerAccount>RO44BRDE450SV12345678900</PartnerAccount>
+      <Details>Achitare factura FCT0008 CUI RO44556677</Details>
+      <Reference>OP99112</Reference>
+    </Transaction>
+  </Transactions>
+</BankStatement>
