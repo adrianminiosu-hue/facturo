@@ -15,7 +15,12 @@ interface Client {
   id: string
   company_name: string
   cui: string
+  address?: string
   city: string
+}
+
+function clientAddressLine(client: Client) {
+  return [client.address, client.city].filter(Boolean).join(', ') || '—'
 }
 function ClientSearch({ clients, selectedClient, onSelect }: {
   clients: Client[]
@@ -39,7 +44,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
         {selectedClient ? (
           <div>
             <p className="text-sm font-medium text-gray-900">{selectedClient.company_name}</p>
-            <p className="text-xs text-gray-500">CUI: {selectedClient.cui || '—'} · {selectedClient.city || '—'}</p>
+            <p className="text-xs text-gray-500">CUI: {selectedClient.cui || '—'} · {clientAddressLine(selectedClient)}</p>
           </div>
         ) : (
           <p className="text-sm text-gray-400">Selectează client...</p>
@@ -71,7 +76,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
                   className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition border-b border-gray-50 last:border-0 ${selectedClient?.id === client.id ? 'bg-gray-50' : ''}`}
                 >
                   <p className="text-sm font-medium text-gray-900">{client.company_name}</p>
-                  <p className="text-xs text-gray-500">CUI: {client.cui || '—'} · {client.city || '—'}</p>
+                  <p className="text-xs text-gray-500">CUI: {client.cui || '—'} · {clientAddressLine(client)}</p>
                 </div>
               ))
             )}

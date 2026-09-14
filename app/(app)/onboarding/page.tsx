@@ -168,12 +168,29 @@ export default function Onboarding() {
     const companyId = company?.id
     if (!companyId) { alert('Salvează mai întâi firma.'); return }
     setSaving(true)
-    await supabase.from('clients').insert({
+    const payload = {
       ...client,
       county: countyNameFromCode(client.county_code) || client.county,
       user_id: user?.id || userId,
       company_id: companyId
-    })
+    }
+    const { data: created } = await supabase.from('clients').insert(payload).select('id, user_id').single()
+    if (created?.id) {
+      await supabase.from('client_addresses').insert({
+        client_id: created.id,
+        user_id: created.user_id || user?.id || userId,
+        company_id: companyId,
+        address_type: 'sediu_social',
+        address: client.address || '',
+        city: client.city || '',
+        county: payload.county,
+        county_code: client.county_code || '',
+        postal_code: client.postal_code || '',
+        country: client.country || 'RO',
+        is_default: true,
+        sort_order: 0
+      })
+    }
     setSaving(false)
     setStep(3)
   }
