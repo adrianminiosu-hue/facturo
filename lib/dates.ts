@@ -1,3 +1,16 @@
+export const DEFAULT_DUE_DAYS = 15
+
+export function addDaysIso(isoDate: string, days: number) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  if (!year || !month || !day) return isoDate
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return date.toISOString().slice(0, 10)
+}
+
+export function defaultDueDate(issueDate: string, days = DEFAULT_DUE_DAYS) {
+  return addDaysIso(issueDate, days)
+}
+
 export function calendarDateInBucharest(offsetDays = 0) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Bucharest',

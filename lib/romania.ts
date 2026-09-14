@@ -74,3 +74,10 @@ export function countyNameFromCode(code?: string | null): string {
 export function isBucharestSector(city?: string | null) {
   return !!city && BUCHAREST_SECTORS.includes(city as (typeof BUCHAREST_SECTORS)[number])
 }
+
+export function bucharestSectorFromText(...parts: Array<string | null | undefined>) {
+  const text = parts.filter(Boolean).join(' ')
+  if (!text) return ''
+  const match = text.match(/(?:sector(?:ul)?|sect)\s*\.?\s*([1-6])/i)
+  return match ? `Sector ${match[1]}` : ''
+}

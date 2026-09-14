@@ -131,17 +131,16 @@ export default function Onboarding() {
           }))
         }
       } else {
-        alert('CUI negăsit în ANAF.')
+        alert('CUI negăsit în registrul public.')
       }
     } catch (e) {
-      alert('Eroare conexiune ANAF.')
+      alert('Eroare conexiune la registrul public.')
     }
     type === 'profile' ? setCuiLoading(false) : setClientCuiLoading(false)
   }
 
-  const saveProfile = async () => {
-    if (!profile.company_name) { alert('Introdu denumirea companiei!'); return }
-    setSaving(true)
+  const persistProfileIfNeeded = async () => {
+    if (!profile.company_name.trim()) return
     const payload = {
       ...profile,
       county: countyNameFromCode(profile.county_code) || profile.county
@@ -153,6 +152,12 @@ export default function Onboarding() {
       if (created) setActiveCompanyId(created.id)
     }
     await refreshCompanies()
+  }
+
+  const saveProfile = async () => {
+    if (!profile.company_name) { alert('Introdu denumirea companiei!'); return }
+    setSaving(true)
+    await persistProfileIfNeeded()
     setSaving(false)
     setStep(2)
   }
@@ -177,7 +182,9 @@ export default function Onboarding() {
     router.push('/invoices/new')
   }
 
-  const skipToApp = () => {
+  const skipToApp = async () => {
+    setSaving(true)
+    await persistProfileIfNeeded()
     router.push('/dashboard')
   }
 
@@ -237,7 +244,7 @@ export default function Onboarding() {
                     disabled={cuiLoading}
                     className="bg-black text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 whitespace-nowrap"
                   >
-                    {cuiLoading ? 'Se caută...' : 'Caută ANAF'}
+                    {cuiLoading ? 'Se caută...' : 'Caută CUI'}
                   </button>
                 </div>
               </div>
@@ -363,7 +370,7 @@ export default function Onboarding() {
         {step === 2 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
             <h2 className="text-3xl text-gray-900 mb-1">Adaugă primul client</h2>
-            <p className="text-gray-500 mb-8">Introdu CUI-ul și datele se completează automat din ANAF.</p>
+            <p className="text-gray-500 mb-8">Introdu CUI-ul și datele se completează automat din registrul public.</p>
 
             <div className="space-y-4">
               <div>
@@ -381,7 +388,7 @@ export default function Onboarding() {
                     disabled={clientCuiLoading}
                     className="bg-black text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 whitespace-nowrap"
                   >
-                    {clientCuiLoading ? 'Se caută...' : 'Caută ANAF'}
+                    {clientCuiLoading ? 'Se caută...' : 'Caută CUI'}
                   </button>
                 </div>
               </div>

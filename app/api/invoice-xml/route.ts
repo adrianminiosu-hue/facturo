@@ -42,8 +42,23 @@ export async function GET(request: NextRequest) {
 
     const seller = await loadSeller(supabase, invoice, userId)
 
+    let billing_reference: string | null = null
+    let billing_reference_date: string | null = null
+    if (invoice.credited_invoice_id) {
+      const { data: original } = await supabase
+        .from('invoices')
+        .select('series, invoice_number, issue_date')
+        .eq('id', invoice.credited_invoice_id)
+        .eq('user_id', userId)
+        .single()
+      if (original) {
+        billing_reference = `${original.series}${original.invoice_number}`
+        billing_reference_date = original.issue_date
+      }
+    }
+
     const xml = generateEfacturaXml({
-      invoice,
+      invoice: { ...invoice, billing_reference, billing_reference_date },
       seller,
       buyer: client,
       items: items || []

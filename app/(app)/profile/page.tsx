@@ -137,10 +137,10 @@ export default function Profile() {
           vat_registered: data.vat_registered ?? f.vat_registered
         }))
       } else {
-        alert('CUI negăsit în ANAF.')
+        alert('CUI negăsit în registrul public.')
       }
     } catch (e) {
-      alert('Eroare conexiune ANAF.')
+      alert('Eroare conexiune la registrul public.')
     }
     setCuiLoading(false)
   }
@@ -208,7 +208,7 @@ export default function Profile() {
                     disabled={cuiLoading}
                     className="btn btn-primary px-4 py-3 disabled:opacity-50 whitespace-nowrap"
                   >
-                    {cuiLoading ? 'Se caută...' : 'Caută ANAF'}
+                    {cuiLoading ? 'Se caută...' : 'Caută CUI'}
                   </button>
                 </div>
               </div>

@@ -79,7 +79,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
     const list = rows.map(row => companyFromRow(row, user.id))
     setCompanies(list)
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_COMPANY_KEY) : ''
+    const stored = localStorage.getItem(ACTIVE_COMPANY_KEY)
     const next = list.find(c => c.id === stored)?.id || list[0]?.id || ''
     setCompanyId(next)
     if (next) localStorage.setItem(ACTIVE_COMPANY_KEY, next)

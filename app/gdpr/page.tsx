@@ -14,7 +14,7 @@ export default function GDPR() {
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-10">
           <h1 className="text-4xl text-[color:var(--color-foreground)]">Politica de confidențialitate</h1>
-          <p className="text-gray-500 mt-2">Ultima actualizare: Mai 2026</p>
+          <p className="text-gray-500 mt-2">Ultima actualizare: Septembrie 2026</p>
         </div>
 
         <div className="space-y-8 text-gray-700">
@@ -74,7 +74,7 @@ export default function GDPR() {
             <div className="space-y-2 text-sm leading-relaxed">
               <p>✓ Pentru a furniza serviciul de facturare online</p>
               <p>✓ Pentru a genera și trimite facturi PDF</p>
-              <p>✓ Pentru a prelua date fiscale din registrul ANAF</p>
+              <p>✓ Pentru a prelua date fiscale din registrul public (CUI)</p>
               <p>✓ Pentru a trimite notificări despre cont și facturi</p>
               <p>✓ Pentru a îmbunătăți aplicația pe baza feedback-ului</p>
               <p className="text-red-500">✗ Nu vindem datele tale către terți</p>
@@ -106,8 +106,8 @@ export default function GDPR() {
                   <p className="text-gray-500 text-xs mt-1">Folosit exclusiv pentru trimiterea facturilor pe email. Date minime partajate.</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="font-medium text-gray-900">ANAF (date publice)</p>
-                  <p className="text-gray-500 text-xs mt-1">Consultăm registrul public ANAF pentru completarea automată a datelor fiscale.</p>
+                  <p className="font-medium text-gray-900">Registru public CUI</p>
+                  <p className="text-gray-500 text-xs mt-1">Completarea automată a datelor fiscale dintr-un registru public. Trimiterea e-Factura în SPV ANAF nu este activă în această versiune.</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="font-medium text-gray-900">Vercel (hosting)</p>
@@ -122,7 +122,7 @@ export default function GDPR() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="font-medium text-gray-900">Dreptul de acces</p>
-                <p className="text-gray-500 text-xs mt-1">Poți solicita oricând o copie a datelor tale.</p>
+                <p className="text-gray-500 text-xs mt-1">Poți exporta datele din Setări → Cont.</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="font-medium text-gray-900">Dreptul la rectificare</p>
@@ -130,11 +130,11 @@ export default function GDPR() {
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="font-medium text-gray-900">Dreptul la ștergere</p>
-                <p className="text-gray-500 text-xs mt-1">Poți solicita ștergerea contului și a datelor asociate.</p>
+                <p className="text-gray-500 text-xs mt-1">Poți șterge accesul la cont din Setări → Cont. Exportă facturile înainte; păstrarea lor 10 ani rămâne obligația ta legală.</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="font-medium text-gray-900">Dreptul la portabilitate</p>
-                <p className="text-gray-500 text-xs mt-1">Poți exporta datele tale în format structurat.</p>
+                <p className="text-gray-500 text-xs mt-1">Poți exporta datele în JSON din Setări → Cont.</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="font-medium text-gray-900">Dreptul la opoziție</p>
@@ -176,8 +176,7 @@ export default function GDPR() {
             </p>
             <div className="mt-3 bg-gray-50 rounded-xl p-4">
               <p className="text-sm font-medium text-gray-900">Facturo</p>
-              <p className="text-sm text-gray-500">Email: privacy@facturo.ro</p>
-              <p className="text-sm text-gray-500">Răspundem în maxim 72 de ore.</p>
+              <p className="text-sm text-gray-500">Pentru întrebări: folosește adresa de email a contului tău din aplicație. Nu promitem un SLA de răspuns.</p>
             </div>
           </div>
 

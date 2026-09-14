@@ -7,6 +7,9 @@ import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/I
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
+import { isDraftInvoice } from '@/lib/invoiceStatus'
+import { applyStornoToOriginal } from '@/lib/storno'
+import { defaultDueDate } from '@/lib/dates'
 
 interface Client {
   id: string
@@ -88,6 +91,7 @@ export default function EditInvoice() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [creditedInvoiceId, setCreditedInvoiceId] = useState<string | null>(null)
   const [form, setForm] = useState({
     series: 'FCT',
     invoice_number: '',
@@ -135,7 +139,12 @@ export default function EditInvoice() {
       router.push('/invoices')
       return
     }
+    if (!isDraftInvoice(invoice.status)) {
+      router.replace(`/invoices/${invoiceId}`)
+      return
+    }
 
+    setCreditedInvoiceId(invoice.credited_invoice_id || null)
     setForm({
       series: invoice.series,
       invoice_number: invoice.invoice_number,
@@ -180,7 +189,7 @@ export default function EditInvoice() {
       series: form.series,
       invoice_number: form.invoice_number,
       issue_date: form.issue_date,
-      due_date: form.due_date || form.issue_date,
+        due_date: form.due_date || defaultDueDate(form.issue_date),
       status,
       subtotal,
       tva_amount: tvaAmount,
@@ -211,7 +220,16 @@ export default function EditInvoice() {
       }))
     )
 
-    router.push('/invoices')
+    if (status === 'sent' && creditedInvoiceId && userId) {
+      await applyStornoToOriginal(supabase, {
+        originalId: creditedInvoiceId,
+        userId,
+        amount: total,
+        creditRef: `${form.series}${form.invoice_number}`
+      })
+    }
+
+    router.push(`/invoices/${invoiceId}`)
     setSaving(false)
   }
 
@@ -229,10 +247,10 @@ export default function EditInvoice() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Editează factură</h2>
-            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}</p>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}{form.invoice_type_code === '381' ? ' · storno' : ''}</p>
           </div>
-          <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
-            ← Înapoi la facturi
+          <Link href={`/invoices/${invoiceId}`} className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
+            ← Înapoi la document
           </Link>
         </div>
 

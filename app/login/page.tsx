@@ -76,6 +76,11 @@ export default function Login() {
           </Link>
         </p>
         <p className="text-center text-sm mt-3">
+          <Link href="/forgot-password" className="text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
+            Ai uitat parola?
+          </Link>
+        </p>
+        <p className="text-center text-sm mt-3">
           <Link href="/" className="text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
             ← Înapoi la pagina principală
           </Link>

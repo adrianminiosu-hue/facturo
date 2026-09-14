@@ -61,7 +61,7 @@ export default function IncasariPage() {
   const load = async () => {
     let query = supabase
       .from('invoices')
-      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, clients(company_name, email)')
+      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, invoice_type_code, clients(company_name, email)')
       .eq('user_id', userId)
       .in('status', ['sent', 'overdue'])
       .order('due_date', { ascending: true })
@@ -75,7 +75,7 @@ export default function IncasariPage() {
         .order('due_date', { ascending: true })
       setRows((fallback.data || []) as unknown as Row[])
     } else {
-      setRows((data || []) as unknown as Row[])
+      setRows(((data || []) as unknown as Row[]).filter(row => (row as Row & { invoice_type_code?: string }).invoice_type_code !== '381'))
     }
     setLoading(false)
   }
@@ -284,7 +284,7 @@ export default function IncasariPage() {
                     >
                       Încasare
                     </button>
-                    <Link href={`/invoices/${row.id}/edit`} className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">
+                    <Link href={`/invoices/${row.id}`} className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">
                       Deschide
                     </Link>
                   </div>

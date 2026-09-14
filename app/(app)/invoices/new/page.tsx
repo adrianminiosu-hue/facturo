@@ -7,6 +7,8 @@ import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/I
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
+import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
+import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 
 interface Client {
   id: string
@@ -85,11 +87,12 @@ export default function NewInvoice() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
+  const [dueManual, setDueManual] = useState(false)
   const [form, setForm] = useState({
     series: 'FCT',
     invoice_number: '',
-    issue_date: new Date().toISOString().split('T')[0],
-    due_date: '',
+    issue_date: calendarDateInBucharest(0),
+    due_date: defaultDueDate(calendarDateInBucharest(0)),
     notes: '',
     invoice_type_code: '380',
     currency: 'RON',
@@ -123,12 +126,13 @@ export default function NewInvoice() {
 
   const generateInvoiceNumber = async () => {
     const series = company?.invoice_series || 'FCT'
-    let query = supabase.from('invoices').select('invoice_number').eq('series', series).order('created_at', { ascending: false }).limit(1)
-    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
-    const { data } = await query
-    const last = data?.[0]?.invoice_number
-    const nextNum = last ? parseInt(last.replace(/\D/g, '')) + 1 : (company?.invoice_start_number || 1)
-    setForm(f => ({ ...f, invoice_number: String(nextNum).padStart(4, '0') }))
+    const next = await nextInvoiceNumber(supabase, {
+      series,
+      companyId: company?.id,
+      userId,
+      startNumber: company?.invoice_start_number
+    })
+    setForm(f => ({ ...f, series, invoice_number: next }))
   }
 
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
@@ -150,7 +154,7 @@ export default function NewInvoice() {
         invoice_number: form.invoice_number,
         series: form.series,
         issue_date: form.issue_date,
-        due_date: form.due_date || form.issue_date,
+        due_date: form.due_date || defaultDueDate(form.issue_date),
         status,
         subtotal,
         tva_rate: items[0]?.tva_rate ?? 21,
@@ -185,7 +189,7 @@ export default function NewInvoice() {
       }))
     )
 
-    router.push('/invoices')
+    router.push(`/invoices/${invoice.id}`)
     setSaving(false)
   }
 
@@ -233,7 +237,14 @@ export default function NewInvoice() {
                 <input
                   type="date"
                   value={form.issue_date}
-                  onChange={e => setForm(f => ({ ...f, issue_date: e.target.value }))}
+                  onChange={e => {
+                    const issue_date = e.target.value
+                    setForm(f => ({
+                      ...f,
+                      issue_date,
+                      due_date: dueManual ? f.due_date : defaultDueDate(issue_date)
+                    }))
+                  }}
                   className="input"
                 />
               </div>
@@ -242,7 +253,10 @@ export default function NewInvoice() {
                 <input
                   type="date"
                   value={form.due_date}
-                  onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+                  onChange={e => {
+                    setDueManual(true)
+                    setForm(f => ({ ...f, due_date: e.target.value }))
+                  }}
                   className="input"
                 />
               </div>

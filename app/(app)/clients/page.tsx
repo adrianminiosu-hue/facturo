@@ -120,7 +120,7 @@ export default function Clients() {
           vat_registered: data.vat_registered ?? f.vat_registered
         }))
       } else {
-        alert('CUI negăsit în ANAF. Verifică numărul și încearcă din nou.')
+        alert('CUI negăsit în registrul public. Verifică numărul și încearcă din nou.')
       }
     } catch (e) {
       alert('Eroare de conexiune. Încearcă din nou.')
@@ -259,7 +259,7 @@ export default function Clients() {
                 </h3>
                 {editClient && (
                   <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-                    Datele fiscale sunt preluate din ANAF și nu pot fi modificate.
+                    Datele fiscale sunt preluate din registrul public și nu pot fi modificate.
                   </p>
                 )}
               </div>
@@ -273,7 +273,7 @@ export default function Clients() {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">
-                  Date fiscale {editClient && '· preluate din ANAF'}
+                  Date fiscale {editClient && '· preluate din registru'}
                 </p>
                 {!editClient && (
                   <button
@@ -303,7 +303,7 @@ export default function Clients() {
                         disabled={cuiLoading}
                         className="btn btn-primary px-4 disabled:opacity-50 whitespace-nowrap"
                       >
-                        {cuiLoading ? 'Se caută...' : 'Caută ANAF'}
+                        {cuiLoading ? 'Se caută...' : 'Caută CUI'}
                       </button>
                     </div>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
@@ -484,7 +484,7 @@ export default function Clients() {
             <p className="text-3xl mb-3">👥</p>
             <p className="font-medium text-[color:var(--color-foreground)]">Nu ai niciun client încă</p>
             <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">
-              Adaugă primul tău client cu completare automată din ANAF
+              Adaugă primul tău client cu completare automată din registrul public
             </p>
             <button onClick={openNew} className="btn btn-primary px-6 py-2">
               + Adaugă primul client

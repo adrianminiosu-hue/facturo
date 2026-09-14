@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
+import InvoiceOverflow from '@/components/InvoiceOverflow'
+import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
+import { INVOICE_STATUS_LABEL, isDraftInvoice } from '@/lib/invoiceStatus'
 
 interface Invoice {
   id: string
@@ -27,8 +30,8 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [filterClientId, setFilterClientId] = useState('')
-  const [filterFrom, setFilterFrom] = useState('') // yyyy-mm-dd
-  const [filterTo, setFilterTo] = useState('') // yyyy-mm-dd
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo, setFilterTo] = useState('')
   const [spvBusyId, setSpvBusyId] = useState('')
   const [spvResult, setSpvResult] = useState<{
     invoiceRef: string
@@ -65,59 +68,23 @@ export default function Invoices() {
     setLoading(false)
   }
 
-  const statusLabel: Record<string, { label: string, style: string }> = {
-    draft: { label: 'Ciornă', style: 'bg-gray-100 text-gray-600' },
-    sent: { label: 'Emisă', style: 'bg-blue-50 text-blue-600' },
-    paid: { label: 'Plătită', style: 'bg-green-50 text-green-600' },
-    overdue: { label: 'Restantă', style: 'bg-red-50 text-red-600' }
-  }
-
-  const markAsPaid = async (id: string) => {
-    await supabase.from('invoices').update({ status: 'paid' }).eq('id', id)
-    loadInvoices()
-  }
-
-  const downloadPDF = async (invoice: Invoice) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const url = `/api/invoice-pdf?id=${invoice.id}&userId=${user?.id}`
-    window.open(url, '_blank')
-  }
-
-  const downloadXML = async (invoice: Invoice) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const url = `/api/invoice-xml?id=${invoice.id}&userId=${user?.id}`
-    const res = await fetch(url)
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: 'Eroare XML' }))
-      alert(data.error || 'Nu s-a putut genera XML-ul e-Factura. Completează județul, adresa și UM.')
-      return
+  const runXml = async (invoice: Invoice) => {
+    try {
+      await downloadInvoiceXml(invoice.id, userId, `e-Factura-${invoice.series}${invoice.invoice_number}.xml`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Eroare XML')
     }
-    const blob = await res.blob()
-    const href = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = href
-    link.download = `e-Factura-${invoice.series}${invoice.invoice_number}.xml`
-    link.click()
-    URL.revokeObjectURL(href)
   }
 
   const sendToSpvTest = async (invoice: Invoice) => {
     if (!confirm(`Simulezi trimiterea ${invoice.series}${invoice.invoice_number} în e-Factura SPV (mediu TEST)?\n\nNu se folosește certificat și nu se trimite nimic la ANAF.`)) return
     setSpvBusyId(invoice.id)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const res = await fetch('/api/efactura/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id, userId: user?.id })
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        alert(data.error || 'Eroare simulare SPV')
-        return
-      }
+      const data = await simulateSpvUpload(invoice.id, userId)
       setSpvResult(data)
       loadInvoices()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Eroare simulare SPV')
     } finally {
       setSpvBusyId('')
     }
@@ -125,20 +92,15 @@ export default function Invoices() {
 
   const sendInvoice = async (invoice: Invoice) => {
     if (!confirm(`Trimiți factura ${invoice.series}${invoice.invoice_number} pe email?`)) return
-    const { data: { user } } = await supabase.auth.getUser()
-    const res = await fetch('/api/send-invoice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoiceId: invoice.id, userId: user?.id })
-    })
-    const data = await res.json()
-    if (data.success) {
-      alert('✓ Factura a fost trimisă cu succes!')
+    try {
+      await sendInvoiceEmail(invoice.id, userId)
+      alert('Factura a fost trimisă.')
       loadInvoices()
-    } else {
-      alert(`Eroare: ${data.error}`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Eroare email')
     }
   }
+
   const deleteInvoice = async (id: string) => {
     if (!confirm('Ești sigur că vrei să ștergi această ciornă?')) return
     await supabase.from('invoice_items').delete().eq('invoice_id', id)
@@ -147,7 +109,6 @@ export default function Invoices() {
   }
 
   const parseDate = (value: string) => {
-    // expects yyyy-mm-dd; treat empty as invalid
     const d = new Date(value)
     return Number.isNaN(d.getTime()) ? null : d
   }
@@ -162,7 +123,6 @@ export default function Invoices() {
       if (!invDate) return false
       if (fromDate && invDate < fromDate) return false
       if (toDate) {
-        // inclusive end date (end of day)
         const end = new Date(toDate)
         end.setHours(23, 59, 59, 999)
         if (invDate > end) return false
@@ -196,13 +156,10 @@ export default function Invoices() {
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {company?.company_name ? `${company.company_name} · ` : ''}
-              {filteredInvoices.length} facturi{filtersActive ? ` din ${invoices.length}` : ''} · {unpaidCount} neplatite
+              {filteredInvoices.length} facturi{filtersActive ? ` din ${invoices.length}` : ''} · {unpaidCount} neplătite
             </p>
           </div>
-          <Link
-            href="/invoices/new"
-            className="btn btn-primary"
-          >
+          <Link href="/invoices/new" className="btn btn-primary">
             + Factură nouă
           </Link>
         </div>
@@ -217,7 +174,7 @@ export default function Invoices() {
             <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{totalValue.toFixed(0)} RON</p>
           </div>
           <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">Neplatite</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">Neplătite</p>
             <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{unpaidCount}</p>
           </div>
         </div>
@@ -290,7 +247,7 @@ export default function Invoices() {
               </div>
             ) : (
               <div className="card overflow-hidden">
-                <div className="grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(18rem,auto)] gap-x-4 px-6 py-3 border-b border-gray-50">
+                <div className="grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(9rem,auto)] gap-x-4 px-6 py-3 border-b border-gray-50">
                   <span className="text-xs font-medium text-gray-400">NUMĂR</span>
                   <span className="text-xs font-medium text-gray-400">CLIENT</span>
                   <span className="text-xs font-medium text-gray-400">DATA</span>
@@ -299,17 +256,17 @@ export default function Invoices() {
                   <span className="text-xs font-medium text-gray-400 text-right">ACȚIUNI</span>
                 </div>
                 {filteredInvoices.map((invoice, i) => (
-                  <div key={invoice.id} className={`grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(18rem,auto)] gap-x-4 px-6 py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                    <span className="text-sm font-medium text-[color:var(--color-foreground)]">
+                  <div key={invoice.id} className={`grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(9rem,auto)] gap-x-4 px-6 py-4 items-center ${i !== filteredInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                    <Link href={`/invoices/${invoice.id}`} className="text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
                       {invoice.series}{invoice.invoice_number}
-                    </span>
+                    </Link>
                     <span className="text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
                       {invoice.clients?.company_name || '—'}
                     </span>
                     <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
                     <span>
-                      <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${statusLabel[invoice.status]?.style}`}>
-                        {statusLabel[invoice.status]?.label}
+                      <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${INVOICE_STATUS_LABEL[invoice.status]?.style}`}>
+                        {INVOICE_STATUS_LABEL[invoice.status]?.label}
                       </span>
                       {invoice.efactura_status === 'accepted' && (
                         <p className="text-[10px] text-green-600 mt-1 font-medium">SPV test · acceptat</p>
@@ -322,72 +279,48 @@ export default function Invoices() {
                       {invoice.total.toFixed(0)} RON
                     </span>
                     <div className="flex flex-nowrap items-center justify-end gap-1.5">
-                      {invoice.status === 'draft' && (
-                        <>
-                          <Link
-                            href={`/invoices/${invoice.id}/edit`}
-                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                          >
-                            Editează
-                          </Link>
-                          <button
-                            onClick={() => downloadXML(invoice)}
-                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                          >
-                            XML SPV
-                          </button>
-                          <button
-                            onClick={() => sendToSpvTest(invoice)}
-                            disabled={spvBusyId === invoice.id}
-                            className="text-xs border border-amber-200 text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition disabled:opacity-50"
-                          >
-                            {spvBusyId === invoice.id ? 'SPV...' : 'SPV test'}
-                          </button>
-                          <button
-                            onClick={() => deleteInvoice(invoice.id)}
-                            className="text-xs border border-red-100 text-red-500 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                          >
-                            Șterge
-                          </button>
-                        </>
-                      )}
-                      {invoice.status === 'sent' && (
-                        <button
-                          onClick={() => markAsPaid(invoice.id)}
-                          className="text-xs border border-green-200 text-green-600 px-2 py-1.5 rounded-lg hover:bg-green-50 transition"
+                      {isDraftInvoice(invoice.status) ? (
+                        <Link
+                          href={`/invoices/${invoice.id}/edit`}
+                          className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
                         >
-                          Plătită
-                        </button>
+                          Editează
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/invoices/${invoice.id}`}
+                          className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                        >
+                          Deschide
+                        </Link>
                       )}
-                      {invoice.status !== 'draft' && (
-                        <>
-                          <button
-                            onClick={() => downloadPDF(invoice)}
-                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                          >
-                            PDF ↓
-                          </button>
-                          <button
-                            onClick={() => downloadXML(invoice)}
-                            className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition"
-                          >
-                            XML SPV
-                          </button>
-                          <button
-                            onClick={() => sendToSpvTest(invoice)}
-                            disabled={spvBusyId === invoice.id}
-                            className="text-xs border border-amber-200 text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition disabled:opacity-50"
-                          >
-                            {spvBusyId === invoice.id ? 'SPV...' : 'SPV test'}
-                          </button>
-                          <button
-                            onClick={() => sendInvoice(invoice)}
-                            className="text-xs border border-blue-100 text-blue-600 px-2 py-1.5 rounded-lg hover:bg-blue-50 transition"
-                          >
-                            ✉ Email
-                          </button>
-                        </>
-                      )}
+                      <InvoiceOverflow
+                        actions={[
+                          ...(!isDraftInvoice(invoice.status) ? [{
+                            label: 'PDF',
+                            onClick: () => downloadInvoicePdf(invoice.id, userId)
+                          }] : []),
+                          {
+                            label: 'XML e-Factura',
+                            onClick: () => runXml(invoice)
+                          },
+                          {
+                            label: 'Email',
+                            onClick: () => sendInvoice(invoice),
+                            disabled: isDraftInvoice(invoice.status)
+                          },
+                          {
+                            label: 'SPV test (simulare)',
+                            onClick: () => sendToSpvTest(invoice),
+                            disabled: spvBusyId === invoice.id
+                          },
+                          ...(isDraftInvoice(invoice.status) ? [{
+                            label: 'Șterge ciorna',
+                            onClick: () => deleteInvoice(invoice.id),
+                            danger: true
+                          }] : [])
+                        ]}
+                      />
                     </div>
                   </div>
                 ))}
@@ -399,7 +332,7 @@ export default function Invoices() {
 
       {spvResult && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSpvResult(null)}>
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Simulare e-Factura SPV (test)</h3>

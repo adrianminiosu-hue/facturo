@@ -2,7 +2,7 @@ import Link from 'next/link'
 import BrandLockup from '@/components/BrandLockup'
 
 const features = [
-  { n: '01', title: 'Completare ANAF', text: 'Introdu CUI-ul și datele fiscale se completează din registrul național. Fără transcriere.' },
+  { n: '01', title: 'Completare CUI', text: 'Introdu CUI-ul și datele fiscale se completează din registrul public. Fără transcriere.' },
   { n: '02', title: 'PDF de atelier', text: 'Facturi cu aspect editorial, cu toate câmpurile obligatorii pentru România.' },
   { n: '03', title: 'Trimite pe email', text: 'Un click. PDF-ul pleacă atașat, cu datele firmei tale pe document.' },
   { n: '04', title: 'TVA în timp real', text: '21%, 9%, 5% sau scutit. Totalurile se calculează pe măsură ce scrii.' },
@@ -32,7 +32,7 @@ export default function Home() {
           </h1>
           <p className="text-lg md:text-xl text-[color:var(--color-muted-foreground)] max-w-xl mx-auto mb-10 leading-relaxed text-pretty">
             Emite, trimite și urmărește facturi pentru firmele pe care le administrezi —
-            cu date ANAF, PDF și XML, într-un spațiu construit pentru contabil.
+            cu date din registrul public, PDF și XML, într-un spațiu construit pentru contabil.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register" className="btn btn-primary px-8 py-3.5 text-base">
@@ -43,7 +43,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="text-sm text-[color:var(--color-muted-foreground)] mt-5">
-            Fără card · Primele 5 facturi sunt ale tale
+            Fără card · Poți începe gratuit
           </p>
         </div>
       </section>
@@ -92,7 +92,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {[
               ['01', 'Contul', 'Înregistrare în câteva secunde.'],
-              ['02', 'Firma', 'CUI → date preluate din ANAF.'],
+              ['02', 'Firma', 'CUI → date preluate din registrul public.'],
               ['03', 'Clientul', 'Același ritm, pentru fiecare partener.'],
               ['04', 'Emiterea', 'PDF, email, XML — din aceeași pagină.']
             ].map(([n, t, d]) => (

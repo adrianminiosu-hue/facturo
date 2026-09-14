@@ -108,6 +108,8 @@ export type EfacturaInvoice = {
   order_reference?: string | null
   period_start?: string | null
   period_end?: string | null
+  billing_reference?: string | null
+  billing_reference_date?: string | null
 }
 
 export function missingEfacturaFields(input: {
@@ -268,6 +270,12 @@ export function generateEfacturaXml(input: {
   ${el('cbc:DocumentCurrencyCode', currency)}
   ${invoice.buyer_reference ? el('cbc:BuyerReference', invoice.buyer_reference) : ''}
   ${invoice.order_reference ? `<cac:OrderReference>${el('cbc:ID', invoice.order_reference)}</cac:OrderReference>` : ''}
+  ${invoice.billing_reference ? `<cac:BillingReference>
+    <cac:InvoiceDocumentReference>
+      ${el('cbc:ID', invoice.billing_reference)}
+      ${invoice.billing_reference_date ? el('cbc:IssueDate', invoice.billing_reference_date) : ''}
+    </cac:InvoiceDocumentReference>
+  </cac:BillingReference>` : ''}
   ${(invoice.period_start || invoice.period_end) ? `<cac:InvoicePeriod>
     ${el('cbc:StartDate', invoice.period_start)}
     ${el('cbc:EndDate', invoice.period_end)}

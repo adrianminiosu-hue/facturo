@@ -45,7 +45,7 @@ export default function CompaniesPage() {
             />
             <input
               className="input"
-              placeholder="CUI (opțional, completezi apoi din ANAF)"
+              placeholder="CUI (opțional, completezi apoi din registrul public)"
               value={cui}
               onChange={e => setCui(e.target.value)}
             />

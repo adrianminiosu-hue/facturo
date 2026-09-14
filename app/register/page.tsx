@@ -10,11 +10,16 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!consent) {
+      setError('Acceptă politica de confidențialitate pentru a continua')
+      return
+    }
     if (password !== confirm) {
       setError('Parolele nu coincid')
       return
@@ -81,6 +86,21 @@ export default function Register() {
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
+          <label className="flex items-start gap-2 text-sm text-[color:var(--color-muted-foreground)]">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={e => setConsent(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              Am citit și accept{' '}
+              <Link href="/gdpr" className="underline text-[color:var(--color-foreground)]">
+                politica de confidențialitate
+              </Link>
+              .
+            </span>
+          </label>
           <button
             type="submit"
             disabled={loading}

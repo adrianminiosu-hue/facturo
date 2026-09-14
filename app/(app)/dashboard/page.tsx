@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
+import { INVOICE_STATUS_LABEL } from '@/lib/invoiceStatus'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -22,6 +23,11 @@ export default function Dashboard() {
     unpaidCount: 0,
     recentInvoices: [] as any[]
   })
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+
+  useEffect(() => {
+    setBannerDismissed(localStorage.getItem('facturo_onboarding_dismissed') === '1')
+  }, [])
 
   useEffect(() => {
     const getUser = async () => {
@@ -78,12 +84,7 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  const statusLabel: Record<string, { label: string, style: string }> = {
-    draft: { label: 'Ciornă', style: 'bg-gray-100 text-gray-600' },
-    sent: { label: 'Emisă', style: 'bg-blue-50 text-blue-600' },
-    paid: { label: 'Plătită', style: 'bg-green-50 text-green-600' },
-    overdue: { label: 'Restantă', style: 'bg-red-50 text-red-600' }
-  }
+  const statusLabel = INVOICE_STATUS_LABEL
 
   const completedSteps = Object.values(steps).filter(Boolean).length
   const progressPct = (completedSteps / 3) * 100
@@ -101,7 +102,7 @@ export default function Dashboard() {
       <div className="max-w-5xl mx-auto px-8 py-8">
 
         {/* Onboarding banner */}
-        {onboarding && (
+        {onboarding && !bannerDismissed && (
           <div className="card p-8 mb-8">
             <div className="flex items-start justify-between mb-6">
               <div>
@@ -109,7 +110,11 @@ export default function Dashboard() {
                 <p className="text-[color:var(--color-muted-foreground)] mt-1">Completează cei 3 pași pentru a emite prima ta factură</p>
               </div>
               <button
-                onClick={() => setOnboarding(false)}
+                onClick={() => {
+                  localStorage.setItem('facturo_onboarding_dismissed', '1')
+                  setBannerDismissed(true)
+                  setOnboarding(false)
+                }}
                 className="text-gray-300 hover:text-gray-500 transition text-xl"
               >×</button>
             </div>
@@ -154,7 +159,7 @@ export default function Dashboard() {
                   </div>
                   <p className="font-medium text-[color:var(--color-foreground)]">Primul client</p>
                 </div>
-                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Adaugă un client cu completare automată din ANAF.</p>
+                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Adaugă un client cu completare automată din registrul public.</p>
                 {steps.client ? (
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-green-600 font-medium">✓ Completat</p>
@@ -188,7 +193,14 @@ export default function Dashboard() {
             {completedSteps === 3 && (
               <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
                 <p className="text-green-700 font-medium">🎉 Felicitări! Ai completat configurarea Facturo!</p>
-                <button onClick={() => setOnboarding(false)} className="mt-2 text-sm text-green-600 hover:text-green-800 underline">
+                <button
+                  onClick={() => {
+                    localStorage.setItem('facturo_onboarding_dismissed', '1')
+                    setBannerDismissed(true)
+                    setOnboarding(false)
+                  }}
+                  className="mt-2 text-sm text-green-600 hover:text-green-800 underline"
+                >
                   Închide acest mesaj
                 </button>
               </div>
@@ -270,9 +282,9 @@ export default function Dashboard() {
               </div>
               {stats.recentInvoices.map((invoice: any) => (
                 <div key={invoice.id} className="grid grid-cols-12 py-3 border-b border-gray-50 last:border-0 items-center">
-                  <span className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)]">
+                  <Link href={`/invoices/${invoice.id}`} className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
                     {invoice.series}{invoice.invoice_number}
-                  </span>
+                  </Link>
                   <span className="col-span-4 text-sm text-[color:var(--color-muted-foreground)]">
                     {invoice.clients?.company_name || '—'}
                   </span>

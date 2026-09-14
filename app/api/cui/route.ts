@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { countyCodeFromName } from '@/lib/romania'
+import { bucharestSectorFromText, countyCodeFromName } from '@/lib/romania'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
         company_name: data.denumire || '',
         reg_com: data.numar_reg_com || '',
         address: data.adresa || data.strada || '',
-        city: county_code === 'B' ? '' : (data.localitate || ''),
+        city: county_code === 'B'
+          ? bucharestSectorFromText(data.adresa, data.localitate, data.strada, data.sector)
+          : (data.localitate || ''),
         county,
         county_code,
         postal_code: data.cod_postal || '',
