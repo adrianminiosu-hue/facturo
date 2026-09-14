@@ -58,6 +58,9 @@ create policy client_addresses_own on client_addresses
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+grant select, insert, update, delete on table client_contacts to authenticated, service_role;
+grant select, insert, update, delete on table client_addresses to authenticated, service_role;
+
 create or replace function client_addresses_before_write()
 returns trigger
 language plpgsql

@@ -351,7 +351,7 @@ export default function Clients() {
                 </h3>
                 {editClient && (
                   <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-                    Datele fiscale sunt preluate din registrul public și nu pot fi modificate.
+                    CUI, denumirea și nr. de înregistrare sunt preluate din registrul public și nu pot fi modificate.
                   </p>
                 )}
               </div>
