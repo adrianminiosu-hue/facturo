@@ -8,34 +8,29 @@ import { useCompany } from '@/components/CompanyProvider'
 import ClientContactsFields from '@/components/ClientContactsFields'
 import ClientAddressesFields from '@/components/ClientAddressesFields'
 import { countyCodeFromName } from '@/lib/romania'
+import BankDetailsFields from '@/components/BankDetailsFields'
+import { normalizeIban } from '@/lib/iban'
+import {
+  isMissingBicColumnError,
+  normalizeBic,
+  validateClientBankDetails,
+  withoutBicColumn
+} from '@/lib/roBanks'
 import {
   addressInsertRows,
   addressTypeLabel,
   addressesFromClient,
-  applyCuiToDefaultAddress,
+  applyCuiToFirstAddress,
   contactInsertRows,
   contactsFromRows,
   defaultAddressFields,
   defaultAddressFromList,
-  emptyClientAddress,
+  firstClientAddress,
   type ClientAddressDraft,
   type ClientAddressRow,
   type ClientContactDraft,
   type ClientContactRow
 } from '@/lib/clientDirectory'
-
-const ROMANIAN_BANKS = [
-  'Banca Transilvania',
-  'UniCredit Bank',
-  'Raiffeisen Bank',
-  'BCR',
-  'BRD',
-  'ING Bank',
-  'Alpha Bank',
-  'CEC Bank',
-  'OTP Bank',
-  'Garanti BBVA'
-]
 
 interface Client {
   id: string
@@ -55,6 +50,7 @@ interface Client {
   phone: string
   bank_name: string
   iban: string
+  bic?: string
   client_contacts?: ClientContactRow[]
   client_addresses?: ClientAddressRow[]
 }
@@ -67,7 +63,8 @@ const emptyForm = {
   email: '',
   phone: '',
   bank_name: '',
-  iban: ''
+  iban: '',
+  bic: ''
 }
 
 export default function Clients() {
@@ -81,12 +78,12 @@ export default function Clients() {
   const [cuiLoading, setCuiLoading] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [contacts, setContacts] = useState<ClientContactDraft[]>([])
-  const [addresses, setAddresses] = useState<ClientAddressDraft[]>([emptyClientAddress(true)])
+  const [addresses, setAddresses] = useState<ClientAddressDraft[]>([firstClientAddress()])
   const [search, setSearch] = useState('')
   const [manualEdit, setManualEdit] = useState(false)
 
   const phoneValid = !form.phone || isValidRomanianMobile(form.phone)
-  const ibanValid = !form.iban || (form.iban.startsWith('RO') && form.iban.length === 24)
+  const bankDetails = validateClientBankDetails(form)
 
   const filteredClients = search.trim()
     ? clients.filter(c =>
@@ -140,12 +137,13 @@ export default function Clients() {
           reg_com: data.reg_com || f.reg_com,
           vat_registered: data.vat_registered ?? f.vat_registered
         }))
-        setAddresses(current => applyCuiToDefaultAddress(current, {
+        setAddresses(current => applyCuiToFirstAddress(current, {
           address: data.address,
           city: data.city,
           county: data.county,
           county_code: data.county_code,
-          postal_code: data.postal_code
+          postal_code: data.postal_code,
+          country: data.country || 'RO'
         }))
       } else {
         alert('CUI negăsit în registrul public. Verifică numărul și încearcă din nou.')
@@ -160,7 +158,7 @@ export default function Clients() {
     setEditClient(null)
     setForm(emptyForm)
     setContacts([])
-    setAddresses([emptyClientAddress(true)])
+    setAddresses([firstClientAddress()])
     setManualEdit(false)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -176,14 +174,15 @@ export default function Clients() {
       email: client.email || '',
       phone: client.phone || '',
       bank_name: client.bank_name || '',
-      iban: client.iban || ''
+      iban: normalizeIban(client.iban),
+      bic: normalizeBic(client.bic)
     })
     setContacts(contactsFromRows(client.client_contacts))
     const loaded = addressesFromClient({
       ...client,
       county_code: client.county_code || countyCodeFromName(client.county) || ''
     })
-    setAddresses(loaded.length ? loaded : [emptyClientAddress(true)])
+    setAddresses(loaded.length ? loaded : [firstClientAddress()])
     setManualEdit(false)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -214,8 +213,8 @@ export default function Clients() {
       alert('Număr de mobil invalid. Format acceptat: 07xxxxxxxx sau +407xxxxxxxx.')
       return
     }
-    if (form.iban && !ibanValid) {
-      alert('IBAN invalid! Trebuie să înceapă cu RO și să aibă exact 24 de caractere.')
+    if (!bankDetails.ok) {
+      alert(bankDetails.error || 'Datele bancare sunt invalide.')
       return
     }
     for (const contact of contacts) {
@@ -232,25 +231,33 @@ export default function Clients() {
     const addressFields = defaultAddressFields(addresses)
     const payload = {
       ...form,
-      ...addressFields
+      ...addressFields,
+      iban: normalizeIban(form.iban),
+      bic: normalizeBic(form.bic)
     }
     if (editClient) {
-      const { error } = await supabase
+      const updateRow = {
+        email: form.email,
+        phone: form.phone,
+        bank_name: form.bank_name,
+        iban: payload.iban,
+        bic: payload.bic,
+        address: payload.address,
+        county_code: payload.county_code,
+        postal_code: payload.postal_code,
+        country: payload.country,
+        city: payload.city,
+        county: payload.county,
+        vat_registered: form.vat_registered
+      }
+      let { error } = await supabase
         .from('clients')
-        .update({
-          email: form.email,
-          phone: form.phone,
-          bank_name: form.bank_name,
-          iban: form.iban,
-          address: payload.address,
-          county_code: payload.county_code,
-          postal_code: payload.postal_code,
-          country: payload.country,
-          city: payload.city,
-          county: payload.county,
-          vat_registered: form.vat_registered
-        })
+        .update(updateRow)
         .eq('id', editClient.id)
+      if (error && isMissingBicColumnError(error)) {
+        const retry = await supabase.from('clients').update(withoutBicColumn(updateRow)).eq('id', editClient.id)
+        error = retry.error
+      }
       if (error) {
         alert(error.message)
         setSaving(false)
@@ -266,11 +273,17 @@ export default function Clients() {
       setEditClient(null)
       loadClients()
     } else {
-      const { data, error } = await supabase
+      const insertRow = { ...payload, user_id: userId, ...(company?.id ? { company_id: company.id } : {}) }
+      let { data, error } = await supabase
         .from('clients')
-        .insert({ ...payload, user_id: userId, ...(company?.id ? { company_id: company.id } : {}) })
+        .insert(insertRow)
         .select('*')
         .single()
+      if (error && isMissingBicColumnError(error)) {
+        const retry = await supabase.from('clients').insert(withoutBicColumn(insertRow)).select('*').single()
+        data = retry.data
+        error = retry.error
+      }
       if (error || !data) {
         alert(error?.message || 'Clientul nu a putut fi salvat.')
         setSaving(false)
@@ -399,7 +412,7 @@ export default function Clients() {
                       </button>
                     </div>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-                      Nu găsești compania? <button onClick={() => setManualEdit(true)} className="text-blue-500 underline">Completează manual</button>
+                      Adresa de sediu social se completează automat mai jos. Nu găsești compania? <button onClick={() => setManualEdit(true)} className="text-blue-500 underline">Completează manual</button>
                     </p>
                   </div>
                 )}
@@ -491,42 +504,10 @@ export default function Clients() {
                     <p className="text-red-500 text-xs mt-1">Mobil invalid (ex: 0721234567 sau +40721234567)</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Bancă emitentă</label>
-                  <select
-                    value={form.bank_name}
-                    onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))}
-                    className="input bg-white"
-                  >
-                    <option value="">Selectează banca...</option>
-                    {ROMANIAN_BANKS.map(bank => (
-                      <option key={bank} value={bank}>{bank}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Cont bancar (IBAN)</label>
-                  <input
-                    type="text"
-                    value={form.iban}
-                    onChange={e => setForm(f => ({ ...f, iban: e.target.value.toUpperCase() }))}
-                    className={`input ${
-                      form.iban && !ibanValid ? 'border-red-300 bg-red-50' :
-                      form.iban && ibanValid ? 'border-green-300 bg-green-50' : ''
-                    }`}
-                    placeholder="RO49AAAA1B31007593840000"
-                    maxLength={24}
-                  />
-                  {form.iban && !form.iban.startsWith('RO') && (
-                    <p className="text-red-500 text-xs mt-1">IBAN-ul trebuie să înceapă cu RO</p>
-                  )}
-                  {form.iban && form.iban.startsWith('RO') && form.iban.length !== 24 && (
-                    <p className="text-amber-500 text-xs mt-1">{24 - form.iban.length} caractere rămase</p>
-                  )}
-                  {form.iban && ibanValid && (
-                    <p className="text-green-500 text-xs mt-1">✓ IBAN valid</p>
-                  )}
-                </div>
+                <BankDetailsFields
+                  value={{ bank_name: form.bank_name, iban: form.iban, bic: form.bic }}
+                  onChange={next => setForm(f => ({ ...f, ...next }))}
+                />
               </div>
             </div>
 
@@ -616,6 +597,11 @@ export default function Clients() {
                     <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5 font-mono">
                       {client.iban ? `${client.iban.substring(0, 8)}...` : '—'}
                     </p>
+                    {client.iban && client.bic && (
+                      <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5 font-mono">
+                        {client.bic}
+                      </p>
+                    )}
                   </div>
                   <div className="col-span-2 flex items-center justify-end gap-2">
                     <button

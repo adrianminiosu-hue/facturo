@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import type { MatchRow, OpenInvoice } from '@/lib/paymentMatch'
+import { formatRon } from '@/lib/money'
 
 type ImportAction = 'import' | 'unallocated' | 'skip'
 
@@ -19,7 +20,7 @@ type PreviewResponse = {
 type DraftLine = MatchRow & { action: ImportAction; invoiceId: string }
 
 function ron(n: number) {
-  return `${Number(n).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`
+  return formatRon(n)
 }
 
 function remaining(inv: OpenInvoice) {

@@ -4,7 +4,8 @@ import { generateEfacturaXml } from '@/lib/efactura'
 import { simulateSpvUpload } from '@/lib/efacturaSpv'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
-import { isDraftInvoice } from '@/lib/invoiceStatus'
+import { isDraftInvoice, alreadySentToSpv, ALREADY_SENT_TO_SPV } from '@/lib/invoiceStatus'
+import { persistSpvAccepted } from '@/lib/spvPersist'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,6 +62,16 @@ async function processOne(
     }
   }
 
+  if (alreadySentToSpv(invoice)) {
+    return {
+      invoiceId,
+      invoiceRef,
+      outcome: 'skipped',
+      error: ALREADY_SENT_TO_SPV,
+      httpStatus: 400
+    }
+  }
+
   const { data: items } = await supabase
     .from('invoice_items')
     .select('*')
@@ -90,16 +101,19 @@ async function processOne(
     xmlError
   })
 
-  await supabase.from('invoices').update({
-    efactura_status: result.executionStatus === '0' ? 'accepted' : 'rejected',
-    efactura_index: result.indexIncarcare || null,
-    efactura_error: result.error || null,
-    efactura_environment: 'test-sim',
-    efactura_uploaded_at: new Date().toISOString()
-  }).eq('id', invoiceId)
-  // Ignore schema errors if the extra columns are not migrated yet.
+  const accepted = result.executionStatus === '0'
+  let invoicePatch: Record<string, unknown> = {}
+  if (accepted) {
+    invoicePatch = await persistSpvAccepted(supabase, invoice)
+  } else {
+    await supabase.from('invoices').update({
+      efactura_status: 'rejected',
+      efactura_error: result.error || null,
+      efactura_uploaded_at: new Date().toISOString()
+    }).eq('id', invoiceId)
+  }
 
-  const outcome: UploadOutcome = result.executionStatus === '0' ? 'accepted' : 'rejected'
+  const outcome: UploadOutcome = accepted ? 'accepted' : 'rejected'
   return {
     invoiceId,
     invoiceRef,
@@ -108,7 +122,8 @@ async function processOne(
     body: {
       ...result,
       invoiceRef,
-      note: SPV_NOTE
+      note: SPV_NOTE,
+      invoicePatch
     }
   }
 }
@@ -164,7 +179,7 @@ export async function POST(request: NextRequest) {
     }
 
     const processed = await processOne(invoiceId, userId, { skipDrafts: false })
-    if (processed.outcome === 'error' && !processed.body) {
+    if (processed.outcome === 'skipped' || (processed.outcome === 'error' && !processed.body)) {
       return NextResponse.json(
         { error: processed.error || 'Eroare simulare SPV' },
         { status: processed.httpStatus || 400 }

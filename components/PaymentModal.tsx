@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
+import { formatRon } from '@/lib/money'
 
 export const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer bancar' },
@@ -34,7 +35,7 @@ function methodLabel(id: string) {
 }
 
 function ron(n: number) {
-  return `${n.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`
+  return formatRon(n)
 }
 
 export default function PaymentModal({

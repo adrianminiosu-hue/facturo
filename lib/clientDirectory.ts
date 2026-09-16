@@ -143,29 +143,37 @@ export function addressesFromClient(client: {
   }]
 }
 
-export function applyCuiToDefaultAddress(
+export function firstClientAddress(): ClientAddressDraft {
+  return emptyClientAddress(true)
+}
+
+/** Prefill only the first (ANAF / sediu social) row. Extra addresses are kept. */
+export function applyCuiToFirstAddress(
   addresses: ClientAddressDraft[],
   data: Partial<Pick<ClientAddressDraft, 'address' | 'city' | 'county' | 'county_code' | 'postal_code' | 'country'>>
 ): ClientAddressDraft[] {
-  const next = addresses.length ? addresses.map(a => ({ ...a })) : [emptyClientAddress(true)]
-  let idx = next.findIndex(a => a.is_default)
-  if (idx < 0) idx = 0
-  const headOffice = next.findIndex(a => a.is_default && a.address_type === 'sediu_social')
-  const target = headOffice >= 0 ? headOffice : idx
-  const current = next[target]
-  next[target] = {
+  const next = addresses.length ? addresses.map(a => ({ ...a })) : [firstClientAddress()]
+  const current = next[0]
+  const otherIsDefault = next.slice(1).some(a => a.is_default)
+  next[0] = {
     ...current,
-    address_type: current.address_type || 'sediu_social',
+    address_type: 'sediu_social',
     address: data.address || current.address,
     city: data.city || current.city,
     county: data.county || current.county,
     county_code: data.county_code || current.county_code,
     postal_code: data.postal_code || current.postal_code,
     country: data.country || current.country || 'RO',
-    is_default: true
+    is_default: otherIsDefault ? false : true
   }
-  return next.map((row, i) => ({ ...row, is_default: i === target }))
+  if (!otherIsDefault) {
+    return next.map((row, i) => ({ ...row, is_default: i === 0 }))
+  }
+  return next
 }
+
+/** @deprecated use applyCuiToFirstAddress */
+export const applyCuiToDefaultAddress = applyCuiToFirstAddress
 
 export function setDefaultAddress(addresses: ClientAddressDraft[], key: string): ClientAddressDraft[] {
   if (!addresses.some(a => a.key === key)) return addresses
@@ -173,12 +181,13 @@ export function setDefaultAddress(addresses: ClientAddressDraft[], key: string):
 }
 
 export function addClientAddress(addresses: ClientAddressDraft[]): ClientAddressDraft[] {
-  const next = emptyClientAddress(addresses.length === 0)
-  return [...addresses, next]
+  const base = addresses.length ? addresses : [firstClientAddress()]
+  return [...base, emptyClientAddress(false)]
 }
 
 export function removeClientAddress(addresses: ClientAddressDraft[], key: string): ClientAddressDraft[] {
-  if (addresses.length <= 1) return addresses
+  const idx = addresses.findIndex(a => a.key === key)
+  if (idx <= 0 || addresses.length <= 1) return addresses
   const next = addresses.filter(a => a.key !== key)
   if (!next.some(a => a.is_default) && next[0]) {
     next[0] = { ...next[0], is_default: true }

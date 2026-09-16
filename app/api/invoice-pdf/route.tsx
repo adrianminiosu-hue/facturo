@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import ReactPDF, { Document, Page, Text, View, StyleSheet, Font, Svg, Rect, Path, Circle } from '@react-pdf/renderer'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
+import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { formatRon } from '@/lib/money'
 Font.register({
   family: 'Roboto',
   fonts: [
@@ -265,9 +267,9 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => (
         <View key={i} style={styles.tableRow}>
           <Text style={[styles.tableText, styles.col1]}>{item.description}</Text>
           <Text style={[styles.tableText, styles.col2, { textAlign: 'center' }]}>{item.quantity}</Text>
-          <Text style={[styles.tableText, styles.col3, { textAlign: 'right' }]}>{Number(item.unit_price).toFixed(2)} RON</Text>
+          <Text style={[styles.tableText, styles.col3, { textAlign: 'right' }]}>{formatRon(item.unit_price)}</Text>
           <Text style={[styles.tableText, styles.col4, { textAlign: 'center' }]}>{item.tva_rate}%</Text>
-          <Text style={[styles.tableText, styles.col5, { textAlign: 'right' }]}>{Number(item.total).toFixed(2)} RON</Text>
+          <Text style={[styles.tableText, styles.col5, { textAlign: 'right' }]}>{formatRon(item.total)}</Text>
         </View>
       ))}
 
@@ -275,23 +277,23 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => (
       <View style={styles.totalsSection}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>{Number(invoice.subtotal).toFixed(2)} RON</Text>
+          <Text style={styles.totalValue}>{formatRon(invoice.subtotal)}</Text>
         </View>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TVA</Text>
-          <Text style={styles.totalValue}>{Number(invoice.tva_amount).toFixed(2)} RON</Text>
+          <Text style={styles.totalValue}>{formatRon(invoice.tva_amount)}</Text>
         </View>
         <View style={styles.grandTotalRow}>
           <Text style={styles.grandTotalLabel}>TOTAL</Text>
-          <Text style={styles.grandTotalValue}>{Number(invoice.total).toFixed(2)} RON</Text>
+          <Text style={styles.grandTotalValue}>{formatRon(invoice.total)}</Text>
         </View>
       </View>
 
       {/* Notes */}
-      {invoice.notes && (
+      {notesWithoutSpvMark(invoice.notes) && (
         <View style={styles.notes}>
           <Text style={styles.notesLabel}>Mențiuni</Text>
-          <Text style={styles.notesText}>{invoice.notes}</Text>
+          <Text style={styles.notesText}>{notesWithoutSpvMark(invoice.notes)}</Text>
         </View>
       )}
 

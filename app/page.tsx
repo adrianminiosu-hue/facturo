@@ -59,7 +59,7 @@ export default function Home() {
             <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">Câmpuri e-Factura</p>
           </div>
           <div>
-            <p className="brand text-4xl text-[color:var(--color-foreground)]">0 RON</p>
+            <p className="brand text-4xl text-[color:var(--color-foreground)]">0.00 RON</p>
             <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">Pentru început</p>
           </div>
         </div>

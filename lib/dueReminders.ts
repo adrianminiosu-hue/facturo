@@ -2,6 +2,8 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { loadSeller } from '@/lib/loadSeller'
 import { calendarDateInBucharest, daysUntilDue, formatRoDate } from '@/lib/dates'
+import { OPEN_INVOICE_STATUSES } from '@/lib/invoiceStatus'
+import { formatRon } from '@/lib/money'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -29,7 +31,7 @@ function reminderHeadline(daysUntil: number) {
 
 function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number) {
   const ref = `${invoice.series}${invoice.invoice_number}`
-  const outstanding = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid || 0)).toFixed(2)
+  const outstanding = formatRon(Math.max(0, Number(invoice.total) - Number(invoice.amount_paid || 0)))
   const due = formatRoDate(invoice.due_date || invoice.issue_date)
   const sellerName = seller?.company_name || 'Facturo'
 
@@ -58,7 +60,7 @@ function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number)
         </tr>
         <tr style="background: #f4f6f9;">
           <td style="padding: 12px; border: 1px solid #e4e8ef;">Total de plată</td>
-          <td style="padding: 12px; border: 1px solid #e4e8ef; font-weight: bold;">${outstanding} RON</td>
+          <td style="padding: 12px; border: 1px solid #e4e8ef; font-weight: bold;">${outstanding}</td>
         </tr>
       </table>
       ${seller?.iban ? `
@@ -138,7 +140,7 @@ export async function runDueReminders(options: { dryRun?: boolean } = {}) {
     .from('invoices')
     .select('id, user_id, company_id, client_id, series, invoice_number, issue_date, due_date, total, status, reminder_sent_at')
     .eq('due_date', dueDate)
-    .in('status', ['sent', 'overdue'])
+    .in('status', [...OPEN_INVOICE_STATUSES])
   let invoices: any[] | null = first.data
   let error = first.error
 
@@ -147,7 +149,7 @@ export async function runDueReminders(options: { dryRun?: boolean } = {}) {
       .from('invoices')
       .select('id, user_id, company_id, client_id, series, invoice_number, issue_date, due_date, total, status')
       .eq('due_date', dueDate)
-      .in('status', ['sent', 'overdue'])
+      .in('status', [...OPEN_INVOICE_STATUSES])
     invoices = fallback.data
     error = fallback.error
   }

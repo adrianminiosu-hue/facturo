@@ -8,6 +8,8 @@ import { useCompany } from '@/components/CompanyProvider'
 import { agingKey, calendarDateInBucharest, daysUntilDue, formatRoDate, type AgingKey } from '@/lib/dates'
 import PaymentModal from '@/components/PaymentModal'
 import StatementImportModal from '@/components/StatementImportModal'
+import { RECEIVABLE_LIST_STATUSES } from '@/lib/invoiceStatus'
+import { formatRon } from '@/lib/money'
 
 type Row = {
   id: string
@@ -36,21 +38,24 @@ type Unallocated = {
   company_id?: string | null
 }
 
-const buckets: { id: '' | AgingKey | 'week_risk'; label: string }[] = [
+const buckets: { id: '' | AgingKey | 'week_risk' | 'paid'; label: string }[] = [
   { id: '', label: 'Toate' },
   { id: 'due_0_2', label: '0–2 zile' },
   { id: 'due_week', label: 'Săptămâna aceasta' },
   { id: 'overdue_1_30', label: 'Restanță 1–30' },
   { id: 'overdue_30', label: 'Restanță 30+' },
-  { id: 'week_risk', label: 'La risc (7 zile)' }
+  { id: 'week_risk', label: 'La risc (7 zile)' },
+  { id: 'paid', label: 'Plătite' }
 ]
+
+const PAGE_SIZE = 20
 
 function outstanding(row: Row) {
   return Math.max(0, Number(row.total) - Number(row.amount_paid || 0))
 }
 
 function ron(n: number) {
-  return `${Math.round(n).toLocaleString('ro-RO')} RON`
+  return formatRon(n)
 }
 
 export default function IncasariPage() {
@@ -62,11 +67,12 @@ export default function IncasariPage() {
   const [clientId, setClientId] = useState('')
   const [reminderFilter, setReminderFilter] = useState<'all' | 'sent' | 'never'>('all')
   const [minAmount, setMinAmount] = useState('')
-  const [bucket, setBucket] = useState<'' | AgingKey | 'week_risk'>('')
+  const [bucket, setBucket] = useState<'' | AgingKey | 'week_risk' | 'paid'>('')
   const [busyId, setBusyId] = useState('')
   const [payRow, setPayRow] = useState<Row | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [unallocated, setUnallocated] = useState<Unallocated[]>([])
+  const [page, setPage] = useState(1)
 
   const today = calendarDateInBucharest(0)
   const companyName = (id?: string | null) =>
@@ -77,7 +83,7 @@ export default function IncasariPage() {
       .from('invoices')
       .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, invoice_type_code, clients(company_name, email)')
       .eq('user_id', userId)
-      .in('status', ['sent', 'overdue'])
+      .in('status', [...RECEIVABLE_LIST_STATUSES])
       .order('due_date', { ascending: true })
     const { data, error } = await query
     if (error) {
@@ -85,7 +91,7 @@ export default function IncasariPage() {
         .from('invoices')
         .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, clients(company_name, email)')
         .eq('user_id', userId)
-        .in('status', ['sent', 'overdue'])
+        .in('status', [...RECEIVABLE_LIST_STATUSES])
         .order('due_date', { ascending: true })
       setRows((fallback.data || []) as unknown as Row[])
     } else {
@@ -113,8 +119,13 @@ export default function IncasariPage() {
   }, [userId, companyLoading])
 
   const decorated = useMemo(() => rows.map(row => {
+    const rest = outstanding(row)
+    const settled = row.status === 'paid' || rest < 0.009
     const days = daysUntilDue(row.due_date || today, today)
-    return { ...row, days, aging: agingKey(days), rest: outstanding(row) }
+    return { ...row, days, aging: settled ? 'paid' as const : agingKey(days), rest, settled }
+  }).sort((a, b) => {
+    if (a.settled !== b.settled) return a.settled ? 1 : -1
+    return String(a.due_date || '').localeCompare(String(b.due_date || ''))
   }), [rows, today])
 
   const filtered = decorated.filter(row => {
@@ -124,15 +135,29 @@ export default function IncasariPage() {
     if (reminderFilter === 'never' && row.reminder_sent_at) return false
     const min = Number(minAmount)
     if (minAmount && !Number.isNaN(min) && row.rest < min) return false
-    if (bucket === 'week_risk') return row.days <= 7
-    if (bucket === 'due_week') return row.days >= 0 && row.days <= 7
+    if (bucket === 'paid') return row.settled
+    if (bucket === 'week_risk') return !row.settled && row.days <= 7
+    if (bucket === 'due_week') return !row.settled && row.days >= 0 && row.days <= 7
     if (bucket && row.aging !== bucket) return false
     return true
   })
 
-  const totalOpen = decorated.reduce((s, r) => s + r.rest, 0)
-  const weekRisk = decorated.filter(r => r.days <= 7).reduce((s, r) => s + r.rest, 0)
-  const overdueAmt = decorated.filter(r => r.days < 0).reduce((s, r) => s + r.rest, 0)
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount)
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  useEffect(() => {
+    setPage(1)
+  }, [firmId, clientId, reminderFilter, minAmount, bucket])
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount)
+  }, [page, pageCount])
+
+  const openRows = decorated.filter(r => !r.settled)
+  const totalOpen = openRows.reduce((s, r) => s + r.rest, 0)
+  const weekRisk = openRows.filter(r => r.days <= 7).reduce((s, r) => s + r.rest, 0)
+  const overdueAmt = openRows.filter(r => r.days < 0).reduce((s, r) => s + r.rest, 0)
 
   const clientOptions = Array.from(
     new Map(
@@ -165,7 +190,8 @@ export default function IncasariPage() {
     else load()
   }
 
-  const daysLabel = (days: number) => {
+  const daysLabel = (days: number, settled?: boolean) => {
+    if (settled) return 'plătită'
     if (days < 0) return `${Math.abs(days)} z restant`
     if (days === 0) return 'astăzi'
     return `${days} z`
@@ -180,7 +206,7 @@ export default function IncasariPage() {
             <p className="kicker mb-2">Portofoliu</p>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Încasări</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              Toate firmele · facturi emise, încă neîncasate · sortate după scadență
+              Toate firmele · facturi emise, deschise și încasate · sortate după scadență
             </p>
           </div>
           <button
@@ -207,7 +233,7 @@ export default function IncasariPage() {
           <div className="card p-6">
             <p className="kicker mb-3">De încasat</p>
             <p className="text-3xl brand">{ron(totalOpen)}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{decorated.length} facturi deschise</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{openRows.length} facturi deschise</p>
           </div>
         </div>
 
@@ -265,9 +291,10 @@ export default function IncasariPage() {
             <Link href="/invoices" className="text-sm mt-3 inline-block hover:underline">Mergi la facturi →</Link>
           </div>
         ) : (
+          <>
           <div className="card overflow-x-auto">
             <div className="min-w-[980px]">
-              <div className="grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_7rem_7rem_minmax(14rem,auto)] px-5 py-3 border-b border-gray-100 bg-gray-50/80 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+              <div className="grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_7rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
                 <span>Firmă</span>
                 <span>Client</span>
                 <span>Factură</span>
@@ -277,14 +304,14 @@ export default function IncasariPage() {
                 <span>Promisiune</span>
                 <span className="text-right">Acțiuni</span>
               </div>
-              {filtered.map(row => (
-                <div key={row.id} className="grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_7rem_7rem_minmax(14rem,auto)] px-5 py-3.5 border-b border-gray-50 last:border-0 items-center gap-2">
+              {paged.map((row, i) => (
+                <div key={row.id} className={`grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_7rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
                   <span className="text-sm truncate">{companyName(row.company_id)}</span>
                   <span className="text-sm truncate">{row.clients?.company_name || '—'}</span>
                   <span className="text-sm font-medium">{row.series}{row.invoice_number}</span>
                   <span className="text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(row.due_date)}</span>
-                  <span className={`text-xs font-medium ${row.days < 0 ? 'text-amber-800' : 'text-[color:var(--color-muted-foreground)]'}`}>
-                    {daysLabel(row.days)}
+                  <span className={`text-xs font-medium ${!row.settled && row.days < 0 ? 'text-amber-800' : 'text-[color:var(--color-muted-foreground)]'}`}>
+                    {daysLabel(row.days, row.settled)}
                   </span>
                   <span className="text-sm font-medium">
                     {ron(row.rest)}
@@ -298,25 +325,29 @@ export default function IncasariPage() {
                     type="date"
                     value={row.promised_pay_date || ''}
                     onChange={e => savePromise(row.id, e.target.value)}
-                    className="input py-1.5 px-2 text-xs"
+                    className="input py-0.5 px-2 text-xs"
                     title="Data promisă de client"
                   />
                   <div className="flex justify-end gap-1.5 flex-wrap">
+                    {!row.settled && (
+                      <>
                     <button
                       onClick={() => sendReminder(row)}
                       disabled={busyId === row.id || !row.clients?.email}
-                      className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+                      className="text-xs border border-gray-200 px-2.5 py-0.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 leading-tight"
                       title={row.reminder_sent_at ? `Ultimul reminder: ${row.reminder_sent_at.slice(0, 10)}` : 'Niciun reminder'}
                     >
                       {busyId === row.id ? '...' : row.reminder_sent_at ? 'Reminder din nou' : 'Reminder'}
                     </button>
                     <button
                       onClick={() => setPayRow(row)}
-                      className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50"
+                      className="text-xs border border-gray-200 px-2.5 py-0.5 rounded-lg hover:bg-gray-50 leading-tight"
                     >
                       Încasare
                     </button>
-                    <Link href={`/invoices/${row.id}`} className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">
+                      </>
+                    )}
+                    <Link href={`/invoices/${row.id}`} className="text-xs border border-gray-200 px-2.5 py-0.5 rounded-lg hover:bg-gray-50 leading-tight">
                       Deschide
                     </Link>
                   </div>
@@ -324,6 +355,37 @@ export default function IncasariPage() {
               ))}
             </div>
           </div>
+          {filtered.length > PAGE_SIZE && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+              <p className="text-xs text-[color:var(--color-muted-foreground)]">
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} din {filtered.length} încasări
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  aria-label="Înapoi"
+                  className="btn btn-outline text-sm px-3 py-1.5 disabled:opacity-40"
+                >
+                  ←
+                </button>
+                <span className="text-sm text-[color:var(--color-foreground)] tabular-nums">
+                  Pagina {currentPage} din {pageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                  disabled={currentPage >= pageCount}
+                  aria-label="Înainte"
+                  className="btn btn-outline text-sm px-3 py-1.5 disabled:opacity-40"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
         {unallocated.filter(p => !firmId || p.company_id === firmId).length > 0 && (
           <div className="card p-5 mt-6">

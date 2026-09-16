@@ -1,3 +1,5 @@
+import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
+
 export const INVOICE_TYPE_CODES = [
   { code: '380', label: 'Factură' },
   { code: '381', label: 'Notă de creditare' },
@@ -199,6 +201,7 @@ export function generateEfacturaXml(input: {
   const typeCode = invoice.invoice_type_code || '380'
   const paymentCode = invoice.payment_means_code || '42'
   const invoiceId = `${invoice.series || ''}${invoice.invoice_number}`
+  const publicNotes = notesWithoutSpvMark(invoice.notes)
 
   const lines = items.map(item => {
     const net = roundMoney(Number(item.quantity) * Number(item.unit_price))
@@ -266,7 +269,7 @@ export function generateEfacturaXml(input: {
   ${el('cbc:IssueDate', invoice.issue_date)}
   ${el('cbc:DueDate', dueDate)}
   ${el('cbc:InvoiceTypeCode', typeCode)}
-  ${invoice.notes ? el('cbc:Note', invoice.notes) : ''}
+  ${publicNotes ? el('cbc:Note', publicNotes) : ''}
   ${el('cbc:DocumentCurrencyCode', currency)}
   ${invoice.buyer_reference ? el('cbc:BuyerReference', invoice.buyer_reference) : ''}
   ${invoice.order_reference ? `<cac:OrderReference>${el('cbc:ID', invoice.order_reference)}</cac:OrderReference>` : ''}

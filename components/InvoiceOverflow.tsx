@@ -28,7 +28,7 @@ export default function InvoiceOverflow({ actions }: { actions: OverflowAction[]
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="text-xs border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50"
+        className="text-xs border border-gray-200 text-gray-600 px-2 py-0.5 rounded-lg hover:bg-gray-50 leading-tight"
         aria-haspopup="menu"
         aria-expanded={open}
       >

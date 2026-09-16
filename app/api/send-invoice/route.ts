@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { loadSeller } from '@/lib/loadSeller'
+import { formatRon } from '@/lib/money'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
           <p style="color: #666666;">Bună ziua,</p>
           <p style="color: #666666;">
             Vă transmitem alăturat factura <strong>${invoice.series}${invoice.invoice_number}</strong> 
-            în valoare de <strong>${Number(invoice.total).toFixed(2)} RON</strong>.
+            în valoare de <strong>${formatRon(invoice.total)}</strong>.
           </p>
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr style="background: #f9fafb;">
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
             </tr>
             <tr>
               <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Total de plată</td>
-              <td style="padding: 12px; border: 1px solid #e5e7eb; color: #111111; font-weight: bold;">${Number(invoice.total).toFixed(2)} RON</td>
+              <td style="padding: 12px; border: 1px solid #e5e7eb; color: #111111; font-weight: bold;">${formatRon(invoice.total)}</td>
             </tr>
           </table>
           ${profile?.iban ? `
@@ -106,11 +107,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Update invoice status to sent
-    await supabase
-      .from('invoices')
-      .update({ status: 'sent' })
-      .eq('id', invoiceId)
+    // Keep SPV / paid status; only mark ciornă as issued after email.
+    if (invoice.status === 'draft' || !invoice.status) {
+      await supabase
+        .from('invoices')
+        .update({ status: 'sent' })
+        .eq('id', invoiceId)
+    }
 
     return NextResponse.json({ success: true })
 

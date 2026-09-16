@@ -10,6 +10,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import { isDraftInvoice } from '@/lib/invoiceStatus'
 import { applyStornoToOriginal } from '@/lib/storno'
 import { defaultDueDate } from '@/lib/dates'
+import { formatRon } from '@/lib/money'
 
 interface Client {
   id: string
@@ -314,15 +315,15 @@ export default function EditInvoice() {
             <div className="flex flex-col items-end gap-2">
               <div className="flex justify-between w-64">
                 <span className="text-sm text-gray-500">Subtotal</span>
-                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{subtotal.toFixed(2)} RON</span>
+                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{formatRon(subtotal)}</span>
               </div>
               <div className="flex justify-between w-64">
                 <span className="text-sm text-gray-500">TVA</span>
-                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{tvaAmount.toFixed(2)} RON</span>
+                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{formatRon(tvaAmount)}</span>
               </div>
               <div className="flex justify-between w-64 pt-2 border-t border-gray-100">
                 <span className="font-bold text-[color:var(--color-foreground)]">Total</span>
-                <span className="font-bold text-[color:var(--color-foreground)] text-lg">{total.toFixed(2)} RON</span>
+                <span className="font-bold text-[color:var(--color-foreground)] text-lg">{formatRon(total)}</span>
               </div>
             </div>
           </div>

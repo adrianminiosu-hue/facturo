@@ -8,10 +8,11 @@ import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
 import PaymentModal from '@/components/PaymentModal'
 import { INVOICE_TYPE_CODES } from '@/lib/efactura'
-import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
+import { calendarDateInBucharest, defaultDueDate, formatRoDate } from '@/lib/dates'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
-import { INVOICE_STATUS_LABEL, isCreditNote, isDraftInvoice } from '@/lib/invoiceStatus'
+import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { formatAmount, formatRon } from '@/lib/money'
 
 type Line = {
   id: string
@@ -21,6 +22,8 @@ type Line = {
   tva_rate: number
   total: number
   unit_code?: string
+  vat_category?: string
+  vat_exemption_reason?: string | null
 }
 
 type Invoice = {
@@ -34,11 +37,19 @@ type Invoice = {
   due_date?: string | null
   status: string
   subtotal: number
+  tva_rate?: number | null
   tva_amount: number
   total: number
   notes?: string | null
   invoice_type_code?: string | null
   currency?: string | null
+  payment_means_code?: string | null
+  tax_point_date?: string | null
+  delivery_date?: string | null
+  buyer_reference?: string | null
+  order_reference?: string | null
+  period_start?: string | null
+  period_end?: string | null
   credited_invoice_id?: string | null
   amount_paid?: number | null
   efactura_status?: string | null
@@ -47,7 +58,7 @@ type Invoice = {
 }
 
 function ron(n: number) {
-  return `${Number(n).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`
+  return formatRon(n)
 }
 
 export default function InvoiceViewPage() {
@@ -162,6 +173,77 @@ export default function InvoiceViewPage() {
     }
   }
 
+  const copyInvoice = async () => {
+    if (!invoice || !userId) return
+    if (!confirm(`Creezi o factură nouă cu aceleași detalii ca ${invoice.series}${invoice.invoice_number}? Data emiterii și scadența vor fi de azi (+15 zile), status Emisă.`)) return
+    setBusy('copy')
+    try {
+      const series = company?.invoice_series || invoice.series
+      const invoice_number = await nextInvoiceNumber(supabase, {
+        series,
+        companyId: company?.id || invoice.company_id,
+        userId,
+        startNumber: company?.invoice_start_number
+      })
+      const today = calendarDateInBucharest(0)
+      const { data: created, error } = await supabase
+        .from('invoices')
+        .insert({
+          user_id: userId,
+          company_id: invoice.company_id || company?.id || null,
+          client_id: invoice.client_id,
+          series,
+          invoice_number,
+          issue_date: today,
+          due_date: defaultDueDate(today),
+          status: 'sent',
+          subtotal: invoice.subtotal,
+          tva_rate: invoice.tva_rate ?? invoice.invoice_items?.[0]?.tva_rate ?? 21,
+          tva_amount: invoice.tva_amount,
+          total: invoice.total,
+          notes: notesWithoutSpvMark(invoice.notes),
+          invoice_type_code: invoice.invoice_type_code || '380',
+          currency: invoice.currency || 'RON',
+          payment_means_code: invoice.payment_means_code || '42',
+          tax_point_date: today,
+          delivery_date: invoice.delivery_date || null,
+          buyer_reference: invoice.buyer_reference || null,
+          order_reference: invoice.order_reference || null,
+          period_start: invoice.period_start || null,
+          period_end: invoice.period_end || null
+        })
+        .select('id')
+        .single()
+      if (error || !created) {
+        alert(error?.message || 'Nu s-a putut copia factura.')
+        return
+      }
+      const items = invoice.invoice_items || []
+      if (items.length) {
+        const { error: itemsError } = await supabase.from('invoice_items').insert(
+          items.map(item => ({
+            invoice_id: created.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            tva_rate: item.tva_rate,
+            total: item.total,
+            unit_code: item.unit_code || 'H87',
+            vat_category: item.vat_category || null,
+            vat_exemption_reason: item.vat_exemption_reason || null
+          }))
+        )
+        if (itemsError) {
+          alert(itemsError.message)
+          return
+        }
+      }
+      router.push(`/invoices/${created.id}`)
+    } finally {
+      setBusy('')
+    }
+  }
+
   if (loading || !invoice) {
     return (
       <div className="app-shell flex items-center justify-center">
@@ -170,7 +252,7 @@ export default function InvoiceViewPage() {
     )
   }
 
-  const status = INVOICE_STATUS_LABEL[invoice.status] || INVOICE_STATUS_LABEL.sent
+  const status = invoiceStatusAppearance(invoice)
   const typeLabel = INVOICE_TYPE_CODES.find(t => t.code === (invoice.invoice_type_code || '380'))?.label || 'Factură'
   const draft = isDraftInvoice(invoice.status)
   const credit = isCreditNote(invoice.invoice_type_code)
@@ -213,7 +295,6 @@ export default function InvoiceViewPage() {
 
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>{status.label}</span>
-          {invoice.efactura_status === 'accepted' && <span className="text-xs text-green-700">SPV test · acceptat</span>}
           {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-500">SPV test · respins</span>}
           {hasStorno && <span className="text-xs text-[color:var(--color-muted-foreground)]">Are storno</span>}
         </div>
@@ -255,6 +336,9 @@ export default function InvoiceViewPage() {
               {busy === 'storno' ? '...' : 'Creează storno'}
             </button>
           )}
+          <button className="btn btn-outline text-sm px-4 py-2" disabled={busy === 'copy'} onClick={copyInvoice}>
+            {busy === 'copy' ? '...' : 'Copiază factură'}
+          </button>
           {!draft && !credit && invoice.status !== 'paid' && (
             <button className="btn btn-outline text-sm px-4 py-2" onClick={() => setPayOpen(true)}>
               Încasare
@@ -272,10 +356,22 @@ export default function InvoiceViewPage() {
               {
                 label: 'SPV test (simulare)',
                 onClick: async () => {
+                  if (alreadySentToSpv(invoice)) {
+                    alert(ALREADY_SENT_TO_SPV)
+                    return
+                  }
                   if (!confirm('Simulare SPV. Nu se trimite nimic la ANAF.')) return
                   try {
                     const data = await simulateSpvUpload(invoice.id, userId)
                     alert(data.note || 'Simulare finalizată')
+                    if (data.invoicePatch) {
+                      setInvoice(prev => prev ? {
+                        ...prev,
+                        status: data.invoicePatch?.status || prev.status,
+                        efactura_status: data.invoicePatch?.efactura_status ?? 'accepted',
+                        notes: data.invoicePatch?.notes ?? prev.notes
+                      } : prev)
+                    }
                     load()
                   } catch (e) {
                     alert(e instanceof Error ? e.message : 'Eroare SPV')
@@ -315,8 +411,8 @@ export default function InvoiceViewPage() {
             <div key={item.id} className="grid grid-cols-12 px-6 py-3 border-b border-gray-50 last:border-0 text-sm">
               <span className="col-span-6">{item.description}</span>
               <span className="col-span-2 text-right">{item.quantity}</span>
-              <span className="col-span-2 text-right">{Number(item.unit_price).toFixed(2)}</span>
-              <span className="col-span-2 text-right">{Number(item.total).toFixed(2)}</span>
+              <span className="col-span-2 text-right">{formatAmount(item.unit_price)}</span>
+              <span className="col-span-2 text-right">{formatAmount(item.total)}</span>
             </div>
           ))}
         </div>
@@ -338,10 +434,10 @@ export default function InvoiceViewPage() {
           </div>
         </div>
 
-        {invoice.notes && (
+        {notesWithoutSpvMark(invoice.notes) && (
           <div className="card p-6">
             <h3 className="font-bold mb-2">Mențiuni</h3>
-            <p className="text-sm text-[color:var(--color-muted-foreground)] whitespace-pre-wrap">{invoice.notes}</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)] whitespace-pre-wrap">{notesWithoutSpvMark(invoice.notes)}</p>
           </div>
         )}
       </div>

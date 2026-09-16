@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
-import { INVOICE_STATUS_LABEL } from '@/lib/invoiceStatus'
+import { invoiceStatusAppearance, isOpenReceivable } from '@/lib/invoiceStatus'
+import { formatRon } from '@/lib/money'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -71,7 +72,7 @@ export default function Dashboard() {
     const { data: invoices } = await query
     const all = invoices || []
     const thisMonth = all.filter((inv: any) => inv.issue_date >= firstDay && inv.status !== 'draft')
-    const unpaid = all.filter((inv: any) => inv.status === 'sent' || inv.status === 'overdue')
+    const unpaid = all.filter((inv: any) => isOpenReceivable(inv.status))
     const totalAmount = all
       .filter((inv: any) => inv.status !== 'draft')
       .reduce((sum: number, inv: any) => sum + Number(inv.total), 0)
@@ -83,8 +84,6 @@ export default function Dashboard() {
     })
     setLoading(false)
   }
-
-  const statusLabel = INVOICE_STATUS_LABEL
 
   const completedSteps = Object.values(steps).filter(Boolean).length
   const progressPct = (completedSteps / 3) * 100
@@ -230,7 +229,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <p className="kicker">Total facturat</p>
             </div>
-            <p className="text-4xl brand text-[color:var(--color-foreground)]">{stats.totalAmount.toFixed(0)}</p>
+            <p className="text-4xl brand text-[color:var(--color-foreground)]">{formatRon(stats.totalAmount).replace(' RON', '')}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">RON emis</p>
           </div>
           <div className="card p-6">
@@ -257,9 +256,6 @@ export default function Dashboard() {
               </Link>
               <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
                 Vezi toate →
-              </Link>
-              <Link href="/invoices/new" className="btn btn-primary text-sm px-4 py-2">
-                + Factură nouă
               </Link>
             </div>
           </div>
@@ -292,12 +288,12 @@ export default function Dashboard() {
                     {invoice.issue_date}
                   </span>
                   <span className="col-span-2">
-                    <span className={`text-xs px-2 py-1 rounded-lg font-medium ${statusLabel[invoice.status]?.style}`}>
-                      {statusLabel[invoice.status]?.label}
+                    <span className={`text-xs px-2 py-1 rounded-lg font-medium ${invoiceStatusAppearance(invoice).style}`}>
+                      {invoiceStatusAppearance(invoice).label}
                     </span>
                   </span>
                   <span className="col-span-2 text-sm font-medium text-[color:var(--color-foreground)] text-right">
-                    {Number(invoice.total).toFixed(0)} RON
+                    {formatRon(invoice.total)}
                   </span>
                 </div>
               ))}

@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
         county,
         county_code,
         postal_code: data.cod_postal || '',
+        country: 'RO',
         vat_registered: vatFlag === undefined || vatFlag === null ? true : Boolean(vatFlag)
       })
     } else {

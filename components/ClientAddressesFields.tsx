@@ -3,6 +3,7 @@ import RoAddressFields from '@/components/RoAddressFields'
 import {
   CLIENT_ADDRESS_TYPES,
   addClientAddress,
+  firstClientAddress,
   removeClientAddress,
   setDefaultAddress,
   type ClientAddressDraft
@@ -15,8 +16,10 @@ export default function ClientAddressesFields({
   addresses: ClientAddressDraft[]
   onChange: (next: ClientAddressDraft[]) => void
 }) {
+  const rows = addresses.length ? addresses : [firstClientAddress()]
   const update = (key: string, patch: Partial<ClientAddressDraft>) => {
-    onChange(addresses.map(a => a.key === key ? { ...a, ...patch } : a))
+    const source = addresses.length ? addresses : rows
+    onChange(source.map(a => a.key === key ? { ...a, ...patch } : a))
   }
 
   return (
@@ -27,12 +30,13 @@ export default function ClientAddressesFields({
             Adrese
           </p>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-            O singură adresă este implicită — aceasta este folosită pe factură și în e-Factura.
+            Prima adresă (sediu social) este afișată mereu și se completează din ANAF la Caută CUI.
+            O singură adresă este implicită — folosită pe factură și în e-Factura.
           </p>
         </div>
         <button
           type="button"
-          onClick={() => onChange(addClientAddress(addresses))}
+          onClick={() => onChange(addClientAddress(rows))}
           className="btn btn-outline px-3 py-2 text-xs whitespace-nowrap"
         >
           + Adaugă adresă
@@ -40,11 +44,11 @@ export default function ClientAddressesFields({
       </div>
 
       <div className="space-y-4">
-        {addresses.map((row, index) => (
+        {rows.map((row, index) => (
           <div key={row.key} className="border border-gray-100 rounded-xl p-4">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <p className="text-xs font-medium text-[color:var(--color-muted-foreground)]">
-                Adresă {index + 1}
+                {index === 0 ? 'Sediu social (ANAF)' : `Adresă ${index + 1}`}
               </p>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
@@ -52,14 +56,14 @@ export default function ClientAddressesFields({
                     type="radio"
                     name="client-default-address"
                     checked={row.is_default}
-                    onChange={() => onChange(setDefaultAddress(addresses, row.key))}
+                    onChange={() => onChange(setDefaultAddress(rows, row.key))}
                   />
                   Implicită (e-Factura)
                 </label>
-                {addresses.length > 1 && (
+                {index > 0 && (
                   <button
                     type="button"
-                    onClick={() => onChange(removeClientAddress(addresses, row.key))}
+                    onClick={() => onChange(removeClientAddress(rows, row.key))}
                     className="text-xs text-red-500 hover:text-red-700"
                   >
                     Elimină

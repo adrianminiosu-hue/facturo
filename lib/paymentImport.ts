@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { remainingOf } from '@/lib/paymentMatch'
+import { isOpenReceivable } from '@/lib/invoiceStatus'
+import { formatRon } from '@/lib/money'
 
 export const PAYMENT_SOURCE_XML940 = 'xml940'
 
@@ -108,7 +110,7 @@ export async function applyImportedPayment(
       fingerprint: line.fingerprint,
       outcome: 'error',
       invoiceId,
-      error: `Suma depășește restul de plată (${rest.toFixed(2)} RON).`
+      error: `Suma depășește restul de plată (${formatRon(rest)}).`
     }
   }
 
@@ -145,7 +147,7 @@ export function remainingMapFromInvoices(
   const remaining = new Map<string, number>()
   const meta = new Map<string, { total: number; status: string; company_id: string | null }>()
   for (const inv of invoices) {
-    if (inv.status !== 'sent' && inv.status !== 'overdue') continue
+    if (!isOpenReceivable(inv.status)) continue
     remaining.set(inv.id, remainingOf({ total: Number(inv.total), amount_paid: Number(inv.amount_paid || 0) }))
     meta.set(inv.id, {
       total: Number(inv.total),

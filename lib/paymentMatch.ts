@@ -1,6 +1,8 @@
 import { ibansEqual } from '@/lib/iban'
 import { paymentFingerprint, type ParsedBankTxn } from '@/lib/multicash940'
 import { stripDiacritics } from '@/lib/romania'
+import { isOpenReceivable } from '@/lib/invoiceStatus'
+import { formatAmount, formatRon } from '@/lib/money'
 
 export type MatchStatus = 'matched' | 'suggested' | 'unmatched' | 'duplicate' | 'skipped'
 
@@ -196,7 +198,7 @@ function scoreInvoice(txn: ParsedBankTxn, invoice: OpenInvoice, uniqueAmount: bo
     warnings.push('Încasarea este mai mică decât restul — se va înregistra ca plată parțială.')
   }
   if (txn.amount > rest + 0.009) {
-    warnings.push(`Suma din extras (${txn.amount.toFixed(2)}) depășește restul facturii (${rest.toFixed(2)}).`)
+    warnings.push(`Suma din extras (${formatAmount(txn.amount)}) depășește restul facturii (${formatAmount(rest)}).`)
     score = Math.min(score, 45)
   }
   return { score: Math.min(100, score), reasons, warnings, rest }
@@ -284,7 +286,7 @@ export function matchPayments(opts: {
 }): { rows: MatchRow[]; ibanMismatch: boolean; ibanWarning: string | null } {
   const { txns, existing, companyIban } = opts
   const invoices = opts.invoices
-    .filter(inv => inv.status === 'sent' || inv.status === 'overdue')
+    .filter(inv => isOpenReceivable(inv.status))
     .filter(inv => inv.invoice_type_code !== '381')
     .filter(inv => remainingOf(inv) > 0.009)
     .slice()
@@ -421,6 +423,6 @@ function baseRow(
 }
 
 export function openInvoiceSelectLabel(invoice: OpenInvoice) {
-  const rest = remainingOf(invoice).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const rest = formatAmount(remainingOf(invoice))
   return `${invoiceRef(invoice)} · ${invoice.client_name || 'Client'} · rest ${rest} RON`
 }

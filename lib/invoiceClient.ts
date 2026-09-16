@@ -39,6 +39,11 @@ export type SimulatedSpvUpload = {
   uploadResponseXml: string
   statusResponseXml?: string
   note: string
+  invoicePatch?: {
+    status?: string | null
+    efactura_status?: string | null
+    notes?: string | null
+  }
 }
 
 export type BulkSpvOutcome = 'accepted' | 'rejected' | 'skipped' | 'error'

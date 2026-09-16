@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { parseMulticash940 } from '@/lib/multicash940'
 import { asOpenInvoice, matchPayments, type ExistingPayment } from '@/lib/paymentMatch'
+import { OPEN_INVOICE_STATUSES } from '@/lib/invoiceStatus'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       .select('id, company_id, client_id, series, invoice_number, due_date, issue_date, total, amount_paid, status, currency, invoice_type_code, clients(company_name, cui, iban)')
       .eq('user_id', userId)
       .eq('company_id', companyId)
-      .in('status', ['sent', 'overdue'])
+      .in('status', [...OPEN_INVOICE_STATUSES])
 
     if (invoiceError) {
       return NextResponse.json({ error: invoiceError.message }, { status: 400 })

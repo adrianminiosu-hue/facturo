@@ -1,5 +1,6 @@
 'use client'
 import { UNIT_CODES, VAT_CATEGORIES, vatCategoryFromRate } from '@/lib/efactura'
+import { formatAmount } from '@/lib/money'
 
 export type InvoiceLineItem = {
   id?: string
@@ -114,7 +115,7 @@ export default function InvoiceLineItems({
               </div>
               <div className="col-span-3 md:col-span-1">
                 {index === 0 && <label className="block text-xs text-gray-500 mb-1">Total</label>}
-                <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{item.total.toFixed(2)}</p>
+                <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{formatAmount(item.total)}</p>
               </div>
               <div className="col-span-1">
                 {index === 0 && <div className="mb-1 h-4"></div>}

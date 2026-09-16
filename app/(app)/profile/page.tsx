@@ -7,19 +7,9 @@ import RoAddressFields from '@/components/RoAddressFields'
 import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
-
-const ROMANIAN_BANKS = [
-  'Banca Transilvania',
-  'UniCredit Bank',
-  'Raiffeisen Bank',
-  'BCR',
-  'BRD',
-  'ING Bank',
-  'Alpha Bank',
-  'CEC Bank',
-  'OTP Bank',
-  'Garanti BBVA'
-]
+import BankDetailsFields from '@/components/BankDetailsFields'
+import { normalizeIban } from '@/lib/iban'
+import { normalizeBic, validateClientBankDetails } from '@/lib/roBanks'
 
 export default function Profile() {
   const router = useRouter()
@@ -50,7 +40,7 @@ export default function Profile() {
   })
 
   const phoneValid = !form.phone || isValidRomanianMobile(form.phone)
-  const ibanValid = !form.iban || (form.iban.startsWith('RO') && form.iban.length === 24)
+  const bankDetails = validateClientBankDetails(form)
 
   useEffect(() => {
     const init = async () => {
@@ -150,13 +140,15 @@ export default function Profile() {
       alert('Număr de mobil invalid. Format acceptat: 07xxxxxxxx sau +407xxxxxxxx.')
       return
     }
-    if (form.iban && !ibanValid) {
-      alert('IBAN invalid! Trebuie să înceapă cu RO și să aibă exact 24 de caractere.')
+    if (!bankDetails.ok) {
+      alert(bankDetails.error || 'Datele bancare sunt invalide.')
       return
     }
     setSaving(true)
     const payload = {
       ...form,
+      iban: normalizeIban(form.iban),
+      bic: normalizeBic(form.bic),
       county: countyNameFromCode(form.county_code) || form.county
     }
     if (company?.id) {
@@ -267,58 +259,10 @@ export default function Profile() {
           {/* Bank details */}
           <div className="card p-8">
             <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Date bancare</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Bancă emitentă</label>
-                <select
-                  value={form.bank_name}
-                  onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))}
-                  className="input bg-white"
-                >
-                  <option value="">Selectează banca...</option>
-                  {ROMANIAN_BANKS.map(bank => (
-                    <option key={bank} value={bank}>{bank}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">BIC / SWIFT</label>
-                <input
-                  type="text"
-                  value={form.bic}
-                  onChange={e => setForm(f => ({ ...f, bic: e.target.value.toUpperCase() }))}
-                  className="input"
-                  placeholder="BTRLRO22"
-                  maxLength={11}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">IBAN</label>
-                <input
-                  type="text"
-                  value={form.iban}
-                  onChange={e => setForm(f => ({ ...f, iban: e.target.value.toUpperCase() }))}
-                  className={`input ${
-                    form.iban && !ibanValid
-                      ? 'border-red-300 bg-red-50'
-                      : form.iban && ibanValid
-                      ? 'border-green-300 bg-green-50'
-                      : ''
-                  }`}
-                  placeholder="RO49AAAA1B31007593840000"
-                  maxLength={24}
-                />
-                {form.iban && !form.iban.startsWith('RO') && (
-                  <p className="text-red-500 text-xs mt-1">IBAN-ul trebuie să înceapă cu RO</p>
-                )}
-                {form.iban && form.iban.startsWith('RO') && form.iban.length !== 24 && (
-                  <p className="text-amber-500 text-xs mt-1">{24 - form.iban.length} caractere rămase</p>
-                )}
-                {form.iban && ibanValid && (
-                  <p className="text-green-500 text-xs mt-1">✓ IBAN valid</p>
-                )}
-              </div>
-            </div>
+            <BankDetailsFields
+              value={{ bank_name: form.bank_name, iban: form.iban, bic: form.bic }}
+              onChange={next => setForm(f => ({ ...f, ...next }))}
+            />
           </div>
 
           {/* Contact */}

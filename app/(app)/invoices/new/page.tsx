@@ -8,6 +8,7 @@ import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/comp
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
+import { formatRon } from '@/lib/money'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 
 interface Client {
@@ -295,15 +296,15 @@ export default function NewInvoice() {
             <div className="flex flex-col items-end gap-2">
               <div className="flex justify-between w-64">
                 <span className="text-sm text-[color:var(--color-muted-foreground)]">Subtotal</span>
-                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{subtotal.toFixed(2)} RON</span>
+                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{formatRon(subtotal)}</span>
               </div>
               <div className="flex justify-between w-64">
                 <span className="text-sm text-[color:var(--color-muted-foreground)]">TVA</span>
-                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{tvaAmount.toFixed(2)} RON</span>
+                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{formatRon(tvaAmount)}</span>
               </div>
               <div className="flex justify-between w-64 pt-2 border-t border-gray-100">
                 <span className="font-bold text-[color:var(--color-foreground)]">Total</span>
-                <span className="font-bold text-[color:var(--color-foreground)] text-lg">{total.toFixed(2)} RON</span>
+                <span className="font-bold text-[color:var(--color-foreground)] text-lg">{formatRon(total)}</span>
               </div>
             </div>
           </div>
