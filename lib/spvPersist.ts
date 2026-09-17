@@ -7,47 +7,56 @@ export type SpvInvoicePatch = {
   notes?: string | null
 }
 
+async function tryUpdate(
+  client: SupabaseClient,
+  id: string,
+  patch: Record<string, unknown>
+) {
+  const { error } = await client.from('invoices').update(patch).eq('id', id)
+  return !error
+}
+
 export async function persistSpvAccepted(
   client: SupabaseClient,
   invoice: { id: string; status?: string | null; notes?: string | null }
 ): Promise<SpvInvoicePatch> {
   const keepStatus = isDraftInvoice(invoice.status) || invoice.status === 'paid'
-  const withColumns: Record<string, unknown> = {
-    efactura_status: 'accepted',
-    efactura_error: null,
-    efactura_uploaded_at: new Date().toISOString()
-  }
-  if (!keepStatus) withColumns.status = 'spv'
-
-  const full = await client.from('invoices').update(withColumns).eq('id', invoice.id)
-  if (!full.error) {
-    return {
-      status: keepStatus ? invoice.status : 'spv',
-      efactura_status: 'accepted',
-      notes: invoice.notes
-    }
-  }
-
-  if (!keepStatus) {
-    const statusOnly = await client.from('invoices').update({ status: 'spv' }).eq('id', invoice.id)
-    if (!statusOnly.error) {
-      return { status: 'spv', notes: invoice.notes }
-    }
-  }
-
-  const efacturaOnly = await client.from('invoices').update({
-    efactura_status: 'accepted',
-    efactura_error: null,
-    efactura_uploaded_at: new Date().toISOString()
-  }).eq('id', invoice.id)
-  if (!efacturaOnly.error) {
-    return { status: invoice.status, efactura_status: 'accepted', notes: invoice.notes }
-  }
-
+  const nextStatus = keepStatus ? invoice.status : 'spv'
   const notes = notesWithSpvMark(invoice.notes)
-  const noteUpdate = await client.from('invoices').update({ notes }).eq('id', invoice.id)
-  if (noteUpdate.error) {
-    throw new Error(noteUpdate.error.message)
+  const uploadedAt = new Date().toISOString()
+  const accepted = {
+    efactura_status: 'accepted',
+    efactura_error: null,
+    efactura_uploaded_at: uploadedAt
   }
-  return { status: invoice.status, notes }
+
+  if (await tryUpdate(client, invoice.id, {
+    ...accepted,
+    notes,
+    ...(keepStatus ? {} : { status: 'spv' })
+  })) {
+    return { status: nextStatus, efactura_status: 'accepted', notes }
+  }
+
+  if (!keepStatus && await tryUpdate(client, invoice.id, { status: 'spv', notes })) {
+    return { status: 'spv', notes }
+  }
+
+  if (await tryUpdate(client, invoice.id, { ...accepted, notes })) {
+    return { status: invoice.status, efactura_status: 'accepted', notes }
+  }
+
+  if (await tryUpdate(client, invoice.id, accepted)) {
+    return { status: invoice.status, efactura_status: 'accepted' }
+  }
+
+  if (await tryUpdate(client, invoice.id, { notes })) {
+    return { status: invoice.status, notes }
+  }
+
+  if (!keepStatus && await tryUpdate(client, invoice.id, { status: 'spv' })) {
+    return { status: 'spv' }
+  }
+
+  throw new Error('Statusul SPV nu a putut fi salvat.')
 }

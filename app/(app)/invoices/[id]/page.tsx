@@ -13,6 +13,8 @@ import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
 import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { formatAmount, formatRon } from '@/lib/money'
+import { computeInvoiceTotals, remainingOf } from '@/lib/invoiceMath'
+import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
 
 type Line = {
   id: string
@@ -24,6 +26,7 @@ type Line = {
   unit_code?: string
   vat_category?: string
   vat_exemption_reason?: string | null
+  discount_percent?: number | null
 }
 
 type Invoice = {
@@ -52,6 +55,8 @@ type Invoice = {
   period_end?: string | null
   credited_invoice_id?: string | null
   amount_paid?: number | null
+  prepaid_amount?: number | null
+  discount_percent?: number | null
   efactura_status?: string | null
   clients?: { company_name?: string; cui?: string; email?: string; city?: string } | null
   invoice_items?: Line[]
@@ -127,9 +132,7 @@ export default function InvoiceViewPage() {
         startNumber: company?.invoice_start_number
       })
       const today = calendarDateInBucharest(0)
-      const { data: created, error } = await supabase
-        .from('invoices')
-        .insert({
+      const { data: created, error } = await insertInvoiceRow(supabase, {
           user_id: userId,
           company_id: invoice.company_id || company?.id || null,
           client_id: invoice.client_id,
@@ -137,18 +140,20 @@ export default function InvoiceViewPage() {
           invoice_number,
           issue_date: today,
           due_date: today,
+          tax_point_date: today,
+          delivery_date: today,
           status: 'draft',
           subtotal: invoice.subtotal,
           tva_amount: invoice.tva_amount,
           total: invoice.total,
           notes: `Storno pentru ${invoice.series}${invoice.invoice_number}`,
           invoice_type_code: '381',
-          currency: invoice.currency || 'RON',
+          currency: 'RON',
           payment_means_code: '42',
-          credited_invoice_id: invoice.id
+          credited_invoice_id: invoice.id,
+          discount_percent: invoice.discount_percent || 0,
+          prepaid_amount: 0
         })
-        .select('id')
-        .single()
       if (error || !created) {
         alert(error?.message || 'Nu s-a putut crea stornoul. Rulează migrarea storno în Supabase.')
         return
@@ -163,7 +168,10 @@ export default function InvoiceViewPage() {
             unit_price: item.unit_price,
             tva_rate: item.tva_rate,
             total: item.total,
-            unit_code: item.unit_code || 'H87'
+            unit_code: item.unit_code || 'H87',
+            vat_category: item.vat_category || null,
+            vat_exemption_reason: item.vat_exemption_reason || null,
+            discount_percent: item.discount_percent || 0
           }))
         )
       }
@@ -186,9 +194,9 @@ export default function InvoiceViewPage() {
         startNumber: company?.invoice_start_number
       })
       const today = calendarDateInBucharest(0)
-      const { data: created, error } = await supabase
-        .from('invoices')
-        .insert({
+      const items = invoice.invoice_items || []
+      const totals = computeInvoiceTotals(items, invoice)
+      const { data: created, error } = await insertInvoiceRow(supabase, {
           user_id: userId,
           company_id: invoice.company_id || company?.id || null,
           client_id: invoice.client_id,
@@ -197,40 +205,45 @@ export default function InvoiceViewPage() {
           issue_date: today,
           due_date: defaultDueDate(today),
           status: 'sent',
-          subtotal: invoice.subtotal,
-          tva_rate: invoice.tva_rate ?? invoice.invoice_items?.[0]?.tva_rate ?? 21,
-          tva_amount: invoice.tva_amount,
-          total: invoice.total,
+          subtotal: totals.subtotal,
+          tva_rate: invoice.tva_rate ?? items[0]?.tva_rate ?? 21,
+          tva_amount: totals.tvaAmount,
+          total: totals.total,
           notes: notesWithoutSpvMark(invoice.notes),
-          invoice_type_code: invoice.invoice_type_code || '380',
-          currency: invoice.currency || 'RON',
+          invoice_type_code: invoice.invoice_type_code === '381' ? '380' : (invoice.invoice_type_code || '380'),
+          currency: 'RON',
           payment_means_code: invoice.payment_means_code || '42',
           tax_point_date: today,
-          delivery_date: invoice.delivery_date || null,
+          delivery_date: today,
           buyer_reference: invoice.buyer_reference || null,
           order_reference: invoice.order_reference || null,
           period_start: invoice.period_start || null,
-          period_end: invoice.period_end || null
+          period_end: invoice.period_end || null,
+          discount_percent: Number(invoice.discount_percent || 0),
+          prepaid_amount: 0,
+          ...invoicePartySnapshots({
+            status: 'sent',
+            seller: company as unknown as Record<string, unknown>,
+            buyer: invoice.clients as unknown as Record<string, unknown>
+          })
         })
-        .select('id')
-        .single()
       if (error || !created) {
         alert(error?.message || 'Nu s-a putut copia factura.')
         return
       }
-      const items = invoice.invoice_items || []
       if (items.length) {
         const { error: itemsError } = await supabase.from('invoice_items').insert(
-          items.map(item => ({
+          items.map((item, index) => ({
             invoice_id: created.id,
             description: item.description,
             quantity: item.quantity,
             unit_price: item.unit_price,
             tva_rate: item.tva_rate,
-            total: item.total,
+            total: totals.lines[index]?.total ?? item.total,
             unit_code: item.unit_code || 'H87',
             vat_category: item.vat_category || null,
-            vat_exemption_reason: item.vat_exemption_reason || null
+            vat_exemption_reason: item.vat_exemption_reason || null,
+            discount_percent: item.discount_percent || 0
           }))
         )
         if (itemsError) {
@@ -243,6 +256,10 @@ export default function InvoiceViewPage() {
       setBusy('')
     }
   }
+
+  const viewTotals = invoice
+    ? computeInvoiceTotals(invoice.invoice_items || [], invoice)
+    : null
 
   if (loading || !invoice) {
     return (
@@ -363,12 +380,16 @@ export default function InvoiceViewPage() {
                   if (!confirm('Simulare SPV. Nu se trimite nimic la ANAF.')) return
                   try {
                     const data = await simulateSpvUpload(invoice.id, userId)
-                    alert(data.note || 'Simulare finalizată')
-                    if (data.invoicePatch) {
+                    if (data.executionStatus !== '0' && data.error) {
+                      alert(data.error)
+                    } else {
+                      alert(data.note || 'Simulare finalizată')
+                    }
+                    if (data.invoicePatch || data.executionStatus === '0') {
                       setInvoice(prev => prev ? {
                         ...prev,
-                        status: data.invoicePatch?.status || prev.status,
-                        efactura_status: data.invoicePatch?.efactura_status ?? 'accepted',
+                        status: data.invoicePatch?.status || (prev.status === 'paid' ? 'paid' : 'spv'),
+                        efactura_status: data.invoicePatch?.efactura_status ?? (data.executionStatus === '0' ? 'accepted' : prev.efactura_status),
                         notes: data.invoicePatch?.notes ?? prev.notes
                       } : prev)
                     }
@@ -393,9 +414,13 @@ export default function InvoiceViewPage() {
           <div className="card p-6">
             <h3 className="font-bold mb-3">Date</h3>
             <p className="text-sm">Emisă: {formatRoDate(invoice.issue_date)}</p>
+            <p className="text-sm mt-1">Exigibilitate TVA: {formatRoDate(invoice.tax_point_date || invoice.issue_date)}</p>
             <p className="text-sm mt-1">Scadență: {invoice.due_date ? formatRoDate(invoice.due_date) : '—'}</p>
             {Number(invoice.amount_paid) > 0 && (
               <p className="text-sm mt-1">Încasat: {ron(Number(invoice.amount_paid))} din {ron(Number(invoice.total))}</p>
+            )}
+            {remainingOf(invoice) > 0 && remainingOf(invoice) < Number(invoice.total) && (
+              <p className="text-sm mt-1">Rest: {ron(remainingOf(invoice))}</p>
             )}
           </div>
         </div>
@@ -419,18 +444,26 @@ export default function InvoiceViewPage() {
 
         <div className="card p-6 mb-6">
           <div className="flex flex-col items-end gap-1">
-            <div className="flex justify-between w-64 text-sm">
-              <span className="text-[color:var(--color-muted-foreground)]">Subtotal</span>
-              <span>{ron(invoice.subtotal)}</span>
+            <div className="flex justify-between w-72 text-sm">
+              <span className="text-[color:var(--color-muted-foreground)]">Bază</span>
+              <span>{ron(viewTotals?.lineExtension ?? invoice.subtotal)}</span>
             </div>
-            <div className="flex justify-between w-64 text-sm">
-              <span className="text-[color:var(--color-muted-foreground)]">TVA</span>
-              <span>{ron(invoice.tva_amount)}</span>
-            </div>
-            <div className="flex justify-between w-64 text-base font-bold pt-2 border-t border-gray-100">
+            {(viewTotals?.vatBreakdown || []).map(row => (
+              <div key={row.rate} className="flex justify-between w-72 text-sm">
+                <span className="text-[color:var(--color-muted-foreground)]">TVA {row.rate}%</span>
+                <span>{ron(row.tax)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between w-72 text-base font-bold pt-2 border-t border-gray-100">
               <span>Total</span>
-              <span>{ron(invoice.total)}</span>
+              <span>{ron(viewTotals?.taxInclusive ?? invoice.total)}</span>
             </div>
+            {(viewTotals?.prepaid || 0) > 0 && (
+              <div className="flex justify-between w-72 text-sm">
+                <span className="text-[color:var(--color-muted-foreground)]">Avans</span>
+                <span>-{ron(viewTotals!.prepaid)}</span>
+              </div>
+            )}
           </div>
         </div>
 

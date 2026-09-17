@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
+import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
-import { formatRon } from '@/lib/money'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
+import { computeInvoiceTotals } from '@/lib/invoiceMath'
+import { defaultInvoiceNotes } from '@/lib/invoiceNotes'
+import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
 
 interface Client {
     id: string
@@ -17,6 +20,7 @@ interface Client {
     cui: string
     address: string
     city: string
+    is_public_institution?: boolean
 }
 
 function clientAddressLine(client: Client) {
@@ -93,20 +97,24 @@ export default function NewInvoice() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
   const [dueManual, setDueManual] = useState(false)
+  const today = calendarDateInBucharest(0)
   const [form, setForm] = useState({
     series: 'FCT',
     invoice_number: '',
-    issue_date: calendarDateInBucharest(0),
-    due_date: defaultDueDate(calendarDateInBucharest(0)),
+    issue_date: today,
+    due_date: defaultDueDate(today),
     notes: '',
     invoice_type_code: '380',
     currency: 'RON',
     payment_means_code: '42',
-    delivery_date: '',
+    tax_point_date: today,
+    delivery_date: today,
     buyer_reference: '',
     order_reference: '',
     period_start: '',
-    period_end: ''
+    period_end: '',
+    discount_percent: 0,
+    prepaid_amount: 0
   })
   const [items, setItems] = useState<InvoiceLineItem[]>([emptyInvoiceLine()])
 
@@ -117,7 +125,13 @@ export default function NewInvoice() {
       setSelectedClient(null)
       loadClients()
       generateInvoiceNumber()
-      if (company?.invoice_series) setForm(f => ({ ...f, series: company.invoice_series }))
+      if (company) {
+        setForm(f => ({
+          ...f,
+          series: company.invoice_series || f.series,
+          notes: f.notes || defaultInvoiceNotes(company)
+        }))
+      }
     }
     init()
   }, [company?.id, userId])
@@ -140,57 +154,67 @@ export default function NewInvoice() {
     setForm(f => ({ ...f, series, invoice_number: next }))
   }
 
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
-  const tvaAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.tva_rate / 100), 0)
-  const total = subtotal + tvaAmount
+  const totals = computeInvoiceTotals(items, {
+    discount_percent: form.discount_percent,
+    prepaid_amount: form.prepaid_amount
+  })
 
   const saveInvoice = async (status: 'draft' | 'sent') => {
     if (!selectedClient) { alert('Selectează un client!'); return }
     if (items.some(i => !i.description)) { alert('Completează descrierea pentru toate produsele/serviciile!'); return }
+    if (selectedClient.is_public_institution && !form.buyer_reference.trim()) {
+      alert('Pentru o instituție publică, referința cumpărător (BT-10) este obligatorie.')
+      return
+    }
     setSaving(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: invoice, error } = await supabase
-      .from('invoices')
-      .insert({
-        user_id: user?.id,
-        ...(company?.id ? { company_id: company.id } : {}),
-        client_id: selectedClient.id,
-        invoice_number: form.invoice_number,
-        series: form.series,
-        issue_date: form.issue_date,
-        due_date: form.due_date || defaultDueDate(form.issue_date),
+    const { data: invoice, error } = await insertInvoiceRow(supabase, {
+      user_id: user?.id,
+      ...(company?.id ? { company_id: company.id } : {}),
+      client_id: selectedClient.id,
+      invoice_number: form.invoice_number,
+      series: form.series,
+      issue_date: form.issue_date,
+      due_date: form.due_date || defaultDueDate(form.issue_date),
+      status,
+      subtotal: totals.subtotal,
+      tva_rate: items[0]?.tva_rate ?? 21,
+      tva_amount: totals.tvaAmount,
+      total: totals.total,
+      notes: form.notes,
+      invoice_type_code: form.invoice_type_code,
+      currency: 'RON',
+      payment_means_code: form.payment_means_code,
+      tax_point_date: form.tax_point_date || form.issue_date,
+      delivery_date: form.delivery_date || form.issue_date,
+      buyer_reference: form.buyer_reference || null,
+      order_reference: form.order_reference || null,
+      period_start: form.period_start || null,
+      period_end: form.period_end || null,
+      discount_percent: form.discount_percent || 0,
+      prepaid_amount: form.prepaid_amount || 0,
+      ...invoicePartySnapshots({
         status,
-        subtotal,
-        tva_rate: items[0]?.tva_rate ?? 21,
-        tva_amount: tvaAmount,
-        total,
-        notes: form.notes,
-        invoice_type_code: form.invoice_type_code,
-        currency: form.currency,
-        payment_means_code: form.payment_means_code,
-        delivery_date: form.delivery_date || null,
-        buyer_reference: form.buyer_reference || null,
-        order_reference: form.order_reference || null,
-        period_start: form.period_start || null,
-        period_end: form.period_end || null
+        seller: company as unknown as Record<string, unknown>,
+        buyer: selectedClient as unknown as Record<string, unknown>
       })
-      .select()
-      .single()
+    })
 
     if (error) { alert('Eroare la salvare! Rulează migrarea e-Factura în Supabase dacă ai adăugat coloane noi.'); setSaving(false); return }
 
     await supabase.from('invoice_items').insert(
-      items.map(item => ({
+      items.map((item, index) => ({
         invoice_id: invoice.id,
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
         tva_rate: item.tva_rate,
-        total: item.total,
+        total: totals.lines[index]?.total ?? item.total,
         unit_code: item.unit_code,
         vat_category: item.vat_category,
-        vat_exemption_reason: item.vat_exemption_reason || null
+        vat_exemption_reason: item.vat_exemption_reason || null,
+        discount_percent: item.discount_percent || 0
       }))
     )
 
@@ -247,7 +271,9 @@ export default function NewInvoice() {
                     setForm(f => ({
                       ...f,
                       issue_date,
-                      due_date: dueManual ? f.due_date : defaultDueDate(issue_date)
+                      due_date: dueManual ? f.due_date : defaultDueDate(issue_date),
+                      tax_point_date: !f.tax_point_date || f.tax_point_date === f.issue_date ? issue_date : f.tax_point_date,
+                      delivery_date: !f.delivery_date || f.delivery_date === f.issue_date ? issue_date : f.delivery_date
                     }))
                   }}
                   className="input"
@@ -286,28 +312,19 @@ export default function NewInvoice() {
 
           <InvoiceEfacturaFields
             value={form as InvoiceEfacturaValue}
-            onChange={efactura => setForm(f => ({ ...f, ...efactura }))}
+            onChange={efactura => setForm(f => ({ ...f, ...efactura, currency: 'RON' }))}
+            buyerIsPublic={!!selectedClient?.is_public_institution}
           />
 
           <InvoiceLineItems items={items} onChange={setItems} />
 
-          {/* Totals */}
-          <div className="card p-6">
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex justify-between w-64">
-                <span className="text-sm text-[color:var(--color-muted-foreground)]">Subtotal</span>
-                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{formatRon(subtotal)}</span>
-              </div>
-              <div className="flex justify-between w-64">
-                <span className="text-sm text-[color:var(--color-muted-foreground)]">TVA</span>
-                <span className="text-sm font-medium text-[color:var(--color-foreground)]">{formatRon(tvaAmount)}</span>
-              </div>
-              <div className="flex justify-between w-64 pt-2 border-t border-gray-100">
-                <span className="font-bold text-[color:var(--color-foreground)]">Total</span>
-                <span className="font-bold text-[color:var(--color-foreground)] text-lg">{formatRon(total)}</span>
-              </div>
-            </div>
-          </div>
+          <InvoiceTotalsFields
+            totals={totals}
+            discountPercent={form.discount_percent}
+            prepaidAmount={form.prepaid_amount}
+            onDiscountPercent={discount_percent => setForm(f => ({ ...f, discount_percent }))}
+            onPrepaidAmount={prepaid_amount => setForm(f => ({ ...f, prepaid_amount }))}
+          />
 
           {/* Notes */}
           <div className="card p-6">

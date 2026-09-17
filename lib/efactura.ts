@@ -1,7 +1,12 @@
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { computeInvoiceTotals, roundMoney } from '@/lib/invoiceMath'
+import { VAT_ON_COLLECTION_MENTION } from '@/lib/invoiceNotes'
+
+export { roundMoney }
 
 export const INVOICE_TYPE_CODES = [
   { code: '380', label: 'Factură' },
+  { code: '386', label: 'Factură avans' },
   { code: '381', label: 'Notă de creditare' },
   { code: '384', label: 'Factură corectată' },
   { code: '389', label: 'Autofactură' },
@@ -48,8 +53,8 @@ export function vatCategoryFromRate(rate: number, current?: string) {
   return 'Z'
 }
 
-export function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
+export function unitLabel(code?: string | null) {
+  return UNIT_CODES.find(unit => unit.code === code)?.label || code || ''
 }
 
 function xmlEscape(value: string) {
@@ -80,9 +85,13 @@ export type EfacturaParty = {
   country?: string | null
   vat_registered?: boolean | null
   email?: string | null
+  phone?: string | null
+  contact_person?: string | null
   iban?: string | null
   bank_name?: string | null
   bic?: string | null
+  vat_on_collection?: boolean | null
+  is_public_institution?: boolean | null
 }
 
 export type EfacturaLine = {
@@ -93,6 +102,8 @@ export type EfacturaLine = {
   unit_code?: string | null
   vat_category?: string | null
   vat_exemption_reason?: string | null
+  discount_percent?: number | null
+  discount_amount?: number | null
 }
 
 export type EfacturaInvoice = {
@@ -112,6 +123,9 @@ export type EfacturaInvoice = {
   period_end?: string | null
   billing_reference?: string | null
   billing_reference_date?: string | null
+  discount_percent?: number | null
+  discount_amount?: number | null
+  prepaid_amount?: number | null
 }
 
 export function missingEfacturaFields(input: {
@@ -124,6 +138,7 @@ export function missingEfacturaFields(input: {
   const { invoice, seller, buyer, items } = input
   if (!invoice.invoice_number) missing.push('Număr factură')
   if (!invoice.issue_date) missing.push('Data emiterii')
+  if (invoice.currency && invoice.currency !== 'RON') missing.push('Monedă RON (valuta nu este suportată fără total TVA în RON)')
   if (!seller.company_name) missing.push('Denumire furnizor')
   if (!seller.cui) missing.push('CUI furnizor')
   if (!seller.address) missing.push('Adresă furnizor')
@@ -134,12 +149,18 @@ export function missingEfacturaFields(input: {
   if (!buyer.address) missing.push('Adresă client')
   if (!buyer.city) missing.push('Localitate / sector client')
   if (!buyer.county_code) missing.push('Județ client (cod ISO)')
+  if (buyer.is_public_institution && !invoice.buyer_reference) {
+    missing.push('Referință cumpărător (obligatorie pentru instituții publice)')
+  }
+  if (invoice.invoice_type_code === '381' && !invoice.billing_reference) {
+    missing.push('Referință factură stornată')
+  }
   if (!items.length) missing.push('Cel puțin o linie de factură')
   items.forEach((item, i) => {
     if (!item.description) missing.push(`Descriere linie ${i + 1}`)
     if (!item.unit_code) missing.push(`Unitate de măsură linie ${i + 1}`)
     const category = item.vat_category || vatCategoryFromRate(item.tva_rate)
-    if (['E', 'O', 'AE', 'K', 'G', 'Z'].includes(category) && !item.vat_exemption_reason && category !== 'Z') {
+    if (['E', 'O', 'AE', 'K', 'G'].includes(category) && !item.vat_exemption_reason) {
       missing.push(`Motiv scutire TVA linie ${i + 1}`)
     }
   })
@@ -165,12 +186,26 @@ function postalAddress(party: EfacturaParty) {
     </cac:PostalAddress>`
 }
 
+function contactXml(party: EfacturaParty) {
+  if (!party.contact_person && !party.phone && !party.email) return ''
+  return `<cac:Contact>
+      ${el('cbc:Name', party.contact_person)}
+      ${el('cbc:Telephone', party.phone)}
+      ${el('cbc:ElectronicMail', party.email)}
+    </cac:Contact>`
+}
+
 function partyXml(party: EfacturaParty) {
   const vatRegistered = party.vat_registered !== false
   const cuiDigits = (party.cui || '').replace(/\D/g, '')
   const vatId = vatRegistered ? `RO${cuiDigits}` : ''
+  const endpoint = cuiDigits
+    ? `<cbc:EndpointID schemeID="9947">${xmlEscape(cuiDigits)}</cbc:EndpointID>`
+    : party.email
+      ? `<cbc:EndpointID schemeID="EM">${xmlEscape(party.email)}</cbc:EndpointID>`
+      : ''
   return `<cac:Party>
-      ${party.email ? `<cbc:EndpointID schemeID="EM">${xmlEscape(party.email)}</cbc:EndpointID>` : ''}
+      ${endpoint}
       <cac:PartyName>${el('cbc:Name', party.company_name)}</cac:PartyName>
       ${postalAddress(party)}
       ${vatRegistered && vatId ? `<cac:PartyTaxScheme>
@@ -182,7 +217,17 @@ function partyXml(party: EfacturaParty) {
         ${el('cbc:CompanyID', cuiDigits)}
         ${el('cbc:CompanyLegalForm', party.reg_com)}
       </cac:PartyLegalEntity>
+      ${contactXml(party)}
     </cac:Party>`
+}
+
+function allowanceXml(amount: number, currency: string, reason: string) {
+  if (amount <= 0) return ''
+  return `<cac:AllowanceCharge>
+    ${el('cbc:ChargeIndicator', 'false')}
+    ${el('cbc:AllowanceChargeReason', reason)}
+    ${el('cbc:Amount', amount.toFixed(2), { currencyID: currency })}
+  </cac:AllowanceCharge>`
 }
 
 export function generateEfacturaXml(input: {
@@ -197,20 +242,24 @@ export function generateEfacturaXml(input: {
   }
 
   const { invoice, seller, buyer, items } = input
-  const currency = invoice.currency || 'RON'
+  const currency = 'RON'
   const typeCode = invoice.invoice_type_code || '380'
+  const credit = typeCode === '381'
   const paymentCode = invoice.payment_means_code || '42'
   const invoiceId = `${invoice.series || ''}${invoice.invoice_number}`
   const publicNotes = notesWithoutSpvMark(invoice.notes)
+  const taxPoint = invoice.tax_point_date || invoice.issue_date
+  const dueDate = invoice.due_date || invoice.issue_date
+  const totals = computeInvoiceTotals(items, invoice)
 
-  const lines = items.map(item => {
-    const net = roundMoney(Number(item.quantity) * Number(item.unit_price))
-    const vat = roundMoney(net * Number(item.tva_rate) / 100)
+  const lines = items.map((item, index) => {
+    const computed = totals.lines[index]
     const category = item.vat_category || vatCategoryFromRate(item.tva_rate)
-    return { item, net, vat, category }
+    return { item, computed, category }
   })
 
   const taxMap = new Map<string, { category: string; rate: number; taxable: number; tax: number; reason?: string }>()
+  const factor = totals.lineExtension > 0 ? totals.subtotal / totals.lineExtension : 1
   for (const line of lines) {
     const key = `${line.category}:${line.item.tva_rate}`
     const current = taxMap.get(key) || {
@@ -220,15 +269,10 @@ export function generateEfacturaXml(input: {
       tax: 0,
       reason: line.item.vat_exemption_reason || undefined
     }
-    current.taxable = roundMoney(current.taxable + line.net)
-    current.tax = roundMoney(current.tax + line.vat)
+    current.taxable = roundMoney(current.taxable + roundMoney(line.computed.net * factor))
+    current.tax = roundMoney(current.tax + roundMoney(line.computed.vat * factor))
     taxMap.set(key, current)
   }
-
-  const lineExtension = roundMoney(lines.reduce((sum, line) => sum + line.net, 0))
-  const taxAmount = roundMoney(lines.reduce((sum, line) => sum + line.vat, 0))
-  const payable = roundMoney(lineExtension + taxAmount)
-  const dueDate = invoice.due_date || invoice.issue_date
 
   const taxSubtotals = [...taxMap.values()].map(group => `      <cac:TaxSubtotal>
         ${el('cbc:TaxableAmount', group.taxable.toFixed(2), { currencyID: currency })}
@@ -241,10 +285,13 @@ export function generateEfacturaXml(input: {
         </cac:TaxCategory>
       </cac:TaxSubtotal>`).join('\n')
 
-  const invoiceLines = lines.map((line, index) => `  <cac:InvoiceLine>
+  const lineTag = credit ? 'CreditNoteLine' : 'InvoiceLine'
+  const qtyTag = credit ? 'CreditedQuantity' : 'InvoicedQuantity'
+  const invoiceLines = lines.map((line, index) => `  <cac:${lineTag}>
     ${el('cbc:ID', index + 1)}
-    ${el('cbc:InvoicedQuantity', line.item.quantity, { unitCode: line.item.unit_code || 'H87' })}
-    ${el('cbc:LineExtensionAmount', line.net.toFixed(2), { currencyID: currency })}
+    ${el(`cbc:${qtyTag}`, line.item.quantity, { unitCode: line.item.unit_code || 'H87' })}
+    ${el('cbc:LineExtensionAmount', line.computed.net.toFixed(2), { currencyID: currency })}
+    ${allowanceXml(line.computed.discount, currency, 'Discount linie')}
     <cac:Item>
       ${el('cbc:Name', line.item.description)}
       <cac:ClassifiedTaxCategory>
@@ -257,19 +304,31 @@ export function generateEfacturaXml(input: {
     <cac:Price>
       ${el('cbc:PriceAmount', Number(line.item.unit_price).toFixed(2), { currencyID: currency })}
     </cac:Price>
-  </cac:InvoiceLine>`).join('\n')
+  </cac:${lineTag}>`).join('\n')
+
+  const notes = [
+    publicNotes,
+    seller.vat_on_collection && !(publicNotes || '').includes(VAT_ON_COLLECTION_MENTION) ? VAT_ON_COLLECTION_MENTION : ''
+  ].filter(Boolean).join('\n')
+
+  const root = credit ? 'CreditNote' : 'Invoice'
+  const xmlns = credit
+    ? 'urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2'
+    : 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2'
+  const typeEl = credit ? 'CreditNoteTypeCode' : 'InvoiceTypeCode'
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+<${root} xmlns="${xmlns}"
   xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   ${el('cbc:CustomizationID', 'urn:cen.eu:en16931:2017#compliant#urn:efactura.mfinante.ro:CIUS-RO:1.0.1')}
   ${el('cbc:ProfileID', 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0')}
   ${el('cbc:ID', invoiceId)}
   ${el('cbc:IssueDate', invoice.issue_date)}
-  ${el('cbc:DueDate', dueDate)}
-  ${el('cbc:InvoiceTypeCode', typeCode)}
-  ${publicNotes ? el('cbc:Note', publicNotes) : ''}
+  ${el('cbc:TaxPointDate', taxPoint)}
+  ${credit ? '' : el('cbc:DueDate', dueDate)}
+  ${el(`cbc:${typeEl}`, typeCode)}
+  ${notes ? el('cbc:Note', notes) : ''}
   ${el('cbc:DocumentCurrencyCode', currency)}
   ${invoice.buyer_reference ? el('cbc:BuyerReference', invoice.buyer_reference) : ''}
   ${invoice.order_reference ? `<cac:OrderReference>${el('cbc:ID', invoice.order_reference)}</cac:OrderReference>` : ''}
@@ -300,17 +359,23 @@ export function generateEfacturaXml(input: {
       ${seller.bic ? `<cac:FinancialInstitutionBranch>${el('cbc:ID', seller.bic)}</cac:FinancialInstitutionBranch>` : ''}
     </cac:PayeeFinancialAccount>` : ''}
   </cac:PaymentMeans>
+  <cac:PaymentTerms>
+    ${el('cbc:Note', notes || `Plata până la ${dueDate}`)}
+  </cac:PaymentTerms>
+  ${allowanceXml(totals.headerDiscount, currency, 'Discount document')}
   <cac:TaxTotal>
-    ${el('cbc:TaxAmount', taxAmount.toFixed(2), { currencyID: currency })}
+    ${el('cbc:TaxAmount', totals.tvaAmount.toFixed(2), { currencyID: currency })}
 ${taxSubtotals}
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
-    ${el('cbc:LineExtensionAmount', lineExtension.toFixed(2), { currencyID: currency })}
-    ${el('cbc:TaxExclusiveAmount', lineExtension.toFixed(2), { currencyID: currency })}
-    ${el('cbc:TaxInclusiveAmount', payable.toFixed(2), { currencyID: currency })}
-    ${el('cbc:PayableAmount', payable.toFixed(2), { currencyID: currency })}
+    ${el('cbc:LineExtensionAmount', totals.lineExtension.toFixed(2), { currencyID: currency })}
+    ${totals.headerDiscount > 0 ? el('cbc:AllowanceTotalAmount', totals.headerDiscount.toFixed(2), { currencyID: currency }) : ''}
+    ${el('cbc:TaxExclusiveAmount', totals.subtotal.toFixed(2), { currencyID: currency })}
+    ${el('cbc:TaxInclusiveAmount', totals.taxInclusive.toFixed(2), { currencyID: currency })}
+    ${totals.prepaid > 0 ? el('cbc:PrepaidAmount', totals.prepaid.toFixed(2), { currencyID: currency }) : ''}
+    ${el('cbc:PayableAmount', totals.payable.toFixed(2), { currencyID: currency })}
   </cac:LegalMonetaryTotal>
 ${invoiceLines}
-</Invoice>
+</${root}>
 `
 }

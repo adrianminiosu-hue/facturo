@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     const { data: invoiceRows } = await supabase
       .from('invoices')
-      .select('id, total, amount_paid, status, company_id, invoice_type_code')
+      .select('id, total, amount_paid, prepaid_amount, status, company_id, invoice_type_code')
       .eq('user_id', userId)
       .eq('company_id', companyId)
 

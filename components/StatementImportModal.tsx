@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import type { MatchRow, OpenInvoice } from '@/lib/paymentMatch'
+import { remainingOf } from '@/lib/paymentMatch'
 import { formatRon } from '@/lib/money'
 
 type ImportAction = 'import' | 'unallocated' | 'skip'
@@ -24,7 +25,7 @@ function ron(n: number) {
 }
 
 function remaining(inv: OpenInvoice) {
-  return Math.max(0, Number(inv.total) - Number(inv.amount_paid || 0))
+  return remainingOf(inv)
 }
 
 function invoiceLabel(inv: OpenInvoice) {

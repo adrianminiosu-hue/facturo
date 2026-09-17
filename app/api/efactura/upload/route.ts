@@ -4,6 +4,7 @@ import { generateEfacturaXml } from '@/lib/efactura'
 import { simulateSpvUpload } from '@/lib/efacturaSpv'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
+import { resolveParty } from '@/lib/partySnapshot'
 import { isDraftInvoice, alreadySentToSpv, ALREADY_SENT_TO_SPV } from '@/lib/invoiceStatus'
 import { persistSpvAccepted } from '@/lib/spvPersist'
 
@@ -77,9 +78,10 @@ async function processOne(
     .select('*')
     .eq('invoice_id', invoiceId)
 
-  const client = await loadBuyer(supabase, invoice.client_id)
-
-  const seller = await loadSeller(supabase, invoice, userId)
+  const liveClient = await loadBuyer(supabase, invoice.client_id)
+  const liveSeller = await loadSeller(supabase, invoice, userId)
+  const client = resolveParty(invoice.buyer_snapshot, liveClient)
+  const seller = resolveParty(invoice.seller_snapshot, liveSeller)
 
   await delay(700)
 

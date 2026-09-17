@@ -40,8 +40,22 @@ export function isTransferredToSpv(invoice: {
   efactura_status?: string | null
   notes?: string | null
 }) {
-  if (invoice.status === 'paid') return false
   return alreadySentToSpv(invoice)
+}
+
+export function invoiceStatusAppearance(invoice: {
+  status?: string | null
+  efactura_status?: string | null
+  notes?: string | null
+}) {
+  if (isDraftInvoice(invoice.status)) return INVOICE_STATUS_LABEL.draft
+  const transferred = alreadySentToSpv(invoice)
+  if (invoice.status === 'paid' && transferred) {
+    return { label: 'Plătită · SPV', style: INVOICE_STATUS_LABEL.spv.style }
+  }
+  if (transferred) return INVOICE_STATUS_LABEL.spv
+  if (invoice.status === 'paid') return INVOICE_STATUS_LABEL.paid
+  return INVOICE_STATUS_LABEL[invoice.status || 'sent'] || INVOICE_STATUS_LABEL.sent
 }
 
 /** Issued documents that are not already in SPV. */
@@ -66,15 +80,4 @@ export function notesWithSpvMark(notes?: string | null) {
   if ((notes || '').includes(SPV_NOTE_MARK)) return notes || SPV_NOTE_MARK
   const clean = notesWithoutSpvMark(notes)
   return clean ? `${clean}\n${SPV_NOTE_MARK}` : SPV_NOTE_MARK
-}
-
-export function invoiceStatusAppearance(invoice: {
-  status?: string | null
-  efactura_status?: string | null
-  notes?: string | null
-}) {
-  if (isDraftInvoice(invoice.status)) return INVOICE_STATUS_LABEL.draft
-  if (invoice.status === 'paid') return INVOICE_STATUS_LABEL.paid
-  if (isTransferredToSpv(invoice)) return INVOICE_STATUS_LABEL.spv
-  return INVOICE_STATUS_LABEL[invoice.status || 'sent'] || INVOICE_STATUS_LABEL.sent
 }

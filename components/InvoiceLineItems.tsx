@@ -1,6 +1,7 @@
 'use client'
 import { UNIT_CODES, VAT_CATEGORIES, vatCategoryFromRate } from '@/lib/efactura'
 import { formatAmount } from '@/lib/money'
+import { computeInvoiceTotals, vatRateOptions } from '@/lib/invoiceMath'
 
 export type InvoiceLineItem = {
   id?: string
@@ -12,6 +13,7 @@ export type InvoiceLineItem = {
   unit_code: string
   vat_category: string
   vat_exemption_reason: string
+  discount_percent: number
 }
 
 export const emptyInvoiceLine = (): InvoiceLineItem => ({
@@ -22,8 +24,13 @@ export const emptyInvoiceLine = (): InvoiceLineItem => ({
   total: 0,
   unit_code: 'H87',
   vat_category: 'S',
-  vat_exemption_reason: ''
+  vat_exemption_reason: '',
+  discount_percent: 0
 })
+
+function lineTotal(item: InvoiceLineItem) {
+  return computeInvoiceTotals([item]).lines[0]?.total || 0
+}
 
 export default function InvoiceLineItems({
   items,
@@ -39,9 +46,7 @@ export default function InvoiceLineItems({
       updated[index].vat_category = vatCategoryFromRate(Number(value), updated[index].vat_category)
       if (Number(value) > 0) updated[index].vat_exemption_reason = ''
     }
-    const item = updated[index]
-    const subtotal = item.quantity * item.unit_price
-    updated[index].total = subtotal + (subtotal * item.tva_rate / 100)
+    updated[index].total = lineTotal(updated[index])
     onChange(updated)
   }
 
@@ -58,7 +63,7 @@ export default function InvoiceLineItems({
         {items.map((item, index) => (
           <div key={index} className="border border-gray-100 rounded-xl p-3">
             <div className="grid grid-cols-12 gap-2 items-end">
-              <div className="col-span-12 md:col-span-4">
+              <div className="col-span-12 md:col-span-3">
                 {index === 0 && <label className="block text-xs text-gray-500 mb-1">Descriere</label>}
                 <input
                   type="text"
@@ -100,17 +105,27 @@ export default function InvoiceLineItems({
                   min="0"
                 />
               </div>
-              <div className="col-span-4 md:col-span-2">
+              <div className="col-span-4 md:col-span-1">
+                {index === 0 && <label className="block text-xs text-gray-500 mb-1">Disc. %</label>}
+                <input
+                  type="number"
+                  value={item.discount_percent}
+                  onChange={e => updateItem(index, 'discount_percent', parseFloat(e.target.value) || 0)}
+                  className="input px-3 py-2.5"
+                  min="0"
+                  max="100"
+                />
+              </div>
+              <div className="col-span-4 md:col-span-1">
                 {index === 0 && <label className="block text-xs text-gray-500 mb-1">TVA %</label>}
                 <select
                   value={item.tva_rate}
                   onChange={e => updateItem(index, 'tva_rate', parseFloat(e.target.value))}
                   className="input bg-white px-3 py-2.5"
                 >
-                  <option value={21}>21%</option>
-                  <option value={9}>9%</option>
-                  <option value={5}>5%</option>
-                  <option value={0}>0%</option>
+                  {vatRateOptions(item.tva_rate).map(rate => (
+                    <option key={rate} value={rate}>{rate}%</option>
+                  ))}
                 </select>
               </div>
               <div className="col-span-3 md:col-span-1">

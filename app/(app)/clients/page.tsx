@@ -46,6 +46,7 @@ interface Client {
   postal_code?: string
   country?: string
   vat_registered?: boolean
+  is_public_institution?: boolean
   email: string
   phone: string
   bank_name: string
@@ -60,6 +61,7 @@ const emptyForm = {
   cui: '',
   reg_com: '',
   vat_registered: true,
+  is_public_institution: false,
   email: '',
   phone: '',
   bank_name: '',
@@ -171,6 +173,7 @@ export default function Clients() {
       cui: client.cui || '',
       reg_com: client.reg_com || '',
       vat_registered: client.vat_registered !== false,
+      is_public_institution: client.is_public_institution === true,
       email: client.email || '',
       phone: client.phone || '',
       bank_name: client.bank_name || '',
@@ -248,7 +251,8 @@ export default function Clients() {
         country: payload.country,
         city: payload.city,
         county: payload.county,
-        vat_registered: form.vat_registered
+        vat_registered: form.vat_registered,
+        is_public_institution: form.is_public_institution
       }
       let { error } = await supabase
         .from('clients')
@@ -467,6 +471,16 @@ export default function Clients() {
                       onChange={e => setForm(f => ({ ...f, vat_registered: e.target.checked }))}
                     />
                     Client plătitor de TVA
+                  </label>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
+                    <input
+                      type="checkbox"
+                      checked={form.is_public_institution}
+                      onChange={e => setForm(f => ({ ...f, is_public_institution: e.target.checked }))}
+                    />
+                    Instituție publică (referință cumpărător obligatorie pe factură)
                   </label>
                 </div>
               </div>

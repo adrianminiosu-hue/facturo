@@ -10,6 +10,7 @@ import PaymentModal from '@/components/PaymentModal'
 import StatementImportModal from '@/components/StatementImportModal'
 import { RECEIVABLE_LIST_STATUSES } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
+import { remainingOf } from '@/lib/invoiceMath'
 
 type Row = {
   id: string
@@ -24,6 +25,7 @@ type Row = {
   reminder_sent_at?: string | null
   promised_pay_date?: string | null
   amount_paid?: number | null
+  prepaid_amount?: number | null
   clients?: { company_name?: string; email?: string } | null
 }
 
@@ -51,7 +53,7 @@ const buckets: { id: '' | AgingKey | 'week_risk' | 'paid'; label: string }[] = [
 const PAGE_SIZE = 20
 
 function outstanding(row: Row) {
-  return Math.max(0, Number(row.total) - Number(row.amount_paid || 0))
+  return remainingOf(row)
 }
 
 function ron(n: number) {
@@ -81,7 +83,7 @@ export default function IncasariPage() {
   const load = async () => {
     let query = supabase
       .from('invoices')
-      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, invoice_type_code, clients(company_name, email)')
+      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, prepaid_amount, invoice_type_code, clients(company_name, email)')
       .eq('user_id', userId)
       .in('status', [...RECEIVABLE_LIST_STATUSES])
       .order('due_date', { ascending: true })

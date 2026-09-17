@@ -104,10 +104,12 @@ export default function Invoices() {
       if (data.executionStatus === '0') {
         setInvoices(prev => prev.map(inv => inv.id === invoice.id ? {
           ...inv,
-          status: data.invoicePatch?.status || inv.status,
-          efactura_status: 'accepted',
+          status: data.invoicePatch?.status || (inv.status === 'paid' ? 'paid' : 'spv'),
+          efactura_status: data.invoicePatch?.efactura_status ?? 'accepted',
           notes: data.invoicePatch?.notes ?? inv.notes
         } : inv))
+      } else if (data.error) {
+        alert(data.error)
       }
       setSpvResult(data)
       await loadInvoices()
@@ -259,8 +261,8 @@ export default function Invoices() {
           if (data.executionStatus === '0') {
             setInvoices(prev => prev.map(row => row.id === inv.id ? {
               ...row,
-              status: data.invoicePatch?.status || row.status,
-              efactura_status: 'accepted',
+              status: data.invoicePatch?.status || (row.status === 'paid' ? 'paid' : 'spv'),
+              efactura_status: data.invoicePatch?.efactura_status ?? 'accepted',
               notes: data.invoicePatch?.notes ?? row.notes
             } : row))
           }

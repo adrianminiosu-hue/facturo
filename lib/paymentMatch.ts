@@ -1,8 +1,11 @@
 import { ibansEqual } from '@/lib/iban'
 import { paymentFingerprint, type ParsedBankTxn } from '@/lib/multicash940'
 import { stripDiacritics } from '@/lib/romania'
+import { remainingOf } from '@/lib/invoiceMath'
 import { isOpenReceivable } from '@/lib/invoiceStatus'
 import { formatAmount, formatRon } from '@/lib/money'
+
+export { remainingOf }
 
 export type MatchStatus = 'matched' | 'suggested' | 'unmatched' | 'duplicate' | 'skipped'
 
@@ -16,6 +19,7 @@ export type OpenInvoice = {
   issue_date: string | null
   total: number
   amount_paid: number
+  prepaid_amount: number
   status: string
   currency: string | null
   invoice_type_code: string | null
@@ -63,10 +67,6 @@ const LEGAL_NOISE = new Set([
   'SRL', 'SA', 'PFA', 'PF', 'SC', 'SCA', 'SNC', 'RA', 'COM', 'COMPANY', 'LTD',
   'SRLD', 'II', 'IF', 'ONG', 'ASOC', 'ASSOCIATIA', 'FUNDATIA'
 ])
-
-export function remainingOf(invoice: Pick<OpenInvoice, 'total' | 'amount_paid'>) {
-  return Math.max(0, Math.round((Number(invoice.total) - Number(invoice.amount_paid || 0)) * 100) / 100)
-}
 
 export function invoiceRef(invoice: Pick<OpenInvoice, 'series' | 'invoice_number'>) {
   return `${invoice.series || ''}${invoice.invoice_number || ''}`
@@ -217,6 +217,7 @@ export function asOpenInvoice(row: Record<string, unknown>): OpenInvoice {
     issue_date: row.issue_date ? String(row.issue_date) : null,
     total: Number(row.total || 0),
     amount_paid: Number(row.amount_paid || 0),
+    prepaid_amount: Number(row.prepaid_amount || 0),
     status: String(row.status || ''),
     currency: row.currency ? String(row.currency) : 'RON',
     invoice_type_code: row.invoice_type_code ? String(row.invoice_type_code) : '380',

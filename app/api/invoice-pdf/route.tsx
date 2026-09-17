@@ -4,7 +4,11 @@ import ReactPDF, { Document, Page, Text, View, StyleSheet, Font, Svg, Rect, Path
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
-import { formatRon } from '@/lib/money'
+import { formatRon, formatAmount } from '@/lib/money'
+import { computeInvoiceTotals } from '@/lib/invoiceMath'
+import { formatPartyCui, resolveParty } from '@/lib/partySnapshot'
+import { unitLabel } from '@/lib/efactura'
+import { countyNameFromCode } from '@/lib/romania'
 Font.register({
   family: 'Roboto',
   fonts: [
@@ -118,11 +122,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#111111'
   },
-  col1: { width: '40%' },
-  col2: { width: '15%', textAlign: 'center' },
-  col3: { width: '20%', textAlign: 'right' },
-  col4: { width: '10%', textAlign: 'center' },
-  col5: { width: '15%', textAlign: 'right' },
+  col1: { width: '32%' },
+  col2: { width: '10%', textAlign: 'center' },
+  col3: { width: '10%', textAlign: 'center' },
+  col4: { width: '16%', textAlign: 'right' },
+  col5: { width: '12%', textAlign: 'center' },
+  col6: { width: '20%', textAlign: 'right' },
   totalsSection: {
     marginTop: 16,
     alignItems: 'flex-end'
@@ -192,8 +197,19 @@ const styles = StyleSheet.create({
   }
 })
 
-const InvoicePDF = ({ invoice, items, client, profile }: any) => (
-  <Document>
+function partyLines(party: any) {
+  const county = party?.county || countyNameFromCode(party?.county_code)
+  return {
+    cui: formatPartyCui(party?.cui, party?.vat_registered),
+    place: [party?.city, county, party?.postal_code].filter(Boolean).join(', ')
+  }
+}
+
+const InvoicePDF = ({ invoice, items, client, profile }: any) => {
+  const seller = partyLines(profile)
+  const buyer = partyLines(client)
+  const totals = computeInvoiceTotals(items || [], invoice || {})
+  return (  <Document>
     <Page size="A4" style={styles.page}>
       {/* Header */}
       <View style={styles.header}>
@@ -213,13 +229,13 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => (
             </Svg>
             <Text style={styles.companyName}>{profile?.company_name || 'Compania Mea'}</Text>
           </View>
-          <Text style={styles.textGray}>CUI: {profile?.cui || '—'}</Text>
+          <Text style={styles.textGray}>CUI: {seller.cui}</Text>
           <Text style={styles.textGray}>Reg. Com: {profile?.reg_com || '—'}</Text>
           <Text style={styles.textGray}>{profile?.address || '—'}</Text>
-          <Text style={styles.textGray}>{profile?.city || '—'}</Text>
+          <Text style={styles.textGray}>{seller.place || '—'}</Text>
         </View>
         <View>
-          <Text style={styles.invoiceTitle}>FACTURĂ</Text>
+          <Text style={styles.invoiceTitle}>{invoice.invoice_type_code === '381' ? 'NOTĂ DE CREDITARE' : 'FACTURĂ'}</Text>
           <Text style={styles.invoiceNumber}>Nr. {invoice.series}{invoice.invoice_number}</Text>
           <Text style={[styles.textGray, { textAlign: 'right', marginTop: 8 }]}>
             Data: {invoice.issue_date}
@@ -237,56 +253,78 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => (
         <View style={styles.col}>
           <Text style={styles.sectionLabel}>Furnizor</Text>
           <Text style={styles.text}>{profile?.company_name || '—'}</Text>
-          <Text style={styles.textGray}>CUI: {profile?.cui || '—'}</Text>
+          <Text style={styles.textGray}>CUI: {seller.cui}</Text>
           <Text style={styles.textGray}>Reg. Com: {profile?.reg_com || '—'}</Text>
           <Text style={styles.textGray}>{profile?.address || '—'}</Text>
+          <Text style={styles.textGray}>{seller.place || '—'}</Text>
           {profile?.iban && <Text style={styles.textGray}>IBAN: {profile.iban}</Text>}
+          {profile?.bic && <Text style={styles.textGray}>BIC: {profile.bic}</Text>}
           {profile?.bank_name && <Text style={styles.textGray}>Bancă: {profile.bank_name}</Text>}
         </View>
         <View style={styles.col}>
           <Text style={styles.sectionLabel}>Cumpărător</Text>
           <Text style={styles.text}>{client?.company_name || '—'}</Text>
-          <Text style={styles.textGray}>CUI: {client?.cui || '—'}</Text>
+          <Text style={styles.textGray}>CUI: {buyer.cui}</Text>
           <Text style={styles.textGray}>Reg. Com: {client?.reg_com || '—'}</Text>
           <Text style={styles.textGray}>{client?.address || '—'}</Text>
-          <Text style={styles.textGray}>{[client?.city, client?.county].filter(Boolean).join(', ') || '—'}</Text>
-          {client?.bank_name && <Text style={styles.textGray}>Bancă: {client.bank_name}</Text>}
-          {client?.iban && <Text style={styles.textGray}>IBAN: {client.iban}</Text>}
+          <Text style={styles.textGray}>{buyer.place || '—'}</Text>
         </View>
       </View>
 
       {/* Table */}
       <View style={styles.tableHeader}>
         <Text style={[styles.tableHeaderText, styles.col1]}>Descriere</Text>
-        <Text style={[styles.tableHeaderText, styles.col2]}>Cant.</Text>
-        <Text style={[styles.tableHeaderText, styles.col3]}>Preț unitar</Text>
-        <Text style={[styles.tableHeaderText, styles.col4]}>TVA%</Text>
-        <Text style={[styles.tableHeaderText, styles.col5]}>Total</Text>
+        <Text style={[styles.tableHeaderText, styles.col2]}>UM</Text>
+        <Text style={[styles.tableHeaderText, styles.col3]}>Cant.</Text>
+        <Text style={[styles.tableHeaderText, styles.col4]}>Preț unitar</Text>
+        <Text style={[styles.tableHeaderText, styles.col5]}>TVA%</Text>
+        <Text style={[styles.tableHeaderText, styles.col6]}>Total</Text>
       </View>
-      {items.map((item: any, i: number) => (
+      {(items || []).map((item: any, i: number) => (
         <View key={i} style={styles.tableRow}>
           <Text style={[styles.tableText, styles.col1]}>{item.description}</Text>
-          <Text style={[styles.tableText, styles.col2, { textAlign: 'center' }]}>{item.quantity}</Text>
-          <Text style={[styles.tableText, styles.col3, { textAlign: 'right' }]}>{formatRon(item.unit_price)}</Text>
-          <Text style={[styles.tableText, styles.col4, { textAlign: 'center' }]}>{item.tva_rate}%</Text>
-          <Text style={[styles.tableText, styles.col5, { textAlign: 'right' }]}>{formatRon(item.total)}</Text>
+          <Text style={[styles.tableText, styles.col2, { textAlign: 'center' }]}>{unitLabel(item.unit_code)}</Text>
+          <Text style={[styles.tableText, styles.col3, { textAlign: 'center' }]}>{item.quantity}</Text>
+          <Text style={[styles.tableText, styles.col4, { textAlign: 'right' }]}>{formatAmount(item.unit_price)}</Text>
+          <Text style={[styles.tableText, styles.col5, { textAlign: 'center' }]}>{item.tva_rate}%</Text>
+          <Text style={[styles.tableText, styles.col6, { textAlign: 'right' }]}>{formatRon(totals.lines[i]?.total ?? item.total)}</Text>
         </View>
       ))}
 
       {/* Totals */}
       <View style={styles.totalsSection}>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>{formatRon(invoice.subtotal)}</Text>
+          <Text style={styles.totalLabel}>Bază</Text>
+          <Text style={styles.totalValue}>{formatRon(totals.lineExtension)}</Text>
         </View>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>TVA</Text>
-          <Text style={styles.totalValue}>{formatRon(invoice.tva_amount)}</Text>
-        </View>
+        {totals.headerDiscount > 0 && (
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Discount</Text>
+            <Text style={styles.totalValue}>-{formatRon(totals.headerDiscount)}</Text>
+          </View>
+        )}
+        {totals.vatBreakdown.map(row => (
+          <View key={row.rate} style={styles.totalRow}>
+            <Text style={styles.totalLabel}>TVA {row.rate}%</Text>
+            <Text style={styles.totalValue}>{formatRon(row.tax)}</Text>
+          </View>
+        ))}
         <View style={styles.grandTotalRow}>
           <Text style={styles.grandTotalLabel}>TOTAL</Text>
-          <Text style={styles.grandTotalValue}>{formatRon(invoice.total)}</Text>
+          <Text style={styles.grandTotalValue}>{formatRon(totals.taxInclusive)}</Text>
         </View>
+        {totals.prepaid > 0 && (
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Avans</Text>
+            <Text style={styles.totalValue}>-{formatRon(totals.prepaid)}</Text>
+          </View>
+        )}
+        {totals.prepaid > 0 && (
+          <View style={styles.totalRow}>
+            <Text style={styles.grandTotalLabel}>De plată</Text>
+            <Text style={styles.grandTotalValue}>{formatRon(totals.payable)}</Text>
+          </View>
+        )}
       </View>
 
       {/* Notes */}
@@ -303,7 +341,8 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => (
       </Text>
     </Page>
   </Document>
-)
+  )
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -331,9 +370,10 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('invoice_id', invoiceId)
 
-    const client = await loadBuyer(supabase, invoice.client_id)
-
-    const profile = await loadSeller(supabase, invoice, userId)
+    const liveClient = await loadBuyer(supabase, invoice.client_id)
+    const liveSeller = await loadSeller(supabase, invoice, userId)
+    const client = resolveParty(invoice.buyer_snapshot, liveClient)
+    const profile = resolveParty(invoice.seller_snapshot, liveSeller)
 
     const stream = await ReactPDF.renderToStream(
       <InvoicePDF

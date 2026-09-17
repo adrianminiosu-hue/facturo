@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
+import { remainingOf } from '@/lib/invoiceMath'
 
 export const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer bancar' },
@@ -27,6 +28,7 @@ type InvoiceRef = {
   invoice_number: string
   total: number
   amount_paid?: number | null
+  prepaid_amount?: number | null
   clients?: { company_name?: string } | null
 }
 
@@ -51,7 +53,7 @@ export default function PaymentModal({
   onClose: () => void
   onSaved: () => void
 }) {
-  const rest = Math.max(0, Number(invoice.total) - Number(invoice.amount_paid || 0))
+  const rest = remainingOf(invoice)
   const [amount, setAmount] = useState(rest.toFixed(2))
   const [paidOn, setPaidOn] = useState(calendarDateInBucharest(0))
   const [method, setMethod] = useState('transfer')

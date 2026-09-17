@@ -5,6 +5,7 @@ export type InvoiceEfacturaValue = {
   invoice_type_code: string
   currency: string
   payment_means_code: string
+  tax_point_date: string
   delivery_date: string
   buyer_reference: string
   order_reference: string
@@ -14,11 +15,19 @@ export type InvoiceEfacturaValue = {
 
 export default function InvoiceEfacturaFields({
   value,
-  onChange
+  onChange,
+  buyerIsPublic,
+  lockType
 }: {
   value: InvoiceEfacturaValue
   onChange: (next: InvoiceEfacturaValue) => void
+  buyerIsPublic?: boolean
+  lockType?: boolean
 }) {
+  const types = lockType
+    ? INVOICE_TYPE_CODES.filter(type => type.code === value.invoice_type_code)
+    : INVOICE_TYPE_CODES.filter(type => type.code !== '381' || value.invoice_type_code === '381')
+
   return (
     <div className="card p-6">
       <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">Date e-Factura (SPV)</h3>
@@ -32,23 +41,16 @@ export default function InvoiceEfacturaFields({
             value={value.invoice_type_code}
             onChange={e => onChange({ ...value, invoice_type_code: e.target.value })}
             className="input bg-white"
+            disabled={lockType}
           >
-            {INVOICE_TYPE_CODES.map(type => (
+            {types.map(type => (
               <option key={type.code} value={type.code}>{type.code} — {type.label}</option>
             ))}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Monedă</label>
-          <select
-            value={value.currency}
-            onChange={e => onChange({ ...value, currency: e.target.value })}
-            className="input bg-white"
-          >
-            <option value="RON">RON</option>
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-          </select>
+          <input type="text" value="RON" readOnly className="input bg-gray-50 text-gray-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Modalitate de plată</label>
@@ -61,6 +63,15 @@ export default function InvoiceEfacturaFields({
               <option key={method.code} value={method.code}>{method.label}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Data exigibilității TVA</label>
+          <input
+            type="date"
+            value={value.tax_point_date}
+            onChange={e => onChange({ ...value, tax_point_date: e.target.value })}
+            className="input"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Data livrării</label>
@@ -82,7 +93,9 @@ export default function InvoiceEfacturaFields({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Referință cumpărător</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Referință cumpărător {buyerIsPublic ? '*' : ''}
+          </label>
           <input
             type="text"
             value={value.buyer_reference}
@@ -90,6 +103,9 @@ export default function InvoiceEfacturaFields({
             className="input"
             placeholder="Obligatoriu pentru autorități publice"
           />
+          {buyerIsPublic && !value.buyer_reference && (
+            <p className="text-red-500 text-xs mt-1">Obligatorie pentru instituții publice (BT-10).</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Perioadă facturare — de la</label>

@@ -142,13 +142,17 @@ export async function applyImportedPayment(
 }
 
 export function remainingMapFromInvoices(
-  invoices: Array<{ id: string; total: number; amount_paid?: number | null; status: string; company_id?: string | null }>
+  invoices: Array<{ id: string; total: number; amount_paid?: number | null; prepaid_amount?: number | null; status: string; company_id?: string | null }>
 ) {
   const remaining = new Map<string, number>()
   const meta = new Map<string, { total: number; status: string; company_id: string | null }>()
   for (const inv of invoices) {
     if (!isOpenReceivable(inv.status)) continue
-    remaining.set(inv.id, remainingOf({ total: Number(inv.total), amount_paid: Number(inv.amount_paid || 0) }))
+    remaining.set(inv.id, remainingOf({
+      total: Number(inv.total),
+      amount_paid: Number(inv.amount_paid || 0),
+      prepaid_amount: Number(inv.prepaid_amount || 0)
+    }))
     meta.set(inv.id, {
       total: Number(inv.total),
       status: inv.status,

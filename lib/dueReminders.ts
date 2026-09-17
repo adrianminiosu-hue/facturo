@@ -4,6 +4,7 @@ import { loadSeller } from '@/lib/loadSeller'
 import { calendarDateInBucharest, daysUntilDue, formatRoDate } from '@/lib/dates'
 import { OPEN_INVOICE_STATUSES } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
+import { remainingOf } from '@/lib/invoiceMath'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -31,7 +32,7 @@ function reminderHeadline(daysUntil: number) {
 
 function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number) {
   const ref = `${invoice.series}${invoice.invoice_number}`
-  const outstanding = formatRon(Math.max(0, Number(invoice.total) - Number(invoice.amount_paid || 0)))
+  const outstanding = formatRon(remainingOf(invoice))
   const due = formatRoDate(invoice.due_date || invoice.issue_date)
   const sellerName = seller?.company_name || 'Facturo'
 

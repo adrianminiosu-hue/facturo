@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
+import { resolveParty } from '@/lib/partySnapshot'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,12 +36,14 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('invoice_id', invoiceId)
 
-    const client = await loadBuyer(supabase, invoice.client_id)
-    if (!client) {
+    const liveClient = await loadBuyer(supabase, invoice.client_id)
+    if (!liveClient && !invoice.buyer_snapshot) {
       return NextResponse.json({ error: 'Clientul nu a fost găsit' }, { status: 404 })
     }
 
-    const seller = await loadSeller(supabase, invoice, userId)
+    const liveSeller = await loadSeller(supabase, invoice, userId)
+    const seller = resolveParty(invoice.seller_snapshot, liveSeller)
+    const client = resolveParty(invoice.buyer_snapshot, liveClient)
 
     let billing_reference: string | null = null
     let billing_reference_date: string | null = null

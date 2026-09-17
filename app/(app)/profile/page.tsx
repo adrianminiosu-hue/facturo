@@ -28,6 +28,7 @@ export default function Profile() {
     postal_code: '',
     country: 'RO',
     vat_registered: true,
+    vat_on_collection: false,
     bank_name: '',
     iban: '',
     bic: '',
@@ -63,6 +64,7 @@ export default function Profile() {
         postal_code: company.postal_code || '',
         country: company.country || 'RO',
         vat_registered: company.vat_registered !== false,
+        vat_on_collection: company.vat_on_collection === true,
         bank_name: company.bank_name || '',
         iban: company.iban || '',
         bic: company.bic || '',
@@ -90,6 +92,7 @@ export default function Profile() {
         postal_code: profile.postal_code || '',
         country: profile.country || 'RO',
         vat_registered: profile.vat_registered !== false,
+        vat_on_collection: profile.vat_on_collection === true,
         bank_name: profile.bank_name || '',
         iban: profile.iban || '',
         bic: profile.bic || '',
@@ -251,6 +254,16 @@ export default function Profile() {
                     onChange={e => setForm(f => ({ ...f, vat_registered: e.target.checked }))}
                   />
                   Platitor de TVA (identificatorul TVA RO+CUI este obligatoriu în e-Factura)
+                </label>
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={form.vat_on_collection}
+                    onChange={e => setForm(f => ({ ...f, vat_on_collection: e.target.checked }))}
+                  />
+                  TVA la încasare (mențiunea legală se pune automat pe factură)
                 </label>
               </div>
             </div>
