@@ -9,7 +9,7 @@ import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import BankDetailsFields from '@/components/BankDetailsFields'
 import { normalizeIban } from '@/lib/iban'
-import { normalizeBic, validateClientBankDetails } from '@/lib/roBanks'
+import { normalizeBic, normalizeIbanCurrency, validateClientBankDetails } from '@/lib/roBanks'
 
 export default function Profile() {
   const router = useRouter()
@@ -32,6 +32,7 @@ export default function Profile() {
     bank_name: '',
     iban: '',
     bic: '',
+    iban_currency: 'LEI' as const,
     contact_person: '',
     contact_role: '',
     email: '',
@@ -68,6 +69,7 @@ export default function Profile() {
         bank_name: company.bank_name || '',
         iban: company.iban || '',
         bic: company.bic || '',
+        iban_currency: normalizeIbanCurrency(company.iban_currency),
         contact_person: company.contact_person || '',
         contact_role: company.contact_role || '',
         email: company.email || '',
@@ -96,6 +98,7 @@ export default function Profile() {
         bank_name: profile.bank_name || '',
         iban: profile.iban || '',
         bic: profile.bic || '',
+        iban_currency: normalizeIbanCurrency(profile.iban_currency),
         contact_person: profile.contact_person || '',
         contact_role: profile.contact_role || '',
         email: profile.email || '',
@@ -152,6 +155,7 @@ export default function Profile() {
       ...form,
       iban: normalizeIban(form.iban),
       bic: normalizeBic(form.bic),
+      iban_currency: normalizeIbanCurrency(form.iban_currency),
       county: countyNameFromCode(form.county_code) || form.county
     }
     if (company?.id) {
@@ -201,7 +205,7 @@ export default function Profile() {
                   <button
                     onClick={lookupCUI}
                     disabled={cuiLoading}
-                    className="btn btn-primary px-4 py-3 disabled:opacity-50 whitespace-nowrap"
+                    className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                   >
                     {cuiLoading ? 'Se caută...' : 'Caută CUI'}
                   </button>
@@ -273,7 +277,12 @@ export default function Profile() {
           <div className="card p-8">
             <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Date bancare</h3>
             <BankDetailsFields
-              value={{ bank_name: form.bank_name, iban: form.iban, bic: form.bic }}
+              value={{
+                bank_name: form.bank_name,
+                iban: form.iban,
+                bic: form.bic,
+                iban_currency: normalizeIbanCurrency(form.iban_currency)
+              }}
               onChange={next => setForm(f => ({ ...f, ...next }))}
             />
           </div>
@@ -362,7 +371,7 @@ export default function Profile() {
             <button
               onClick={saveProfile}
               disabled={saving}
-              className="btn btn-primary px-8 py-3 disabled:opacity-50"
+              className="btn btn-primary disabled:opacity-50"
             >
               {saving ? 'Se salvează...' : 'Salvează profilul'}
             </button>

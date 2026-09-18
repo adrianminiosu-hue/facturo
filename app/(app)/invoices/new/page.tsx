@@ -227,7 +227,7 @@ export default function NewInvoice() {
       <AppNav active="invoices" />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between gap-4 mb-8">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Factură nouă</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">Completează detaliile facturii</p>
@@ -339,18 +339,18 @@ export default function NewInvoice() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pb-8">
+          <div className="card px-6 py-4 flex flex-wrap gap-3">
             <button
               onClick={() => saveInvoice('draft')}
               disabled={saving}
-              className="btn btn-outline px-6 py-3 disabled:opacity-50"
+              className="btn btn-outline disabled:opacity-50"
             >
               {saving ? 'Se salvează...' : 'Salvează ciornă'}
             </button>
             <button
               onClick={() => saveInvoice('sent')}
               disabled={saving}
-              className="btn btn-primary px-6 py-3 disabled:opacity-50"
+              className="btn btn-primary disabled:opacity-50"
             >
               {saving ? 'Se salvează...' : 'Emite factură'}
             </button>

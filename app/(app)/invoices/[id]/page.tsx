@@ -10,7 +10,7 @@ import PaymentModal from '@/components/PaymentModal'
 import { INVOICE_TYPE_CODES } from '@/lib/efactura'
 import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { formatAmount, formatRon } from '@/lib/money'
 import { computeInvoiceTotals, remainingOf } from '@/lib/invoiceMath'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
@@ -84,6 +84,10 @@ export default function InvoiceViewPage() {
       .eq('id', invoiceId)
       .single()
     if (!data) { router.push('/invoices'); return }
+    if (isPurchaseInvoice(data)) {
+      router.replace(`/facturi-achizitie/${invoiceId}`)
+      return
+    }
     if (data.company_id && company?.id && data.company_id !== company.id) {
       router.push('/invoices')
       return
@@ -207,12 +211,12 @@ export default function InvoiceViewPage() {
 
         <div className="flex flex-wrap gap-2 mb-8">
           {draft ? (
-            <Link href={`/invoices/${invoice.id}/edit`} className="btn btn-primary text-sm px-4 py-2">
+            <Link href={`/invoices/${invoice.id}/edit`} className="btn btn-primary">
               Editează
             </Link>
           ) : (
             <button
-              className="btn btn-outline text-sm px-4 py-2"
+              className="btn btn-outline"
               onClick={() => downloadInvoicePdf(invoice.id, userId)}
             >
               PDF
@@ -220,7 +224,7 @@ export default function InvoiceViewPage() {
           )}
           {!draft && invoice.clients?.email && (
             <button
-              className="btn btn-outline text-sm px-4 py-2"
+              className="btn btn-outline"
               disabled={busy === 'email'}
               onClick={async () => {
                 if (!confirm(`Trimiți factura ${invoice.series}${invoice.invoice_number} pe email?`)) return
@@ -238,15 +242,15 @@ export default function InvoiceViewPage() {
             </button>
           )}
           {canStorno && (
-            <button className="btn btn-outline text-sm px-4 py-2" disabled={busy === 'storno'} onClick={createStorno}>
+            <button className="btn btn-outline" disabled={busy === 'storno'} onClick={createStorno}>
               {busy === 'storno' ? '...' : 'Creează storno'}
             </button>
           )}
-          <button className="btn btn-outline text-sm px-4 py-2" disabled={busy === 'copy'} onClick={copyInvoice}>
+          <button className="btn btn-outline" disabled={busy === 'copy'} onClick={copyInvoice}>
             {busy === 'copy' ? '...' : 'Copiază factură'}
           </button>
           {!draft && !credit && invoice.status !== 'paid' && (
-            <button className="btn btn-outline text-sm px-4 py-2" onClick={() => setPayOpen(true)}>
+            <button className="btn btn-outline" onClick={() => setPayOpen(true)}>
               Încasare
             </button>
           )}

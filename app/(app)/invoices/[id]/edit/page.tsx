@@ -8,7 +8,7 @@ import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/comp
 import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
-import { isDraftInvoice } from '@/lib/invoiceStatus'
+import { isDraftInvoice, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { applyStornoToOriginal } from '@/lib/storno'
 import { defaultDueDate } from '@/lib/dates'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
@@ -147,6 +147,10 @@ export default function EditInvoice() {
       .single()
 
     if (!invoice) { router.push('/invoices'); return }
+    if (isPurchaseInvoice(invoice)) {
+      router.replace(`/facturi-achizitie/${invoiceId}`)
+      return
+    }
     if (invoice.company_id && company?.id && invoice.company_id !== company.id) {
       router.push('/invoices')
       return
@@ -279,7 +283,7 @@ export default function EditInvoice() {
       <AppNav active="invoices" />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between mb-8">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Editează factură</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}{form.invoice_type_code === '381' ? ' · storno' : ''}</p>
@@ -366,13 +370,13 @@ export default function EditInvoice() {
               rows={3} placeholder="Mențiuni suplimentare..." />
           </div>
 
-          <div className="flex gap-3 pb-8">
+          <div className="card px-6 py-4 flex flex-wrap gap-3">
             <button onClick={() => saveInvoice('draft')} disabled={saving}
-              className="btn btn-outline px-6 py-3 disabled:opacity-50">
+              className="btn btn-outline disabled:opacity-50">
               {saving ? 'Se salvează...' : 'Salvează ciornă'}
             </button>
             <button onClick={() => saveInvoice('sent')} disabled={saving}
-              className="btn btn-primary px-6 py-3 disabled:opacity-50">
+              className="btn btn-primary disabled:opacity-50">
               {saving ? 'Se salvează...' : 'Emite factură'}
             </button>
           </div>

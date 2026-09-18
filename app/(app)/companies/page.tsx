@@ -30,7 +30,7 @@ export default function CompaniesPage() {
         <div className="mb-8">
           <h2 className="text-3xl text-[color:var(--color-foreground)]">Firmele tale</h2>
           <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-            Lucrezi ca contabil pe mai multe firme. Clienții și facturile sunt izolate pe firma activă.
+            Lucrezi ca contabil pe mai multe firme. Clienții și facturile rămân izolate pe firma activă; nomenclatorul de articole este comun pentru tot profilul.
           </p>
         </div>
 

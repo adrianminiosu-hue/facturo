@@ -8,7 +8,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import DailyInvoicedChart, { type DailyAmount } from '@/components/DailyInvoicedChart'
 import DailyTrendChart from '@/components/DailyTrendChart'
 import { addDaysIso, calendarDateInBucharest, startOfIsoWeek } from '@/lib/dates'
-import { isCreditNote, isOpenReceivable } from '@/lib/invoiceStatus'
+import { isCreditNote, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 import { userGreeting } from '@/lib/userDisplay'
 
@@ -19,6 +19,8 @@ type InvoiceRow = {
   total: number
   status: string
   invoice_type_code?: string | null
+  notes?: string | null
+  direction?: string | null
   clients?: { company_name?: string | null } | null
 }
 
@@ -116,10 +118,10 @@ export default function Dashboard() {
     const firstDay = calendarDateInBucharest(0).slice(0, 8) + '01'
     let query = supabase
       .from('invoices')
-      .select('id, client_id, issue_date, total, status, invoice_type_code, clients(company_name)')
+      .select('id, client_id, issue_date, total, status, invoice_type_code, notes, clients(company_name)')
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data: invoices } = await query
-    const all = (invoices || []) as InvoiceRow[]
+    const all = ((invoices || []) as InvoiceRow[]).filter(inv => !isPurchaseInvoice(inv))
     const thisMonth = all.filter(inv => inv.issue_date >= firstDay && inv.status !== 'draft')
     const unpaid = all.filter(inv => isOpenReceivable(inv.status))
     const totalAmount = all
@@ -253,7 +255,7 @@ export default function Dashboard() {
                 <span>{Math.round(progressPct)}%</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-black rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                <div className="h-full bg-[color:var(--color-accent)] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
               </div>
             </div>
 
@@ -270,13 +272,13 @@ export default function Dashboard() {
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-green-600 font-medium">✓ Completat</p>
                     {!steps.client && (
-                      <Link href="/clients" className="inline-block btn btn-primary text-sm px-4 py-2">
+                      <Link href="/clients" className="inline-block btn btn-primary">
                         Mergi la pasul 2 →
                       </Link>
                     )}
                   </div>
                 ) : (
-                  <Link href="/profile" className="inline-block btn btn-primary text-sm px-4 py-2">Configurează →</Link>
+                  <Link href="/profile" className="inline-block btn btn-primary">Configurează →</Link>
                 )}
               </div>
 
@@ -292,13 +294,13 @@ export default function Dashboard() {
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-green-600 font-medium">✓ Completat</p>
                     {!steps.invoice && (
-                      <Link href="/invoices/new" className="inline-block btn btn-primary text-sm px-4 py-2">
+                      <Link href="/invoices/new" className="inline-block btn btn-primary">
                         Mergi la pasul 3 →
                       </Link>
                     )}
                   </div>
                 ) : (
-                  <Link href="/clients" className={`inline-block btn btn-primary text-sm px-4 py-2 ${!steps.profile ? 'pointer-events-none opacity-40' : ''}`}>Adaugă client →</Link>
+                  <Link href="/clients" className={`inline-block btn btn-primary ${!steps.profile ? 'pointer-events-none opacity-40' : ''}`}>Adaugă client →</Link>
                 )}
               </div>
 
@@ -313,7 +315,7 @@ export default function Dashboard() {
                 {steps.invoice ? (
                   <p className="text-sm text-green-600 font-medium">✓ Completat</p>
                 ) : (
-                  <Link href="/invoices/new" className={`inline-block btn btn-primary text-sm px-4 py-2 ${!steps.client ? 'pointer-events-none opacity-40' : ''}`}>Creează factură →</Link>
+                  <Link href="/invoices/new" className={`inline-block btn btn-primary ${!steps.client ? 'pointer-events-none opacity-40' : ''}`}>Creează factură →</Link>
                 )}
               </div>
             </div>

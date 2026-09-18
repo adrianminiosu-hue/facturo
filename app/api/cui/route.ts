@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { bucharestSectorFromText, countyCodeFromName } from '@/lib/romania'
+import { inferLegalForm } from '@/lib/legalForms'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
         county_code,
         postal_code: data.cod_postal || '',
         country: 'RO',
-        vat_registered: vatFlag === undefined || vatFlag === null ? true : Boolean(vatFlag)
+        vat_registered: vatFlag === undefined || vatFlag === null ? true : Boolean(vatFlag),
+        legal_form: inferLegalForm(data.denumire)
       })
     } else {
       return NextResponse.json({ success: false, message: 'CUI negăsit' })

@@ -17,6 +17,32 @@
   --success: #3f6b4a;
   --radius: 18px;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 18px 40px -24px rgba(15, 22, 34, 0.22);
+  --nav-bg: #001F54;
+  --nav-ink: #f4f6f9;
+  --nav-muted: rgba(232, 237, 244, 0.72);
+  --nav-hover: #ffffff;
+  --nav-active: #b7d2ff;
+  --nav-border: rgba(183, 210, 255, 0.16);
+  --nav-control-bg: rgba(255, 255, 255, 0.08);
+  --nav-control-border: rgba(183, 210, 255, 0.22);
+  --nav-cta-bg: #f4f6f9;
+  --nav-cta-ink: #001F54;
+  --nav-blur: none;
+}
+
+/* Rollback: set data-nav="light" on <html> in app/layout.tsx */
+html[data-nav="light"] {
+  --nav-bg: rgba(255, 255, 255, 0.78);
+  --nav-ink: var(--foreground);
+  --nav-muted: var(--muted-foreground);
+  --nav-hover: var(--foreground);
+  --nav-active: var(--accent);
+  --nav-border: var(--border);
+  --nav-control-bg: var(--card);
+  --nav-control-border: var(--border);
+  --nav-cta-bg: var(--accent);
+  --nav-cta-ink: var(--accent-foreground);
+  --nav-blur: blur(18px) saturate(1.2);
 }
 
 @theme inline {
@@ -130,9 +156,47 @@ body {
 
   .top-nav {
     @apply px-6 py-3.5 flex items-center justify-between sticky top-0 z-40;
-    background: rgba(255, 255, 255, 0.78);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(18px) saturate(1.2);
+    background: var(--nav-bg);
+    color: var(--nav-ink);
+    border-bottom: 1px solid var(--nav-border);
+    backdrop-filter: var(--nav-blur);
+  }
+
+  .top-nav .brand {
+    color: var(--nav-ink);
+  }
+
+  .top-nav .nav-link {
+    color: var(--nav-muted);
+  }
+  .top-nav .nav-link:hover {
+    color: var(--nav-hover);
+  }
+  .top-nav .nav-link-active {
+    color: var(--nav-ink);
+    box-shadow: inset 0 -1px 0 var(--nav-active);
+  }
+
+  .top-nav .nav-meta {
+    color: var(--nav-muted);
+  }
+  .top-nav .nav-meta:hover {
+    color: var(--nav-hover);
+  }
+
+  .top-nav .select {
+    background: var(--nav-control-bg);
+    border-color: var(--nav-control-border);
+    color: var(--nav-ink);
+  }
+  .top-nav .select option {
+    color: #0e1218;
+    background: #fff;
+  }
+
+  .top-nav .btn-primary {
+    background: var(--nav-cta-bg);
+    color: var(--nav-cta-ink);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -142,7 +206,7 @@ body {
         radial-gradient(800px 400px at 100% 0%, rgba(0, 0, 0, 0.35), transparent 50%),
         var(--background);
     }
-    .top-nav {
+    html[data-nav="light"] .top-nav {
       background: rgba(11, 14, 19, 0.78);
     }
   }
@@ -155,38 +219,46 @@ body {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium transition outline-none;
-    border-radius: 999px;
+    @apply inline-flex items-center justify-center gap-2 text-sm font-medium outline-none;
+    padding: 0.5rem 1rem;
+    min-height: 2.5rem;
+    border-radius: 14px;
     letter-spacing: 0.01em;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
 
   .btn-primary {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 10px 24px -16px rgba(22, 19, 15, 0.8);
+    background: var(--accent);
+    color: var(--accent-foreground);
+    border-color: color-mix(in srgb, var(--accent) 78%, var(--foreground) 22%);
+    box-shadow: none;
   }
   .btn-primary:hover {
-    opacity: 0.92;
+    background: color-mix(in srgb, var(--accent) 88%, var(--foreground) 12%);
   }
   .btn-primary:focus-visible {
     box-shadow: 0 0 0 4px var(--ring);
   }
 
   .btn-soft {
-    background: rgba(62, 83, 107, 0.1);
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
     color: var(--foreground);
+    border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
   }
   .btn-soft:hover {
-    background: rgba(62, 83, 107, 0.16);
+    background: color-mix(in srgb, var(--accent) 18%, var(--card));
   }
 
   .btn-outline {
-    @apply border;
-    background: transparent;
+    background: color-mix(in srgb, var(--card) 86%, white 14%);
+    border-color: var(--border);
     color: var(--foreground);
   }
   .btn-outline:hover {
-    background: rgba(22, 19, 15, 0.04);
+    background: var(--muted);
+    border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
   }
 
   .nav-link {

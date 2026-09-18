@@ -1,14 +1,30 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
+import UserAvatar from '@/components/UserAvatar'
 import { useCompany } from '@/components/CompanyProvider'
 import Link from 'next/link'
 
+async function avatarRequest(method: 'POST' | 'DELETE', file?: File) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Sesiune invalidă.')
+  const body = new FormData()
+  if (file) body.append('file', file)
+  const res = await fetch('/api/account/avatar', {
+    method,
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body: method === 'POST' ? body : undefined
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || 'Nu s-a putut actualiza fotografia.')
+  return json as { avatarUrl?: string }
+}
+
 export default function AccountPage() {
   const router = useRouter()
-  const { userId, userEmail, userName, loading, refreshCompanies } = useCompany()
+  const { userId, userEmail, userName, userAvatarUrl, loading, refreshCompanies } = useCompany()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -16,7 +32,10 @@ export default function AccountPage() {
   const [error, setError] = useState('')
   const [profileMsg, setProfileMsg] = useState('')
   const [profileError, setProfileError] = useState('')
+  const [photoMsg, setPhotoMsg] = useState('')
+  const [photoError, setPhotoError] = useState('')
   const [busy, setBusy] = useState('')
+  const photoInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setName(userName)
@@ -43,6 +62,38 @@ export default function AccountPage() {
     }
     await refreshCompanies()
     setProfileMsg('Numele a fost salvat.')
+  }
+
+  const savePhoto = async (file?: File) => {
+    if (!file) return
+    setBusy('photo')
+    setPhotoError('')
+    setPhotoMsg('')
+    try {
+      const json = await avatarRequest('POST', file)
+      await supabase.auth.updateUser({ data: { avatar_url: json.avatarUrl || '' } })
+      await refreshCompanies()
+      setPhotoMsg('Fotografia a fost salvată.')
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Nu s-a putut salva fotografia.')
+    }
+    if (photoInput.current) photoInput.current.value = ''
+    setBusy('')
+  }
+
+  const removePhoto = async () => {
+    setBusy('photo')
+    setPhotoError('')
+    setPhotoMsg('')
+    try {
+      await avatarRequest('DELETE')
+      await supabase.auth.updateUser({ data: { avatar_url: '' } })
+      await refreshCompanies()
+      setPhotoMsg('Fotografia a fost ștearsă.')
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Nu s-a putut șterge fotografia.')
+    }
+    setBusy('')
   }
 
   const changePassword = async (e: React.FormEvent) => {
@@ -93,6 +144,7 @@ export default function AccountPage() {
     if (!confirm('Ștergi contul și datele din aplicație? Exportă mai întâi facturile emise — păstrarea lor 10 ani este obligația ta legală. Acțiunea este ireversibilă.')) return
     if (!confirm('Confirmi ștergerea definitivă?')) return
     setBusy('delete')
+    try { await avatarRequest('DELETE') } catch { /* continue deleting the account */ }
     const invoiceIds = (await supabase.from('invoices').select('id').eq('user_id', userId)).data || []
     await supabase.from('invoice_payments').delete().eq('user_id', userId)
     await supabase.from('catalog_items').delete().eq('user_id', userId)
@@ -125,6 +177,52 @@ export default function AccountPage() {
 
         <div className="card p-8 mb-6">
           <h3 className="font-bold mb-4">Date personale</h3>
+          <div className="flex items-start gap-5 mb-6">
+            <button
+              type="button"
+              onClick={() => photoInput.current?.click()}
+              className="rounded-full focus-visible:outline-none focus-visible:shadow-[0_0_0_4px_var(--ring)]"
+              title="Schimbă fotografia"
+              disabled={busy === 'photo'}
+            >
+              <UserAvatar url={userAvatarUrl} name={name || userName} email={userEmail} size="lg" />
+            </button>
+            <div className="min-w-0">
+              <p className="text-sm font-medium mb-1">Fotografie</p>
+              <p className="text-sm text-[color:var(--color-muted-foreground)] mb-3">
+                Apare lângă email, sus în dreapta. JPG, PNG, WEBP sau GIF, maxim 2 MB.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => photoInput.current?.click()}
+                  disabled={busy === 'photo'}
+                  className="btn btn-outline disabled:opacity-50"
+                >
+                  {busy === 'photo' ? 'Se salvează...' : userAvatarUrl ? 'Schimbă fotografia' : 'Încarcă o fotografie'}
+                </button>
+                {userAvatarUrl && (
+                  <button
+                    type="button"
+                    onClick={removePhoto}
+                    disabled={busy === 'photo'}
+                    className="btn btn-outline disabled:opacity-50"
+                  >
+                    Șterge
+                  </button>
+                )}
+              </div>
+              {photoError && <p className="text-sm text-red-500 mt-2">{photoError}</p>}
+              {photoMsg && <p className="text-sm text-green-700 mt-2">{photoMsg}</p>}
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={e => savePhoto(e.target.files?.[0])}
+              />
+            </div>
+          </div>
           <form onSubmit={saveName} className="space-y-4">
             <div>
               <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">Email</label>

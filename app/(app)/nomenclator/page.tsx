@@ -9,8 +9,10 @@ import { formatAmount } from '@/lib/money'
 import { vatRateOptions } from '@/lib/invoiceMath'
 import {
   catalogWriteRow,
+  deleteCatalogItemsByName,
   emptyCatalogDraft,
   importCatalogFromRecent,
+  isCatalogDuplicateError,
   loadCatalogItems,
   type CatalogDraft,
   type CatalogItem
@@ -18,7 +20,7 @@ import {
 
 export default function NomenclatorPage() {
   const router = useRouter()
-  const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
+  const { userId, ownerUserId, loading: companyLoading } = useCompany()
   const [items, setItems] = useState<CatalogItem[]>([])
   const [missingTable, setMissingTable] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -37,12 +39,11 @@ export default function NomenclatorPage() {
       await loadItems()
     }
     init()
-  }, [company?.id, userId, companyLoading])
+  }, [ownerUserId, userId, companyLoading])
 
   const loadItems = async () => {
     const result = await loadCatalogItems(supabase, {
       userId: ownerUserId || userId,
-      companyId: company?.id,
       activeOnly: false
     })
     setMissingTable(!!result.missingTable)
@@ -99,13 +100,13 @@ export default function NomenclatorPage() {
       return
     }
     setSaving(true)
-    const payload = catalogWriteRow(form, { userId: ownerUserId || userId, actorUserId: userId, companyId: company?.id })
+    const payload = catalogWriteRow(form, { userId: ownerUserId || userId, actorUserId: userId })
     const result = editItem
       ? await supabase.from('catalog_items').update(payload).eq('id', editItem.id)
       : await supabase.from('catalog_items').insert(payload)
     setSaving(false)
     if (result.error) {
-      alert(result.error.message.includes('catalog_items_company_name') || result.error.message.includes('duplicate')
+      alert(isCatalogDuplicateError(result.error)
         ? 'Există deja un articol cu această denumire în nomenclator.'
         : result.error.message)
       return
@@ -116,10 +117,13 @@ export default function NomenclatorPage() {
   }
 
   const remove = async (item: CatalogItem) => {
-    if (!confirm(`Ștergi „${item.name}” din nomenclator?`)) return
-    const { error } = await supabase.from('catalog_items').delete().eq('id', item.id)
-    if (error) {
-      alert(error.message)
+    if (!confirm(`Ștergi „${item.name}” din nomenclator? Articolul dispare de pe toate firmele din profil.`)) return
+    const result = await deleteCatalogItemsByName(supabase, {
+      userId: ownerUserId || userId,
+      name: item.name
+    })
+    if (result.error) {
+      alert(result.error)
       return
     }
     await loadItems()
@@ -157,12 +161,11 @@ export default function NomenclatorPage() {
     <div className="app-shell">
       <AppNav active="nomenclator" />
       <div className="max-w-5xl mx-auto px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Nomenclator</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Nomenclator articole</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              {company?.company_name ? `${company.company_name} · ` : ''}
-              Produse și servicii reutilizabile pe facturi
+              Nomenclator comun pentru toate firmele din profil. Articolele din facturi emise sau din e-Factura se adaugă o dată și sunt disponibile pe orice firmă.
             </p>
           </div>
           <div className="flex gap-2">
@@ -349,7 +352,7 @@ export default function NomenclatorPage() {
             </p>
             <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">
               {items.length === 0
-                ? 'Adaugă serviciile recurente o dată, apoi le selectezi pe factură. Poți importa și liniile deja emise.'
+                ? 'Adaugă serviciile recurente o dată; apar pe toate firmele din profil. Poți importa și liniile deja emise.'
                 : 'Încearcă alt termen de căutare.'}
             </p>
             {items.length === 0 ? (
@@ -360,7 +363,7 @@ export default function NomenclatorPage() {
                 <button onClick={openNew} className="btn btn-primary">+ Articol nou</button>
               </div>
             ) : (
-              <button onClick={() => setSearch('')} className="btn btn-outline px-6 py-2">Resetează căutarea</button>
+              <button onClick={() => setSearch('')} className="btn btn-outline">Resetează căutarea</button>
             )}
           </div>
         ) : !missingTable ? (

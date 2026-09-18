@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { parseMulticash940 } from '@/lib/multicash940'
 import { asOpenInvoice, matchPayments, type ExistingPayment } from '@/lib/paymentMatch'
-import { OPEN_INVOICE_STATUSES } from '@/lib/invoiceStatus'
+import { OPEN_INVOICE_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { getCompanyForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const { data: invoiceRows, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, company_id, client_id, series, invoice_number, due_date, issue_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, clients(company_name, cui, iban)')
+      .select('id, company_id, client_id, series, invoice_number, due_date, issue_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, notes, clients(company_name, cui, iban)')
       .eq('user_id', company.user_id)
       .eq('company_id', companyId)
       .in('status', [...OPEN_INVOICE_STATUSES])
@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
     }
 
     const invoices = (invoiceRows || [])
+      .filter(row => (row as { invoice_type_code?: string }).invoice_type_code !== '381' && !isPurchaseInvoice(row as { notes?: string }))
       .map(row => asOpenInvoice(row as Record<string, unknown>))
-      .filter(inv => inv.invoice_type_code !== '381')
 
     let existing: ExistingPayment[] = []
     const full = await supabase

@@ -15,6 +15,7 @@ export type Company = {
   bank_name: string
   iban: string
   bic: string
+  iban_currency: string
   contact_person: string
   contact_role: string
   email: string
@@ -40,6 +41,7 @@ export const emptyCompanyFields = {
   bank_name: '',
   iban: '',
   bic: '',
+  iban_currency: 'LEI',
   contact_person: '',
   contact_role: '',
   email: '',
@@ -66,6 +68,7 @@ export function companyFromRow(row: Record<string, unknown>, userId: string): Co
     bank_name: String(row.bank_name || ''),
     iban: String(row.iban || ''),
     bic: String(row.bic || ''),
+    iban_currency: String(row.iban_currency || 'LEI') === 'EUR' ? 'EUR' : 'LEI',
     contact_person: String(row.contact_person || ''),
     contact_role: String(row.contact_role || ''),
     email: String(row.email || ''),

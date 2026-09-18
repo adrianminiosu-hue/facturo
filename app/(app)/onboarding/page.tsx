@@ -224,7 +224,7 @@ export default function Onboarding() {
             <div key={s} className="flex items-center gap-2 flex-1">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 transition ${
                 s < step ? 'bg-green-500 text-white' :
-                s === step ? 'bg-black text-white' :
+                s === step ? 'bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)]' :
                 'bg-gray-100 text-gray-400'
               }`}>
                 {s < step ? '✓' : s}
@@ -259,7 +259,7 @@ export default function Onboarding() {
                   <button
                     onClick={() => lookupCUI(profile.cui, 'profile')}
                     disabled={cuiLoading}
-                    className="bg-black text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 whitespace-nowrap"
+                    className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                   >
                     {cuiLoading ? 'Se caută...' : 'Caută CUI'}
                   </button>
@@ -375,7 +375,7 @@ export default function Onboarding() {
               <button
                 onClick={saveProfile}
                 disabled={saving || !profile.company_name}
-                className="bg-black text-white px-8 py-3 rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-50"
+                className="btn btn-primary disabled:opacity-50"
               >
                 {saving ? 'Se salvează...' : 'Continuă →'}
               </button>
@@ -403,7 +403,7 @@ export default function Onboarding() {
                   <button
                     onClick={() => lookupCUI(client.cui, 'client')}
                     disabled={clientCuiLoading}
-                    className="bg-black text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 whitespace-nowrap"
+                    className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                   >
                     {clientCuiLoading ? 'Se caută...' : 'Caută CUI'}
                   </button>
@@ -498,7 +498,7 @@ export default function Onboarding() {
                 <button
                   onClick={saveClient}
                   disabled={saving || !client.company_name}
-                  className="bg-black text-white px-8 py-3 rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-50"
+                  className="btn btn-primary disabled:opacity-50"
                 >
                   {saving ? 'Se salvează...' : 'Continuă →'}
                 </button>
@@ -522,19 +522,19 @@ export default function Onboarding() {
               <p className="text-sm font-medium text-gray-700 mb-3">Ce se întâmplă când creezi o factură:</p>
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs">1</span>
+                  <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">1</span>
                   <p className="text-sm text-gray-600">Selectezi clientul din lista ta</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs">2</span>
+                  <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">2</span>
                   <p className="text-sm text-gray-600">Adaugi produsele/serviciile cu prețuri</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs">3</span>
+                  <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">3</span>
                   <p className="text-sm text-gray-600">TVA se calculează automat</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs">4</span>
+                  <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">4</span>
                   <p className="text-sm text-gray-600">Descarci PDF-ul sau trimiți pe email</p>
                 </div>
               </div>
@@ -543,7 +543,7 @@ export default function Onboarding() {
             <div className="flex flex-col gap-3">
               <button
                 onClick={goToInvoice}
-                className="w-full bg-black text-white py-4 rounded-2xl font-medium text-lg hover:bg-gray-800 transition"
+                className="btn btn-primary w-full"
               >
                 Creează prima factură →
               </button>

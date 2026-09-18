@@ -81,7 +81,7 @@ export default function InvoiceLineItems({
   const reloadCatalog = async () => {
     if (!userId) return
     const [{ items: rows, missingTable: missing }, recentLines] = await Promise.all([
-      loadCatalogItems(supabase, { userId: ownerUserId || userId, companyId: company?.id, activeOnly: true }),
+      loadCatalogItems(supabase, { userId: ownerUserId || userId, activeOnly: true }),
       loadRecentInvoiceLines(supabase, { userId: ownerUserId || userId, companyId: company?.id })
     ])
     setCatalog(rows)
@@ -166,7 +166,7 @@ export default function InvoiceLineItems({
       <div className="flex items-start justify-between gap-4 mb-4">
         <h3 className="font-bold text-[color:var(--color-foreground)]">Produse / Servicii</h3>
         <Link href="/nomenclator" className="text-xs text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] underline">
-          Nomenclator
+          Nomenclator articole
         </Link>
       </div>
 
@@ -238,7 +238,7 @@ export default function InvoiceLineItems({
                     <div className="absolute z-30 left-0 right-0 md:min-w-[22rem] mt-1 bg-white border border-gray-200 rounded-xl overflow-hidden">
                       {catalogMatches.length > 0 && (
                         <SuggestionGroup
-                          label="Nomenclator"
+                          label="Nomenclator articole"
                           items={catalogMatches}
                           offset={0}
                           highlight={highlight}

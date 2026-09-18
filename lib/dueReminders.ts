@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { loadSeller } from '@/lib/loadSeller'
 import { calendarDateInBucharest, daysUntilDue, formatRoDate } from '@/lib/dates'
-import { OPEN_INVOICE_STATUSES } from '@/lib/invoiceStatus'
+import { OPEN_INVOICE_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 
@@ -139,7 +139,7 @@ export async function runDueReminders(options: { dryRun?: boolean } = {}) {
   const dueDate = calendarDateInBucharest(2)
   const first = await supabase
     .from('invoices')
-    .select('id, user_id, company_id, client_id, series, invoice_number, issue_date, due_date, total, status, reminder_sent_at')
+    .select('id, user_id, company_id, client_id, series, invoice_number, issue_date, due_date, total, status, reminder_sent_at, notes')
     .eq('due_date', dueDate)
     .in('status', [...OPEN_INVOICE_STATUSES])
   let invoices: any[] | null = first.data
@@ -159,7 +159,7 @@ export async function runDueReminders(options: { dryRun?: boolean } = {}) {
     throw new Error(error.message)
   }
 
-  const due = (invoices || []).filter((inv: { reminder_sent_at?: string | null }) => !inv.reminder_sent_at)
+  const due = (invoices || []).filter((inv: { reminder_sent_at?: string | null; notes?: string | null }) => !inv.reminder_sent_at && !isPurchaseInvoice(inv))
   const results: ReminderResult[] = []
 
   for (const invoice of due) {

@@ -11,7 +11,7 @@ import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/li
 import { calendarDateInBucharest } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, INVOICE_STATUS_LABEL, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isOpenReceivable } from '@/lib/invoiceStatus'
+import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, INVOICE_STATUS_LABEL, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 
 interface Invoice {
   id: string
@@ -102,7 +102,7 @@ export default function Invoices() {
       .order('created_at', { ascending: false })
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
-    const rows = (data || []) as Invoice[]
+    const rows = ((data || []) as Invoice[]).filter(inv => !isPurchaseInvoice(inv))
     setInvoices(rows)
     const originals = rows
       .filter(inv => !isDraftInvoice(inv.status) && !isCreditNote(inv.invoice_type_code))
@@ -399,7 +399,7 @@ export default function Invoices() {
       <AppNav active="invoices" />
 
       <div className={`max-w-7xl mx-auto px-6 py-8 ${selectedCount > 0 ? 'pb-28' : ''}`}>
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between gap-4 mb-8">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi emise</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
@@ -487,7 +487,7 @@ export default function Invoices() {
                   <button
                     onClick={() => { setFilterClientId(''); setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}
                     disabled={!filtersActive}
-                    className="btn btn-outline px-4 py-2.5 disabled:opacity-50"
+                    className="btn btn-outline disabled:opacity-50"
                   >
                     Resetează
                   </button>

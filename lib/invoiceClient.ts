@@ -79,3 +79,47 @@ export async function simulateSpvUploads(
   if (!res.ok) throw new Error(data.error || 'Eroare simulare SPV')
   return data
 }
+
+export type SimulatedPurchaseImport = {
+  simulated: true
+  environment: string
+  endpoint: string
+  buyerName: string
+  buyerCui: string
+  count: number
+  added?: number
+  skipped?: number
+  catalogInserted?: number
+  note: string
+  invoices: import('@/lib/efacturaPurchaseImport').SimulatedPurchaseInvoice[]
+}
+
+export async function importPurchaseInvoicesFromEfactura(
+  userId: string,
+  company?: {
+    id?: string | null
+    company_name?: string | null
+    cui?: string | null
+    address?: string | null
+    city?: string | null
+  } | null
+): Promise<SimulatedPurchaseImport> {
+  const res = await fetch('/api/efactura/import-purchases', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId,
+      companyId: company?.id,
+      company
+    })
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Eroare interogare e-Factura')
+  return data
+}
+
+export function openPurchaseInvoicePdf(invoiceId: string, userId: string, companyId?: string | null) {
+  const params = new URLSearchParams({ id: invoiceId, userId })
+  if (companyId) params.set('companyId', companyId)
+  window.open(`/api/efactura/purchase-pdf?${params.toString()}`, '_blank')
+}

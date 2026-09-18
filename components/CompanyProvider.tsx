@@ -8,6 +8,7 @@ type CompanyContextValue = {
   userId: string
   userEmail: string
   userName: string
+  userAvatarUrl: string
   companies: Company[]
   company: Company | null
   ownerUserId: string
@@ -39,6 +40,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
+  const [userAvatarUrl, setUserAvatarUrl] = useState('')
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyId, setCompanyId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -49,6 +51,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       setUserId('')
       setUserEmail('')
       setUserName('')
+      setUserAvatarUrl('')
       setCompanies([])
       setCompanyId('')
       setLoading(false)
@@ -57,6 +60,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     setUserId(user.id)
     setUserEmail(user.email || '')
     setUserName(String(user.user_metadata?.full_name || user.user_metadata?.name || ''))
+    setUserAvatarUrl(String(user.user_metadata?.avatar_url || ''))
     await acceptPendingInvites(user.id)
 
     const owned = await supabase
@@ -87,6 +91,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
             bank_name: profile.bank_name || '',
             iban: profile.iban || '',
             bic: profile.bic || '',
+            iban_currency: profile.iban_currency === 'EUR' ? 'EUR' : 'LEI',
             contact_person: profile.contact_person || '',
             contact_role: profile.contact_role || '',
             email: profile.email || '',
@@ -177,6 +182,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       userId,
       userEmail,
       userName,
+      userAvatarUrl,
       companies,
       company,
       ownerUserId,

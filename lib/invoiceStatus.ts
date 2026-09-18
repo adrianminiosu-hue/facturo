@@ -15,6 +15,9 @@ export const RECEIVABLE_LIST_STATUSES = ['sent', 'overdue', 'spv', 'paid'] as co
 /** Hidden marker used when the DB check constraint still forbids status=spv. */
 export const SPV_NOTE_MARK = '[[FACTURO_SPV]]'
 
+/** Hidden marker for purchase invoices registered from e-Factura, if direction is missing. */
+export const PURCHASE_NOTE_MARK = '[[FACTURO_PURCHASE]]'
+
 export const ALREADY_SENT_TO_SPV = 'Factura a fost deja transmisă.'
 
 export function isDraftInvoice(status?: string | null) {
@@ -71,8 +74,26 @@ export function isCreditNote(typeCode?: string | null) {
   return typeCode === '381'
 }
 
+export function isPurchaseInvoice(invoice: {
+  direction?: string | null
+  notes?: string | null
+}) {
+  return invoice.direction === 'purchase' || (invoice.notes || '').includes(PURCHASE_NOTE_MARK)
+}
+
+export function notesWithPurchaseMark(notes?: string | null) {
+  let next = notesWithSpvMark(notes)
+  if (!(next || '').includes(PURCHASE_NOTE_MARK)) {
+    next = next ? `${next}\n${PURCHASE_NOTE_MARK}` : PURCHASE_NOTE_MARK
+  }
+  return next
+}
+
 export function notesWithoutSpvMark(notes?: string | null) {
-  const cleaned = (notes || '').replace(/\s*\[\[FACTURO_SPV\]\]\s*/g, '').trim()
+  const cleaned = (notes || '')
+    .replace(/\s*\[\[FACTURO_SPV\]\]\s*/g, '')
+    .replace(/\s*\[\[FACTURO_PURCHASE\]\]\s*/g, '')
+    .trim()
   return cleaned || null
 }
 

@@ -17,7 +17,7 @@ export default function Home() {
         <BrandLockup href="/" />
         <div className="flex items-center gap-5">
           <Link href="/login" className="nav-link">Autentificare</Link>
-          <Link href="/register" className="btn btn-primary text-sm px-5 py-2">
+          <Link href="/register" className="btn btn-primary">
             Încearcă gratuit
           </Link>
         </div>

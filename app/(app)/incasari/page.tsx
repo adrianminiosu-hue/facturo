@@ -8,7 +8,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import { agingKey, calendarDateInBucharest, daysUntilDue, formatRoDate, type AgingKey } from '@/lib/dates'
 import PaymentModal from '@/components/PaymentModal'
 import StatementImportModal from '@/components/StatementImportModal'
-import { RECEIVABLE_LIST_STATUSES } from '@/lib/invoiceStatus'
+import { RECEIVABLE_LIST_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 
@@ -62,10 +62,9 @@ function ron(n: number) {
 
 export default function IncasariPage() {
   const router = useRouter()
-  const { userId, companies, company, ownerUserId, accessibleCompanyIds, accessibleOwnerIds, loading: companyLoading } = useCompany()
+  const { userId, companies, company, ownerUserId, accessibleOwnerIds, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
-  const [firmId, setFirmId] = useState('')
   const [clientId, setClientId] = useState('')
   const [reminderFilter, setReminderFilter] = useState<'all' | 'sent' | 'never'>('all')
   const [minAmount, setMinAmount] = useState('')
@@ -83,28 +82,31 @@ export default function IncasariPage() {
   const load = async () => {
     let query = supabase
       .from('invoices')
-      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, prepaid_amount, invoice_type_code, clients(company_name, email)')
+      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, prepaid_amount, invoice_type_code, notes, clients(company_name, email)')
       .in('status', [...RECEIVABLE_LIST_STATUSES])
       .order('due_date', { ascending: true })
-    query = accessibleCompanyIds.length
-      ? query.in('company_id', accessibleCompanyIds)
-      : query.eq('user_id', ownerUserId || userId)
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data, error } = await query
     if (error) {
-      const fallbackQuery = accessibleCompanyIds.length
-        ? supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, clients(company_name, email)').in('company_id', accessibleCompanyIds).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
-        : supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, clients(company_name, email)').eq('user_id', ownerUserId || userId).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
+      const fallbackQuery = company?.id
+        ? supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, notes, clients(company_name, email)').eq('company_id', company.id).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
+        : supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, notes, clients(company_name, email)').eq('user_id', ownerUserId || userId).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
       const fallback = await fallbackQuery
-      setRows((fallback.data || []) as unknown as Row[])
+      setRows(((fallback.data || []) as unknown as Row[]).filter(row => !isPurchaseInvoice(row as Row & { notes?: string; direction?: string })))
     } else {
-      setRows(((data || []) as unknown as Row[]).filter(row => (row as Row & { invoice_type_code?: string }).invoice_type_code !== '381'))
+      setRows(((data || []) as unknown as Row[]).filter(row => {
+        const typed = row as Row & { invoice_type_code?: string; notes?: string; direction?: string }
+        return typed.invoice_type_code !== '381' && !isPurchaseInvoice(typed)
+      }))
     }
-    const extras = await supabase
+    let extrasQuery = supabase
       .from('invoice_payments')
       .select('id, amount, paid_on, counterpart_name, counterpart_iban, notes, reference, company_id')
       .in('user_id', accessibleOwnerIds.length ? accessibleOwnerIds : [ownerUserId || userId])
       .is('invoice_id', null)
       .order('paid_on', { ascending: false })
+    if (company?.id) extrasQuery = extrasQuery.eq('company_id', company.id)
+    const extras = await extrasQuery
     if (!extras.error) setUnallocated((extras.data || []) as Unallocated[])
     else setUnallocated([])
     setLoading(false)
@@ -118,7 +120,7 @@ export default function IncasariPage() {
       load()
     }
     init()
-  }, [userId, companyLoading])
+  }, [userId, company?.id, companyLoading])
 
   const decorated = useMemo(() => rows.map(row => {
     const rest = outstanding(row)
@@ -131,7 +133,6 @@ export default function IncasariPage() {
   }), [rows, today])
 
   const filtered = decorated.filter(row => {
-    if (firmId && row.company_id !== firmId) return false
     if (clientId && row.client_id !== clientId) return false
     if (reminderFilter === 'sent' && !row.reminder_sent_at) return false
     if (reminderFilter === 'never' && row.reminder_sent_at) return false
@@ -150,7 +151,7 @@ export default function IncasariPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [firmId, clientId, reminderFilter, minAmount, bucket])
+  }, [clientId, reminderFilter, minAmount, bucket])
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount)
@@ -208,7 +209,8 @@ export default function IncasariPage() {
             <p className="kicker mb-2">Portofoliu</p>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">Încasări</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              Toate firmele · facturi emise, deschise și încasate · sortate după scadență
+              {company?.company_name ? `${company.company_name} · ` : ''}
+              facturi emise, deschise și încasate · sortate după scadență
             </p>
           </div>
           <button
@@ -256,13 +258,7 @@ export default function IncasariPage() {
         </div>
 
         <div className="card p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <select value={firmId} onChange={e => setFirmId(e.target.value)} className="input bg-white py-2.5">
-              <option value="">Toate firmele</option>
-              {companies.map(c => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <select value={clientId} onChange={e => setClientId(e.target.value)} className="input bg-white py-2.5">
               <option value="">Toți clienții</option>
               {clientOptions.map(([id, name]) => (
@@ -295,9 +291,8 @@ export default function IncasariPage() {
         ) : (
           <>
           <div className="card overflow-x-auto">
-            <div className="min-w-[1020px]">
-              <div className="grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
-                <span>Firmă</span>
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
                 <span>Client</span>
                 <span>Factură</span>
                 <span>Scadență</span>
@@ -307,8 +302,7 @@ export default function IncasariPage() {
                 <span className="text-right">Acțiuni</span>
               </div>
               {paged.map((row, i) => (
-                <div key={row.id} className={`grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                  <span className="text-sm truncate">{companyName(row.company_id)}</span>
+                <div key={row.id} className={`grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
                   <span className="text-sm truncate">{row.clients?.company_name || '—'}</span>
                   <span className="text-sm font-medium">{row.series}{row.invoice_number}</span>
                   <span className="text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(row.due_date)}</span>
@@ -389,14 +383,14 @@ export default function IncasariPage() {
           )}
           </>
         )}
-        {unallocated.filter(p => !firmId || p.company_id === firmId).length > 0 && (
+        {unallocated.length > 0 && (
           <div className="card p-5 mt-6">
             <p className="kicker mb-3">Încasări nealocate</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mb-3">
               Din extras, fără factură — nu modifică restul unei facturi până le înregistrezi manual pe document.
             </p>
             <div className="space-y-2">
-              {unallocated.filter(p => !firmId || p.company_id === firmId).map(p => (
+              {unallocated.map(p => (
                 <div key={p.id} className="flex justify-between gap-3 text-sm">
                   <div className="min-w-0">
                     <p className="truncate">{p.counterpart_name || 'Plătitor necunoscut'}</p>

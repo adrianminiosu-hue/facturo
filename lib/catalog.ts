@@ -1,5 +1,5 @@
 import { vatCategoryFromRate } from '@/lib/efactura'
-import { isCreditNote } from '@/lib/invoiceStatus'
+import { isCreditNote, isPurchaseInvoice } from '@/lib/invoiceStatus'
 
 export type CatalogKind = 'service' | 'product'
 
@@ -72,6 +72,17 @@ export function suggestionKey(line: Pick<CatalogLineValues, 'description' | 'uni
   ].join('|')
 }
 
+export function isCatalogDuplicateError(error: { message?: string } | null | undefined) {
+  const msg = String(error?.message || '').toLowerCase()
+  return (
+    msg.includes('duplicate') ||
+    msg.includes('catalog_items_company_name') ||
+    msg.includes('catalog_items_user_name') ||
+    msg.includes('catalog_items_company_code') ||
+    msg.includes('catalog_items_user_code')
+  )
+}
+
 export function isMissingCatalogTableError(error: { message?: string; code?: string } | null | undefined) {
   const msg = (error?.message || '').toLowerCase()
   return (
@@ -116,6 +127,26 @@ function scopedQuery(query: any, companyId?: string | null, userId?: string | nu
   return companyId ? query.eq('company_id', companyId) : query.eq('user_id', userId)
 }
 
+/** One article per name for the owner profile. Profile-level rows win over leftover per-company copies. */
+export function dedupeCatalogItems(items: CatalogItem[]) {
+  const byName = new Map<string, CatalogItem>()
+  for (const item of items) {
+    const key = catalogNameKey(item.name)
+    const current = byName.get(key)
+    if (!current) {
+      byName.set(key, item)
+      continue
+    }
+    const newIsProfile = !item.company_id
+    const currentIsProfile = !current.company_id
+    const newerUse = (item.last_used_at || '') > (current.last_used_at || '')
+    if ((newIsProfile && !currentIsProfile) || (newIsProfile === currentIsProfile && newerUse)) {
+      byName.set(key, item)
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro'))
+}
+
 export async function loadCatalogItems(
   client: QueryClient,
   opts: { userId?: string | null; companyId?: string | null; activeOnly?: boolean }
@@ -124,14 +155,16 @@ export async function loadCatalogItems(
     .from('catalog_items')
     .select('*')
     .order('name', { ascending: true })
-  query = scopedQuery(query, opts.companyId, opts.userId)
+  // Nomenclator is profile-scoped: all companies of the same owner share one catalog.
+  if (opts.userId) query = query.eq('user_id', opts.userId)
+  else query = scopedQuery(query, opts.companyId, opts.userId)
   if (opts.activeOnly !== false) query = query.eq('active', true)
   const { data, error } = await query
   if (error) {
     if (isMissingCatalogTableError(error)) return { items: [] as CatalogItem[], missingTable: true }
     return { items: [] as CatalogItem[], missingTable: false, error: error.message }
   }
-  return { items: (data || []).map(rowToCatalogItem), missingTable: false }
+  return { items: dedupeCatalogItems((data || []).map(rowToCatalogItem)), missingTable: false }
 }
 
 export async function loadRecentInvoiceLines(
@@ -140,7 +173,7 @@ export async function loadRecentInvoiceLines(
 ) {
   let query = client
     .from('invoices')
-    .select('issue_date, status, invoice_type_code, invoice_items(description, quantity, unit_price, tva_rate, unit_code, vat_category, vat_exemption_reason, discount_percent)')
+    .select('issue_date, status, invoice_type_code, notes, invoice_items(description, quantity, unit_price, tva_rate, unit_code, vat_category, vat_exemption_reason, discount_percent)')
     .neq('status', 'draft')
     .order('issue_date', { ascending: false })
     .limit(opts.invoiceLimit ?? 40)
@@ -154,7 +187,7 @@ export async function loadRecentInvoiceLines(
     invoice_type_code?: string | null
     invoice_items?: Array<Record<string, unknown>> | null
   }>) {
-    if (isCreditNote(invoice.invoice_type_code)) continue
+    if (isCreditNote(invoice.invoice_type_code) || isPurchaseInvoice(invoice)) continue
     for (const item of invoice.invoice_items || []) {
       const description = normalizeCatalogName(String(item.description || ''))
       if (!description) continue
@@ -182,8 +215,8 @@ export function catalogWriteRow(draft: CatalogDraft, opts: { userId: string; act
   const tva_rate = Number(draft.tva_rate) || 0
   return {
     user_id: opts.userId,
+    company_id: null,
     ...(opts.actorUserId ? { created_by: opts.actorUserId } : {}),
-    ...(opts.companyId ? { company_id: opts.companyId } : {}),
     code: draft.code.trim(),
     name,
     kind: draft.kind === 'product' ? 'product' : 'service',
@@ -235,16 +268,43 @@ export async function saveLineToCatalog(
     if (isMissingCatalogTableError(error)) {
       return { error: 'Nomenclatorul nu este instalat. Rulează migrația 20260917_catalog_items.sql.' }
     }
+    if (isCatalogDuplicateError(error)) {
+      const loaded = await loadCatalogItems(client, { userId: opts.userId, activeOnly: false })
+      const item = loaded.items.find(row => catalogNameKey(row.name) === catalogNameKey(name))
+      if (item) return { item, alreadyExisted: true }
+    }
     return { error: error.message }
   }
   return { item: rowToCatalogItem(data), alreadyExisted: false }
+}
+
+export async function deleteCatalogItemsByName(
+  client: QueryClient,
+  opts: { userId: string; name: string }
+) {
+  const loaded = await client
+    .from('catalog_items')
+    .select('id, name')
+    .eq('user_id', opts.userId)
+  if (loaded.error) {
+    if (isMissingCatalogTableError(loaded.error)) return { error: loaded.error.message, missingTable: true as const }
+    return { error: loaded.error.message }
+  }
+  const key = catalogNameKey(opts.name)
+  const ids = (loaded.data || [])
+    .filter((row: { name?: string }) => catalogNameKey(String(row.name || '')) === key)
+    .map((row: { id: string }) => row.id)
+  if (!ids.length) return { deleted: 0 }
+  const { error } = await client.from('catalog_items').delete().in('id', ids)
+  if (error) return { error: error.message }
+  return { deleted: ids.length }
 }
 
 export async function importCatalogFromRecent(
   client: QueryClient,
   opts: { userId: string; companyId?: string | null; items: CatalogItem[] }
 ) {
-  const recent = await loadRecentInvoiceLines(client, { ...opts, invoiceLimit: 80 })
+  const recent = await loadRecentInvoiceLines(client, { userId: opts.userId, invoiceLimit: 80 })
   const known = new Set(opts.items.map(item => catalogNameKey(item.name)))
   const rows = []
   for (const line of recent) {
@@ -266,6 +326,87 @@ export async function importCatalogFromRecent(
   const { error } = await client.from('catalog_items').insert(rows)
   if (error) return { inserted: 0, error: error.message }
   return { inserted: rows.length }
+}
+
+export function kindFromUnitCode(unit_code?: string | null): CatalogKind {
+  const code = String(unit_code || '').toUpperCase()
+  if (code === 'E48' || code === 'MON' || code === 'HUR' || code === 'DAY') return 'service'
+  return 'product'
+}
+
+export type PurchaseCatalogLine = {
+  description?: string | null
+  unit_code?: string | null
+  unit_price?: number | null
+  tva_rate?: number | null
+  vat_category?: string | null
+  vat_exemption_reason?: string | null
+  discount_percent?: number | null
+}
+
+/** Adds new nomenclator articles from e-Factura purchase lines. Never overwrites an existing name/price. */
+export async function importCatalogFromPurchaseLines(
+  client: QueryClient,
+  opts: {
+    userId: string
+    actorUserId?: string
+    companyId?: string | null
+    lines: PurchaseCatalogLine[]
+  }
+) {
+  const loaded = await loadCatalogItems(client, {
+    userId: opts.userId,
+    companyId: opts.companyId,
+    activeOnly: false
+  })
+  if (loaded.missingTable) return { inserted: 0, skipped: opts.lines.length, missingTable: true as const }
+
+  const known = new Set(loaded.items.map(item => catalogNameKey(item.name)))
+  let inserted = 0
+  let skipped = 0
+
+  for (const line of opts.lines) {
+    const name = normalizeCatalogName(String(line.description || ''))
+    if (!name) continue
+    const key = catalogNameKey(name)
+    if (known.has(key)) {
+      skipped += 1
+      continue
+    }
+    known.add(key)
+    const unit_code = String(line.unit_code || 'H87')
+    const tva_rate = Number(line.tva_rate || 0)
+    let row = catalogWriteRow({
+      ...emptyCatalogDraft(),
+      name,
+      kind: kindFromUnitCode(unit_code),
+      unit_code,
+      unit_price: Number(line.unit_price) || 0,
+      tva_rate,
+      vat_category: String(line.vat_category || vatCategoryFromRate(tva_rate)),
+      vat_exemption_reason: String(line.vat_exemption_reason || ''),
+      discount_percent: Number(line.discount_percent) || 0
+    }, opts)
+
+    let { error } = await client.from('catalog_items').insert(row)
+    if (error && String(error.message || '').toLowerCase().includes('created_by')) {
+      const { created_by: _omit, ...withoutCreatedBy } = row as typeof row & { created_by?: string }
+      row = withoutCreatedBy
+      const retry = await client.from('catalog_items').insert(row)
+      error = retry.error
+    }
+    if (error && isCatalogDuplicateError(error)) {
+      skipped += 1
+      continue
+    }
+    if (error) {
+      if (isMissingCatalogTableError(error)) return { inserted, skipped, missingTable: true as const }
+      return { inserted, skipped, error: error.message }
+    }
+    inserted += 1
+  }
+
+  return { inserted, skipped }
 }
 
 export function filterSuggestions(

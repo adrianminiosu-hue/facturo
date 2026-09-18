@@ -70,6 +70,11 @@ export function emptyClientContact(): ClientContactDraft {
   return { key: newDraftKey(), name: '', phone: '', contact_role: '' }
 }
 
+export function isContactComplete(contact?: ClientContactDraft | null) {
+  if (!contact) return false
+  return !!contact.name.trim()
+}
+
 export function emptyClientAddress(isDefault = false): ClientAddressDraft {
   return {
     key: newDraftKey(),
@@ -185,9 +190,27 @@ export function addClientAddress(addresses: ClientAddressDraft[]): ClientAddress
   return [...base, emptyClientAddress(false)]
 }
 
+export function isAddressComplete(address?: ClientAddressDraft | null) {
+  if (!address) return false
+  return !!(address.address.trim() && address.city.trim() && address.county_code)
+}
+
+export function formatAddressLine(address: ClientAddressDraft) {
+  const county = countyNameFromCode(address.county_code) || address.county
+  return [address.address, address.postal_code, address.city, county, address.country]
+    .map(part => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
+export function canRemoveClientAddress(addresses: ClientAddressDraft[], key: string) {
+  const target = addresses.find(a => a.key === key)
+  if (!target || target.is_default) return false
+  return addresses.some(a => a.key !== key && a.is_default && isAddressComplete(a))
+}
+
 export function removeClientAddress(addresses: ClientAddressDraft[], key: string): ClientAddressDraft[] {
-  const idx = addresses.findIndex(a => a.key === key)
-  if (idx <= 0 || addresses.length <= 1) return addresses
+  if (!canRemoveClientAddress(addresses, key)) return addresses
   const next = addresses.filter(a => a.key !== key)
   if (!next.some(a => a.is_default) && next[0]) {
     next[0] = { ...next[0], is_default: true }

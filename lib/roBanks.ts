@@ -350,25 +350,40 @@ export function bicLiveHint(bic: string, bankName: string, iban: string): FieldH
   return { tone: 'none', message: '' }
 }
 
-export function applyBankSelection(
+export const IBAN_CURRENCIES = ['LEI', 'EUR'] as const
+export type IbanCurrency = (typeof IBAN_CURRENCIES)[number]
+
+export type BankAccountFields = {
+  bank_name: string
+  iban: string
+  bic: string
+  iban_currency: IbanCurrency
+}
+
+export function normalizeIbanCurrency(value?: string | null): IbanCurrency {
+  return value === 'EUR' ? 'EUR' : 'LEI'
+}
+
+export function applyBankSelection<T extends { bank_name: string; iban: string; bic: string }>(
   nextBankName: string,
-  current: { bank_name: string; iban: string; bic: string }
-) {
+  current: T
+): T {
   const nextBank = findBankByName(nextBankName)
   const previousBank = findBankByName(current.bank_name)
   const currentBic = normalizeBic(current.bic)
   const wasAuto = !currentBic || (previousBank ? bankAcceptsBic(previousBank, currentBic) : false)
   return {
+    ...current,
     bank_name: nextBankName,
     iban: current.iban,
     bic: nextBank && wasAuto ? nextBank.bic : currentBic
   }
 }
 
-export function applyIbanInput(
+export function applyIbanInput<T extends { bank_name: string; iban: string; bic: string }>(
   rawIban: string,
-  current: { bank_name: string; iban: string; bic: string }
-) {
+  current: T
+): T {
   const iban = normalizeIban(rawIban).slice(0, RO_IBAN_LENGTH)
   let bank_name = current.bank_name
   let bic = normalizeBic(current.bic)
@@ -381,17 +396,30 @@ export function applyIbanInput(
     }
   }
 
-  return { bank_name, iban, bic }
+  return { ...current, bank_name, iban, bic }
 }
 
-export function applyBicInput(
+export function applyBicInput<T extends { bank_name: string; iban: string; bic: string }>(
   rawBic: string,
-  current: { bank_name: string; iban: string; bic: string }
-) {
+  current: T
+): T {
   return {
     ...current,
     bic: normalizeBic(rawBic).slice(0, 11)
   }
+}
+
+export function withoutIbanCurrencyColumn<T extends { iban_currency?: string }>(row: T): Omit<T, 'iban_currency'> {
+  const { iban_currency: _omit, ...rest } = row
+  return rest
+}
+
+export function isMissingIbanCurrencyColumnError(error: { message?: string } | null | undefined) {
+  const msg = (error?.message || '').toLowerCase()
+  return (
+    (msg.includes('iban_currency') || msg.includes('iban currency')) &&
+    (msg.includes('column') || msg.includes('schema cache') || msg.includes('does not exist'))
+  )
 }
 
 export function withoutBicColumn<T extends { bic?: string }>(row: T): Omit<T, 'bic'> {

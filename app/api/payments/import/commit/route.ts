@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { ibansEqual, normalizeIban } from '@/lib/iban'
 import { applyImportedPayment, remainingMapFromInvoices, type CommitLine } from '@/lib/paymentImport'
 import { getCompanyForActor } from '@/lib/portfolio'
+import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,11 +52,11 @@ export async function POST(request: NextRequest) {
 
     const { data: invoiceRows } = await supabase
       .from('invoices')
-      .select('id, total, amount_paid, prepaid_amount, status, company_id, invoice_type_code')
+      .select('id, total, amount_paid, prepaid_amount, status, company_id, invoice_type_code, notes')
       .eq('user_id', company.user_id)
       .eq('company_id', companyId)
 
-    const open = (invoiceRows || []).filter(row => row.invoice_type_code !== '381')
+    const open = (invoiceRows || []).filter(row => row.invoice_type_code !== '381' && !isPurchaseInvoice(row))
     const { remaining, meta } = remainingMapFromInvoices(open)
 
     const results = []
