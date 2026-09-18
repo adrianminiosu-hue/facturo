@@ -56,10 +56,10 @@ export function resolveParty(
   if (!snapshot || typeof snapshot !== 'object' || !snapshot.company_name) return fromLive
   const frozen = snapshotParty(snapshot as Record<string, unknown>)
   const merged = { ...fromLive, ...frozen }
-  const textKeys: Array<keyof PartySnapshot> = [
+  const textKeys = [
     'company_name', 'cui', 'reg_com', 'address', 'city', 'county', 'county_code',
     'postal_code', 'country', 'email', 'phone', 'contact_person', 'iban', 'bank_name', 'bic'
-  ]
+  ] as const
   for (const key of textKeys) {
     if (!merged[key]) merged[key] = fromLive[key]
   }

@@ -2,12 +2,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ACTIVE_COMPANY_KEY, companyFromRow, emptyCompanyFields, type Company } from '@/lib/company'
+import { loadMembershipOwnerIds, uniqueIds, type PortfolioRole } from '@/lib/portfolio'
 
 type CompanyContextValue = {
   userId: string
   userEmail: string
+  userName: string
   companies: Company[]
   company: Company | null
+  ownerUserId: string
+  isOwner: boolean
+  role: PortfolioRole
+  accessibleCompanyIds: string[]
+  accessibleOwnerIds: string[]
   loading: boolean
   setActiveCompanyId: (id: string) => void
   refreshCompanies: () => Promise<void>
@@ -16,9 +23,22 @@ type CompanyContextValue = {
 
 const CompanyContext = createContext<CompanyContextValue | null>(null)
 
+async function acceptPendingInvites(userId: string) {
+  try {
+    await fetch('/api/team/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    })
+  } catch {
+    /* invite table may be missing */
+  }
+}
+
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState('')
   const [userEmail, setUserEmail] = useState('')
+  const [userName, setUserName] = useState('')
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyId, setCompanyId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -28,6 +48,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setUserId('')
       setUserEmail('')
+      setUserName('')
       setCompanies([])
       setCompanyId('')
       setLoading(false)
@@ -35,15 +56,17 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     }
     setUserId(user.id)
     setUserEmail(user.email || '')
+    setUserName(String(user.user_metadata?.full_name || user.user_metadata?.name || ''))
+    await acceptPendingInvites(user.id)
 
-    const { data, error } = await supabase
+    const owned = await supabase
       .from('companies')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
 
-    let rows = data || []
-    if (!error && rows.length === 0) {
+    let rows = owned.data || []
+    if (!owned.error && rows.length === 0) {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (profile?.company_name) {
         const { data: created } = await supabase
@@ -77,7 +100,23 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const list = rows.map(row => companyFromRow(row, user.id))
+    const membership = await loadMembershipOwnerIds(supabase, user.id)
+    if (membership.ownerIds.length) {
+      const shared = await supabase
+        .from('companies')
+        .select('*')
+        .in('user_id', membership.ownerIds)
+        .order('created_at', { ascending: true })
+      const seen = new Set(rows.map(row => row.id))
+      for (const row of shared.data || []) {
+        if (!seen.has(row.id)) {
+          seen.add(row.id)
+          rows.push(row)
+        }
+      }
+    }
+
+    const list = rows.map(row => companyFromRow(row, String(row.user_id || user.id)))
     setCompanies(list)
     const stored = localStorage.getItem(ACTIVE_COMPANY_KEY)
     const next = list.find(c => c.id === stored)?.id || list[0]?.id || ''
@@ -124,13 +163,27 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     () => companies.find(c => c.id === companyId) || null,
     [companies, companyId]
   )
+  const ownerUserId = company?.user_id || userId
+  const isOwner = !company || company.user_id === userId
+  const role: PortfolioRole = isOwner ? 'owner' : 'operator'
+  const accessibleCompanyIds = useMemo(() => companies.map(c => c.id), [companies])
+  const accessibleOwnerIds = useMemo(
+    () => uniqueIds([userId, ...companies.map(c => c.user_id)]),
+    [companies, userId]
+  )
 
   return (
     <CompanyContext.Provider value={{
       userId,
       userEmail,
+      userName,
       companies,
       company,
+      ownerUserId,
+      isOwner,
+      role,
+      accessibleCompanyIds,
+      accessibleOwnerIds,
       loading,
       setActiveCompanyId,
       refreshCompanies: load,

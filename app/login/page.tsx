@@ -21,7 +21,8 @@ export default function Login() {
       setError('Email sau parolă incorectă')
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      const next = new URLSearchParams(window.location.search).get('next')
+      router.push(next && next.startsWith('/') ? next : '/dashboard')
     }
   }
 

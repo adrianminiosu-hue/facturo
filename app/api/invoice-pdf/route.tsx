@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import ReactPDF, { Document, Page, Text, View, StyleSheet, Font, Svg, Rect, Path, Circle } from '@react-pdf/renderer'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
+import { getInvoiceForActor } from '@/lib/portfolio'
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { formatRon, formatAmount } from '@/lib/money'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
@@ -354,12 +355,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }
 
-    const { data: invoice } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', invoiceId)
-      .eq('user_id', userId)
-      .single()
+    const invoice = await getInvoiceForActor(supabase, invoiceId, userId)
 
     if (!invoice) {
       return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
@@ -371,7 +367,7 @@ export async function GET(request: NextRequest) {
       .eq('invoice_id', invoiceId)
 
     const liveClient = await loadBuyer(supabase, invoice.client_id)
-    const liveSeller = await loadSeller(supabase, invoice, userId)
+    const liveSeller = await loadSeller(supabase, invoice, invoice.user_id)
     const client = resolveParty(invoice.buyer_snapshot, liveClient)
     const profile = resolveParty(invoice.seller_snapshot, liveSeller)
 

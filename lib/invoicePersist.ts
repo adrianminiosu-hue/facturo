@@ -6,7 +6,8 @@ const OPTIONAL_INVOICE_KEYS = [
   'prepaid_amount',
   'seller_snapshot',
   'buyer_snapshot',
-  'tax_point_date'
+  'tax_point_date',
+  'created_by'
 ] as const
 
 function isMissingColumnError(message?: string) {

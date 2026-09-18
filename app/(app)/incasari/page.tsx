@@ -62,7 +62,7 @@ function ron(n: number) {
 
 export default function IncasariPage() {
   const router = useRouter()
-  const { userId, companies, company, loading: companyLoading } = useCompany()
+  const { userId, companies, company, ownerUserId, accessibleCompanyIds, accessibleOwnerIds, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [firmId, setFirmId] = useState('')
@@ -84,17 +84,17 @@ export default function IncasariPage() {
     let query = supabase
       .from('invoices')
       .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, prepaid_amount, invoice_type_code, clients(company_name, email)')
-      .eq('user_id', userId)
       .in('status', [...RECEIVABLE_LIST_STATUSES])
       .order('due_date', { ascending: true })
+    query = accessibleCompanyIds.length
+      ? query.in('company_id', accessibleCompanyIds)
+      : query.eq('user_id', ownerUserId || userId)
     const { data, error } = await query
     if (error) {
-      const fallback = await supabase
-        .from('invoices')
-        .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, clients(company_name, email)')
-        .eq('user_id', userId)
-        .in('status', [...RECEIVABLE_LIST_STATUSES])
-        .order('due_date', { ascending: true })
+      const fallbackQuery = accessibleCompanyIds.length
+        ? supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, clients(company_name, email)').in('company_id', accessibleCompanyIds).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
+        : supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, clients(company_name, email)').eq('user_id', ownerUserId || userId).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
+      const fallback = await fallbackQuery
       setRows((fallback.data || []) as unknown as Row[])
     } else {
       setRows(((data || []) as unknown as Row[]).filter(row => (row as Row & { invoice_type_code?: string }).invoice_type_code !== '381'))
@@ -102,7 +102,7 @@ export default function IncasariPage() {
     const extras = await supabase
       .from('invoice_payments')
       .select('id, amount, paid_on, counterpart_name, counterpart_iban, notes, reference, company_id')
-      .eq('user_id', userId)
+      .in('user_id', accessibleOwnerIds.length ? accessibleOwnerIds : [ownerUserId || userId])
       .is('invoice_id', null)
       .order('paid_on', { ascending: false })
     if (!extras.error) setUnallocated((extras.data || []) as Unallocated[])
@@ -290,24 +290,24 @@ export default function IncasariPage() {
         ) : filtered.length === 0 ? (
           <div className="card p-12 text-center">
             <p className="text-[color:var(--color-muted-foreground)]">Nicio factură deschisă pe filtrul curent.</p>
-            <Link href="/invoices" className="text-sm mt-3 inline-block hover:underline">Mergi la facturi →</Link>
+            <Link href="/invoices" className="text-sm mt-3 inline-block hover:underline">Mergi la facturi emise →</Link>
           </div>
         ) : (
           <>
           <div className="card overflow-x-auto">
-            <div className="min-w-[980px]">
-              <div className="grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_7rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+            <div className="min-w-[1020px]">
+              <div className="grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
                 <span>Firmă</span>
                 <span>Client</span>
                 <span>Factură</span>
                 <span>Scadență</span>
                 <span>Zile</span>
-                <span>Rest</span>
+                <span className="whitespace-nowrap">Rest de plată</span>
                 <span>Promisiune</span>
                 <span className="text-right">Acțiuni</span>
               </div>
               {paged.map((row, i) => (
-                <div key={row.id} className={`grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_7rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                <div key={row.id} className={`grid grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
                   <span className="text-sm truncate">{companyName(row.company_id)}</span>
                   <span className="text-sm truncate">{row.clients?.company_name || '—'}</span>
                   <span className="text-sm font-medium">{row.series}{row.invoice_number}</span>
@@ -413,7 +413,7 @@ export default function IncasariPage() {
         {payRow && (
           <PaymentModal
             invoice={payRow}
-            userId={userId}
+            userId={ownerUserId || userId}
             firmName={companyName(payRow.company_id)}
             onClose={() => setPayRow(null)}
             onSaved={() => { setPayRow(null); load() }}
@@ -421,7 +421,7 @@ export default function IncasariPage() {
         )}
         {importOpen && company?.id && (
           <StatementImportModal
-            userId={userId}
+            userId={ownerUserId || userId}
             companyId={company.id}
             companyName={company.company_name}
             onClose={() => setImportOpen(false)}

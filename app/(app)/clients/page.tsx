@@ -16,6 +16,7 @@ import {
   validateClientBankDetails,
   withoutBicColumn
 } from '@/lib/roBanks'
+import { tenantWrite } from '@/lib/portfolio'
 import {
   addressInsertRows,
   addressTypeLabel,
@@ -71,7 +72,7 @@ const emptyForm = {
 
 export default function Clients() {
   const router = useRouter()
-  const { userId, company, loading: companyLoading } = useCompany()
+  const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -109,11 +110,11 @@ export default function Clients() {
       .from('clients')
       .select('*, client_contacts(*), client_addresses(*)')
       .order('created_at', { ascending: false })
-    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data, error } = await query
     if (error) {
       let fallback = supabase.from('clients').select('*').order('created_at', { ascending: false })
-      fallback = company?.id ? fallback.eq('company_id', company.id) : fallback.eq('user_id', userId)
+      fallback = company?.id ? fallback.eq('company_id', company.id) : fallback.eq('user_id', ownerUserId || userId)
       const { data: rows } = await fallback
       setClients((rows || []) as Client[])
     } else {
@@ -194,7 +195,7 @@ export default function Clients() {
   const saveRelations = async (clientId: string) => {
     const companyId = company?.id || editClient?.company_id
     await supabase.from('client_contacts').delete().eq('client_id', clientId)
-    const contactRows = contactInsertRows(clientId, userId, companyId, contacts)
+    const contactRows = contactInsertRows(clientId, ownerUserId || userId, companyId, contacts)
     if (contactRows.length) {
       const { error } = await supabase.from('client_contacts').insert(contactRows)
       if (error) return error.message
@@ -202,7 +203,7 @@ export default function Clients() {
 
     await supabase.from('client_addresses').delete().eq('client_id', clientId).eq('is_default', false)
     await supabase.from('client_addresses').delete().eq('client_id', clientId)
-    const addressRows = addressInsertRows(clientId, userId, companyId, addresses)
+    const addressRows = addressInsertRows(clientId, ownerUserId || userId, companyId, addresses)
     if (addressRows.length) {
       const { error } = await supabase.from('client_addresses').insert(addressRows)
       if (error) return error.message
@@ -277,7 +278,7 @@ export default function Clients() {
       setEditClient(null)
       loadClients()
     } else {
-      const insertRow = { ...payload, user_id: userId, ...(company?.id ? { company_id: company.id } : {}) }
+      const insertRow = { ...payload, ...tenantWrite({ ownerUserId: ownerUserId || userId, actorUserId: userId, companyId: company?.id }) }
       let { data, error } = await supabase
         .from('clients')
         .insert(insertRow)

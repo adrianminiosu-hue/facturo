@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,12 @@ export default function Register() {
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const preset = params.get('email')
+    if (preset) setEmail(preset)
+  }, [])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +41,9 @@ export default function Register() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/onboarding')
+      const params = new URLSearchParams(window.location.search)
+      const invite = params.get('invite')
+      router.push(invite ? `/invite/${invite}` : '/onboarding')
     }
   }
 

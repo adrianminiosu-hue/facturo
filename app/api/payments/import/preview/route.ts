@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { parseMulticash940 } from '@/lib/multicash940'
 import { asOpenInvoice, matchPayments, type ExistingPayment } from '@/lib/paymentMatch'
 import { OPEN_INVOICE_STATUSES } from '@/lib/invoiceStatus'
+import { getCompanyForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,12 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Fișierul este prea mare (max. ~1.5 MB).' }, { status: 400 })
     }
 
-    const { data: company } = await supabase
-      .from('companies')
-      .select('id, user_id, iban, company_name')
-      .eq('id', companyId)
-      .eq('user_id', userId)
-      .single()
+    const company = await getCompanyForActor(supabase, companyId, userId)
     if (!company) {
       return NextResponse.json({ error: 'Firma nu a fost găsită.' }, { status: 404 })
     }
@@ -47,7 +43,7 @@ export async function POST(request: NextRequest) {
     const { data: invoiceRows, error: invoiceError } = await supabase
       .from('invoices')
       .select('id, company_id, client_id, series, invoice_number, due_date, issue_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, clients(company_name, cui, iban)')
-      .eq('user_id', userId)
+      .eq('user_id', company.user_id)
       .eq('company_id', companyId)
       .in('status', [...OPEN_INVOICE_STATUSES])
 
@@ -63,12 +59,12 @@ export async function POST(request: NextRequest) {
     const full = await supabase
       .from('invoice_payments')
       .select('id, invoice_id, amount, paid_on, reference, fingerprint, bank_txn_id, counterpart_iban, method')
-      .eq('user_id', userId)
+      .eq('user_id', company.user_id)
     if (full.error) {
       const fallback = await supabase
         .from('invoice_payments')
         .select('id, invoice_id, amount, paid_on, reference, method')
-        .eq('user_id', userId)
+        .eq('user_id', company.user_id)
       existing = (fallback.data || []) as ExistingPayment[]
     } else {
       existing = (full.data || []) as ExistingPayment[]

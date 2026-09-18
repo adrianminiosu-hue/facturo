@@ -7,6 +7,7 @@ import { loadSeller } from '@/lib/loadSeller'
 import { resolveParty } from '@/lib/partySnapshot'
 import { isDraftInvoice, alreadySentToSpv, ALREADY_SENT_TO_SPV } from '@/lib/invoiceStatus'
 import { persistSpvAccepted } from '@/lib/spvPersist'
+import { getInvoiceForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,12 +36,7 @@ async function processOne(
   userId: string,
   options: { skipDrafts: boolean }
 ): Promise<ProcessedUpload> {
-  const { data: invoice } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('id', invoiceId)
-    .eq('user_id', userId)
-    .single()
+  const invoice = await getInvoiceForActor(supabase, invoiceId, userId)
 
   if (!invoice) {
     return {
@@ -79,7 +75,7 @@ async function processOne(
     .eq('invoice_id', invoiceId)
 
   const liveClient = await loadBuyer(supabase, invoice.client_id)
-  const liveSeller = await loadSeller(supabase, invoice, userId)
+  const liveSeller = await loadSeller(supabase, invoice, invoice.user_id)
   const client = resolveParty(invoice.buyer_snapshot, liveClient)
   const seller = resolveParty(invoice.seller_snapshot, liveSeller)
 

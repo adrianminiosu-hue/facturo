@@ -8,18 +8,42 @@ import Link from 'next/link'
 
 export default function AccountPage() {
   const router = useRouter()
-  const { userId, userEmail, loading } = useCompany()
+  const { userId, userEmail, userName, loading, refreshCompanies } = useCompany()
+  const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [profileMsg, setProfileMsg] = useState('')
+  const [profileError, setProfileError] = useState('')
   const [busy, setBusy] = useState('')
+
+  useEffect(() => {
+    setName(userName)
+  }, [userName])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) router.push('/login')
     })
   }, [router])
+
+  const saveName = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy('profile')
+    setProfileError('')
+    setProfileMsg('')
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: name.trim() }
+    })
+    setBusy('')
+    if (error) {
+      setProfileError(error.message)
+      return
+    }
+    await refreshCompanies()
+    setProfileMsg('Numele a fost salvat.')
+  }
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,22 +59,25 @@ export default function AccountPage() {
 
   const exportData = async () => {
     setBusy('export')
-    const [companies, clients, invoices, items, payments] = await Promise.all([
+    const [companies, clients, invoices, items, payments, catalog] = await Promise.all([
       supabase.from('companies').select('*').eq('user_id', userId),
       supabase.from('clients').select('*').eq('user_id', userId),
       supabase.from('invoices').select('*').eq('user_id', userId),
       supabase.from('invoice_items').select('*'),
-      supabase.from('invoice_payments').select('*').eq('user_id', userId)
+      supabase.from('invoice_payments').select('*').eq('user_id', userId),
+      supabase.from('catalog_items').select('*').eq('user_id', userId)
     ])
     const invoiceIds = new Set((invoices.data || []).map((row: { id: string }) => row.id))
     const payload = {
       exported_at: new Date().toISOString(),
       email: userEmail,
+      name: userName,
       companies: companies.data || [],
       clients: clients.data || [],
       invoices: invoices.data || [],
       invoice_items: (items.data || []).filter((row: { invoice_id: string }) => invoiceIds.has(row.invoice_id)),
-      invoice_payments: payments.data || []
+      invoice_payments: payments.data || [],
+      catalog_items: catalog.data || []
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const href = URL.createObjectURL(blob)
@@ -68,6 +95,7 @@ export default function AccountPage() {
     setBusy('delete')
     const invoiceIds = (await supabase.from('invoices').select('id').eq('user_id', userId)).data || []
     await supabase.from('invoice_payments').delete().eq('user_id', userId)
+    await supabase.from('catalog_items').delete().eq('user_id', userId)
     for (const row of invoiceIds) {
       await supabase.from('invoice_items').delete().eq('invoice_id', row.id)
     }
@@ -93,7 +121,32 @@ export default function AccountPage() {
       <AppNav active="account" />
       <div className="max-w-2xl mx-auto px-8 py-8">
         <h2 className="text-3xl mb-2">Cont</h2>
-        <p className="text-[color:var(--color-muted-foreground)] mb-8">{userEmail}</p>
+        <p className="text-[color:var(--color-muted-foreground)] mb-8">Datele tale de acces și de prezentare</p>
+
+        <div className="card p-8 mb-6">
+          <h3 className="font-bold mb-4">Date personale</h3>
+          <form onSubmit={saveName} className="space-y-4">
+            <div>
+              <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">Email</label>
+              <input type="email" className="input bg-gray-50" value={userEmail} readOnly />
+            </div>
+            <div>
+              <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">Nume</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Adrian"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
+            {profileError && <p className="text-sm text-red-500">{profileError}</p>}
+            {profileMsg && <p className="text-sm text-green-700">{profileMsg}</p>}
+            <button type="submit" disabled={busy === 'profile'} className="btn btn-primary disabled:opacity-50">
+              {busy === 'profile' ? 'Se salvează...' : 'Salvează numele'}
+            </button>
+          </form>
+        </div>
 
         <div className="card p-8 mb-6">
           <h3 className="font-bold mb-4">Parolă</h3>

@@ -8,13 +8,12 @@ import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
 import PaymentModal from '@/components/PaymentModal'
 import { INVOICE_TYPE_CODES } from '@/lib/efactura'
-import { calendarDateInBucharest, defaultDueDate, formatRoDate } from '@/lib/dates'
-import { nextInvoiceNumber } from '@/lib/invoiceNumber'
+import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
 import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { formatAmount, formatRon } from '@/lib/money'
 import { computeInvoiceTotals, remainingOf } from '@/lib/invoiceMath'
-import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
+import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
 
 type Line = {
   id: string
@@ -70,7 +69,7 @@ export default function InvoiceViewPage() {
   const params = useParams()
   const router = useRouter()
   const invoiceId = params.id as string
-  const { userId, company, loading: companyLoading } = useCompany()
+  const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [creditedRef, setCreditedRef] = useState('')
   const [hasStorno, setHasStorno] = useState(false)
@@ -124,58 +123,10 @@ export default function InvoiceViewPage() {
     if (!confirm(`Creezi o notă de creditare (storno) pentru ${invoice.series}${invoice.invoice_number}? Factura originală rămâne neschimbată.`)) return
     setBusy('storno')
     try {
-      const series = company?.invoice_series || invoice.series
-      const invoice_number = await nextInvoiceNumber(supabase, {
-        series,
-        companyId: company?.id || invoice.company_id,
-        userId,
-        startNumber: company?.invoice_start_number
-      })
-      const today = calendarDateInBucharest(0)
-      const { data: created, error } = await insertInvoiceRow(supabase, {
-          user_id: userId,
-          company_id: invoice.company_id || company?.id || null,
-          client_id: invoice.client_id,
-          series,
-          invoice_number,
-          issue_date: today,
-          due_date: today,
-          tax_point_date: today,
-          delivery_date: today,
-          status: 'draft',
-          subtotal: invoice.subtotal,
-          tva_amount: invoice.tva_amount,
-          total: invoice.total,
-          notes: `Storno pentru ${invoice.series}${invoice.invoice_number}`,
-          invoice_type_code: '381',
-          currency: 'RON',
-          payment_means_code: '42',
-          credited_invoice_id: invoice.id,
-          discount_percent: invoice.discount_percent || 0,
-          prepaid_amount: 0
-        })
-      if (error || !created) {
-        alert(error?.message || 'Nu s-a putut crea stornoul. Rulează migrarea storno în Supabase.')
-        return
-      }
-      const items = invoice.invoice_items || []
-      if (items.length) {
-        await supabase.from('invoice_items').insert(
-          items.map(item => ({
-            invoice_id: created.id,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            tva_rate: item.tva_rate,
-            total: item.total,
-            unit_code: item.unit_code || 'H87',
-            vat_category: item.vat_category || null,
-            vat_exemption_reason: item.vat_exemption_reason || null,
-            discount_percent: item.discount_percent || 0
-          }))
-        )
-      }
+      const created = await createStornoDraft(supabase, { invoice, company, userId: ownerUserId || userId })
       router.push(`/invoices/${created.id}/edit`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Nu s-a putut crea stornoul.')
     } finally {
       setBusy('')
     }
@@ -183,75 +134,13 @@ export default function InvoiceViewPage() {
 
   const copyInvoice = async () => {
     if (!invoice || !userId) return
-    if (!confirm(`Creezi o factură nouă cu aceleași detalii ca ${invoice.series}${invoice.invoice_number}? Data emiterii și scadența vor fi de azi (+15 zile), status Emisă.`)) return
+    if (!confirm(`Creezi o ciornă cu aceleași detalii ca ${invoice.series}${invoice.invoice_number}? Data emiterii și scadența vor fi de azi (+15 zile). Poți edita datele înainte de emitere.`)) return
     setBusy('copy')
     try {
-      const series = company?.invoice_series || invoice.series
-      const invoice_number = await nextInvoiceNumber(supabase, {
-        series,
-        companyId: company?.id || invoice.company_id,
-        userId,
-        startNumber: company?.invoice_start_number
-      })
-      const today = calendarDateInBucharest(0)
-      const items = invoice.invoice_items || []
-      const totals = computeInvoiceTotals(items, invoice)
-      const { data: created, error } = await insertInvoiceRow(supabase, {
-          user_id: userId,
-          company_id: invoice.company_id || company?.id || null,
-          client_id: invoice.client_id,
-          series,
-          invoice_number,
-          issue_date: today,
-          due_date: defaultDueDate(today),
-          status: 'sent',
-          subtotal: totals.subtotal,
-          tva_rate: invoice.tva_rate ?? items[0]?.tva_rate ?? 21,
-          tva_amount: totals.tvaAmount,
-          total: totals.total,
-          notes: notesWithoutSpvMark(invoice.notes),
-          invoice_type_code: invoice.invoice_type_code === '381' ? '380' : (invoice.invoice_type_code || '380'),
-          currency: 'RON',
-          payment_means_code: invoice.payment_means_code || '42',
-          tax_point_date: today,
-          delivery_date: today,
-          buyer_reference: invoice.buyer_reference || null,
-          order_reference: invoice.order_reference || null,
-          period_start: invoice.period_start || null,
-          period_end: invoice.period_end || null,
-          discount_percent: Number(invoice.discount_percent || 0),
-          prepaid_amount: 0,
-          ...invoicePartySnapshots({
-            status: 'sent',
-            seller: company as unknown as Record<string, unknown>,
-            buyer: invoice.clients as unknown as Record<string, unknown>
-          })
-        })
-      if (error || !created) {
-        alert(error?.message || 'Nu s-a putut copia factura.')
-        return
-      }
-      if (items.length) {
-        const { error: itemsError } = await supabase.from('invoice_items').insert(
-          items.map((item, index) => ({
-            invoice_id: created.id,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            tva_rate: item.tva_rate,
-            total: totals.lines[index]?.total ?? item.total,
-            unit_code: item.unit_code || 'H87',
-            vat_category: item.vat_category || null,
-            vat_exemption_reason: item.vat_exemption_reason || null,
-            discount_percent: item.discount_percent || 0
-          }))
-        )
-        if (itemsError) {
-          alert(itemsError.message)
-          return
-        }
-      }
-      router.push(`/invoices/${created.id}`)
+      const created = await copyInvoiceAsDraft(supabase, { invoice, company, userId: ownerUserId || userId })
+      router.push(`/invoices/${created.id}/edit`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Nu s-a putut copia factura.')
     } finally {
       setBusy('')
     }
@@ -273,7 +162,7 @@ export default function InvoiceViewPage() {
   const typeLabel = INVOICE_TYPE_CODES.find(t => t.code === (invoice.invoice_type_code || '380'))?.label || 'Factură'
   const draft = isDraftInvoice(invoice.status)
   const credit = isCreditNote(invoice.invoice_type_code)
-  const canStorno = !draft && !credit && !hasStorno
+  const canStorno = canCreateStorno(invoice, hasStorno)
   const filename = `e-Factura-${invoice.series}${invoice.invoice_number}.xml`
 
   return (
@@ -291,7 +180,7 @@ export default function InvoiceViewPage() {
             </p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)]">
-            ← Facturi
+            ← Facturi emise
           </Link>
         </div>
 
@@ -477,7 +366,7 @@ export default function InvoiceViewPage() {
       {payOpen && (
         <PaymentModal
           invoice={invoice}
-          userId={userId}
+          userId={ownerUserId || userId}
           firmName={company?.company_name}
           onClose={() => setPayOpen(false)}
           onSaved={() => { setPayOpen(false); load() }}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ibansEqual, normalizeIban } from '@/lib/iban'
 import { applyImportedPayment, remainingMapFromInvoices, type CommitLine } from '@/lib/paymentImport'
+import { getCompanyForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,12 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nu ai selectat nicio linie de importat.' }, { status: 400 })
     }
 
-    const { data: company } = await supabase
-      .from('companies')
-      .select('id, user_id, iban')
-      .eq('id', companyId)
-      .eq('user_id', userId)
-      .single()
+    const company = await getCompanyForActor(supabase, companyId, userId)
     if (!company) {
       return NextResponse.json({ error: 'Firma nu a fost găsită.' }, { status: 404 })
     }
@@ -56,7 +52,7 @@ export async function POST(request: NextRequest) {
     const { data: invoiceRows } = await supabase
       .from('invoices')
       .select('id, total, amount_paid, prepaid_amount, status, company_id, invoice_type_code')
-      .eq('user_id', userId)
+      .eq('user_id', company.user_id)
       .eq('company_id', companyId)
 
     const open = (invoiceRows || []).filter(row => row.invoice_type_code !== '381')
@@ -76,7 +72,7 @@ export async function POST(request: NextRequest) {
         continue
       }
       const result = await applyImportedPayment(supabase, {
-        userId,
+        userId: company.user_id,
         companyId,
         line: normalized,
         remainingByInvoice: remaining,

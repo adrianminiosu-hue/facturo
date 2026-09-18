@@ -13,6 +13,7 @@ import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import { defaultInvoiceNotes } from '@/lib/invoiceNotes'
 import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
+import { tenantWrite } from '@/lib/portfolio'
 
 interface Client {
     id: string
@@ -92,7 +93,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
   }
 export default function NewInvoice() {
   const router = useRouter()
-  const { userId, company } = useCompany()
+  const { userId, company, ownerUserId } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
@@ -138,7 +139,7 @@ export default function NewInvoice() {
 
   const loadClients = async () => {
     let query = supabase.from('clients').select('*').order('company_name')
-    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
     setClients(data || [])
   }
@@ -148,7 +149,7 @@ export default function NewInvoice() {
     const next = await nextInvoiceNumber(supabase, {
       series,
       companyId: company?.id,
-      userId,
+      userId: ownerUserId || userId,
       startNumber: company?.invoice_start_number
     })
     setForm(f => ({ ...f, series, invoice_number: next }))
@@ -170,8 +171,7 @@ export default function NewInvoice() {
 
     const { data: { user } } = await supabase.auth.getUser()
     const { data: invoice, error } = await insertInvoiceRow(supabase, {
-      user_id: user?.id,
-      ...(company?.id ? { company_id: company.id } : {}),
+      ...tenantWrite({ ownerUserId: ownerUserId || user?.id || '', actorUserId: userId || user?.id || '', companyId: company?.id }),
       client_id: selectedClient.id,
       invoice_number: form.invoice_number,
       series: form.series,
@@ -233,7 +233,7 @@ export default function NewInvoice() {
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">Completează detaliile facturii</p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
-            ← Înapoi la facturi
+            ← Înapoi la facturi emise
           </Link>
         </div>
 

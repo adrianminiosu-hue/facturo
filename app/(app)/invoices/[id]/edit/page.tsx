@@ -94,7 +94,7 @@ export default function EditInvoice() {
   const router = useRouter()
   const params = useParams()
   const invoiceId = params.id as string
-  const { userId, company } = useCompany()
+  const { userId, company, ownerUserId } = useCompany()
 
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
@@ -133,7 +133,7 @@ export default function EditInvoice() {
 
   const loadClients = async () => {
     let query = supabase.from('clients').select('*').order('company_name')
-    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
     setClients(data || [])
     return data || []
@@ -255,10 +255,10 @@ export default function EditInvoice() {
       }))
     )
 
-    if (status === 'sent' && creditedInvoiceId && userId) {
+    if (status === 'sent' && creditedInvoiceId && (ownerUserId || userId)) {
       await applyStornoToOriginal(supabase, {
         originalId: creditedInvoiceId,
-        userId,
+        userId: ownerUserId || userId,
         amount: totals.total,
         creditRef: `${form.series}${form.invoice_number}`
       })

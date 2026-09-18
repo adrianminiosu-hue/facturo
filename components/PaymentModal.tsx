@@ -143,7 +143,7 @@ export default function PaymentModal({
             <p className="mt-1 font-medium">{ron(Number(invoice.amount_paid || 0))}</p>
           </div>
           <div className="rounded-xl bg-[color:var(--color-muted)] p-3">
-            <p className="text-[11px] uppercase tracking-wide text-[color:var(--color-muted-foreground)]">Rest</p>
+            <p className="text-[11px] uppercase tracking-wide text-[color:var(--color-muted-foreground)]">Rest de plată</p>
             <p className="mt-1 font-medium">{ron(rest)}</p>
           </div>
         </div>

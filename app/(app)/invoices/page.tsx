@@ -10,7 +10,8 @@ import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUp
 import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/lib/invoiceClient'
 import { calendarDateInBucharest } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isOpenReceivable } from '@/lib/invoiceStatus'
+import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
+import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, INVOICE_STATUS_LABEL, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isOpenReceivable } from '@/lib/invoiceStatus'
 
 interface Invoice {
   id: string
@@ -27,10 +28,28 @@ interface Invoice {
   efactura_error?: string | null
   notes?: string | null
   invoice_type_code?: string | null
+  credited_invoice_id?: string | null
 }
 
-const LIST_GRID = 'grid w-full grid-cols-[2rem_6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(9rem,auto)] gap-x-4 px-6'
+const LIST_GRID = 'grid w-full grid-cols-[2rem_6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(6.5rem,auto)] gap-x-4 px-6'
 const PAGE_SIZE = 20
+
+const STATUS_FILTERS = [
+  { id: '', label: 'Toate' },
+  { id: 'draft', label: INVOICE_STATUS_LABEL.draft.label },
+  { id: 'sent', label: INVOICE_STATUS_LABEL.sent.label },
+  { id: 'spv', label: INVOICE_STATUS_LABEL.spv.label },
+  { id: 'paid', label: INVOICE_STATUS_LABEL.paid.label },
+  { id: 'overdue', label: INVOICE_STATUS_LABEL.overdue.label }
+] as const
+
+function matchesStatusFilter(invoice: Invoice, filter: string) {
+  if (!filter) return true
+  const label = invoiceStatusAppearance(invoice).label
+  if (filter === 'paid') return invoice.status === 'paid'
+  if (filter === 'spv') return alreadySentToSpv(invoice)
+  return label === INVOICE_STATUS_LABEL[filter]?.label
+}
 
 function invoiceRef(invoice: Invoice) {
   return `${invoice.series}${invoice.invoice_number}`
@@ -45,10 +64,11 @@ const OUTCOME_LABEL: Record<BulkSpvOutcome, { label: string; style: string }> = 
 
 export default function Invoices() {
   const router = useRouter()
-  const { userId, company, loading: companyLoading } = useCompany()
+  const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [filterClientId, setFilterClientId] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
   const [spvBusyId, setSpvBusyId] = useState('')
@@ -62,6 +82,8 @@ export default function Invoices() {
   const selectAllRef = useRef<HTMLInputElement>(null)
   const [spvResult, setSpvResult] = useState<SimulatedSpvUpload | null>(null)
   const [page, setPage] = useState(1)
+  const [hasStornoIds, setHasStornoIds] = useState<Set<string>>(new Set())
+  const [actionBusyId, setActionBusyId] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -78,9 +100,25 @@ export default function Invoices() {
       .from('invoices')
       .select('*, clients(id, company_name)')
       .order('created_at', { ascending: false })
-    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', userId)
+    query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
-    setInvoices(data || [])
+    const rows = (data || []) as Invoice[]
+    setInvoices(rows)
+    const originals = rows
+      .filter(inv => !isDraftInvoice(inv.status) && !isCreditNote(inv.invoice_type_code))
+      .map(inv => inv.id)
+    const stornoIds = new Set<string>()
+    for (let i = 0; i < originals.length; i += 100) {
+      const chunk = originals.slice(i, i + 100)
+      const { data: credits } = await supabase
+        .from('invoices')
+        .select('credited_invoice_id')
+        .in('credited_invoice_id', chunk)
+      for (const row of credits || []) {
+        if (row.credited_invoice_id) stornoIds.add(row.credited_invoice_id as string)
+      }
+    }
+    setHasStornoIds(stornoIds)
     setLoading(false)
   }
 
@@ -138,6 +176,35 @@ export default function Invoices() {
     loadInvoices()
   }
 
+  const copyFromList = async (invoice: Invoice) => {
+    if (!confirm(`Creezi o ciornă cu aceleași detalii ca ${invoice.series}${invoice.invoice_number}? Data emiterii și scadența vor fi de azi (+15 zile). Poți edita datele înainte de emitere.`)) return
+    setActionBusyId(invoice.id)
+    try {
+      const full = await loadInvoiceForClone(supabase, invoice.id)
+      const created = await copyInvoiceAsDraft(supabase, { invoice: full, company, userId: ownerUserId || userId })
+      router.push(`/invoices/${created.id}/edit`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Nu s-a putut copia factura.')
+    } finally {
+      setActionBusyId('')
+    }
+  }
+
+  const stornoFromList = async (invoice: Invoice) => {
+    if (!canCreateStorno(invoice, hasStornoIds.has(invoice.id))) return
+    if (!confirm(`Creezi o notă de creditare (storno) pentru ${invoice.series}${invoice.invoice_number}? Factura originală rămâne neschimbată.`)) return
+    setActionBusyId(invoice.id)
+    try {
+      const full = await loadInvoiceForClone(supabase, invoice.id)
+      const created = await createStornoDraft(supabase, { invoice: full, company, userId: ownerUserId || userId })
+      router.push(`/invoices/${created.id}/edit`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Nu s-a putut crea stornoul.')
+    } finally {
+      setActionBusyId('')
+    }
+  }
+
   const parseDate = (value: string) => {
     const d = new Date(value)
     return Number.isNaN(d.getTime()) ? null : d
@@ -148,6 +215,7 @@ export default function Invoices() {
 
   const filteredInvoices = invoices.filter(inv => {
     if (filterClientId && inv.client_id !== filterClientId) return false
+    if (!matchesStatusFilter(inv, filterStatus)) return false
     if (fromDate || toDate) {
       const invDate = inv.issue_date ? parseDate(inv.issue_date) : null
       if (!invDate) return false
@@ -161,7 +229,7 @@ export default function Invoices() {
     return true
   })
 
-  const filtersActive = !!filterClientId || !!filterFrom || !!filterTo
+  const filtersActive = !!filterClientId || !!filterStatus || !!filterFrom || !!filterTo
   const pageCount = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
   const pagedInvoices = filteredInvoices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
@@ -179,7 +247,7 @@ export default function Invoices() {
 
   useEffect(() => {
     setPage(1)
-  }, [filterClientId, filterFrom, filterTo, company?.id])
+  }, [filterClientId, filterStatus, filterFrom, filterTo, company?.id])
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount)
@@ -191,7 +259,7 @@ export default function Invoices() {
       const next = prev.filter(id => allowed.has(id))
       return next.length === prev.length ? prev : next
     })
-  }, [filterClientId, filterFrom, filterTo, invoices])
+  }, [filterClientId, filterStatus, filterFrom, filterTo, invoices])
 
   const toggleSelected = (id: string, eligible: boolean) => {
     if (!eligible || bulkBusy) return
@@ -330,10 +398,10 @@ export default function Invoices() {
     <div className="app-shell">
       <AppNav active="invoices" />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className={`max-w-7xl mx-auto px-6 py-8 ${selectedCount > 0 ? 'pb-28' : ''}`}>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi emise</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {company?.company_name ? `${company.company_name} · ` : ''}
               {filteredInvoices.length} facturi{filtersActive ? ` din ${invoices.length}` : ''} · {unpaidCount} neplătite
@@ -371,7 +439,7 @@ export default function Invoices() {
         ) : (
           <>
             <div className="card p-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                 <div>
                   <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Client</label>
                   <select
@@ -382,6 +450,18 @@ export default function Invoices() {
                     <option value="">Toți clienții</option>
                     {clientOptions.map(opt => (
                       <option key={opt.id} value={opt.id}>{opt.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Status</label>
+                  <select
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                    className="input bg-white px-3 py-2.5"
+                  >
+                    {STATUS_FILTERS.map(opt => (
+                      <option key={opt.id || 'all'} value={opt.id}>{opt.label}</option>
                     ))}
                   </select>
                 </div>
@@ -403,9 +483,9 @@ export default function Invoices() {
                     className="input px-3 py-2.5"
                   />
                 </div>
-                <div className="flex gap-2 md:justify-end">
+                <div className="flex gap-2 lg:justify-end">
                   <button
-                    onClick={() => { setFilterClientId(''); setFilterFrom(''); setFilterTo('') }}
+                    onClick={() => { setFilterClientId(''); setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}
                     disabled={!filtersActive}
                     className="btn btn-outline px-4 py-2.5 disabled:opacity-50"
                   >
@@ -415,48 +495,11 @@ export default function Invoices() {
               </div>
             </div>
 
-            {selectedCount > 0 && (
-              <div className="card p-4 mb-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[color:var(--color-foreground)]">
-                    {selectedCount === 1 ? '1 factură selectată' : `${selectedCount} facturi selectate`}
-                  </p>
-                  {bulkBusy && bulkProgress ? (
-                    <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                      Se trimite {bulkProgress.current} din {bulkProgress.total} · {bulkProgress.invoiceRef} (simulare SPV, fără ANAF)
-                    </p>
-                  ) : (
-                    <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                      Trimitere simulată în e-Factura SPV (mediu TEST). Ciornele sunt omise.
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={sendBulkToSpv}
-                    disabled={bulkBusy}
-                    className="btn btn-primary disabled:opacity-50"
-                  >
-                    {bulkBusy ? 'Se trimite...' : 'Trimite în e-Factura'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearSelection}
-                    disabled={bulkBusy}
-                    className="btn btn-outline disabled:opacity-50"
-                  >
-                    Anulează selecția
-                  </button>
-                </div>
-              </div>
-            )}
-
             {filteredInvoices.length === 0 ? (
               <div className="card p-12 text-center">
                 <p className="text-[color:var(--color-muted-foreground)]">Nu există facturi pentru filtrele selectate</p>
                 <button
-                  onClick={() => { setFilterClientId(''); setFilterFrom(''); setFilterTo('') }}
+                  onClick={() => { setFilterClientId(''); setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}
                   className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]"
                 >
                   Resetează filtrele →
@@ -518,19 +561,12 @@ export default function Invoices() {
                         {formatRon(invoice.total)}
                       </span>
                       <div className="flex flex-nowrap items-center justify-end gap-1.5">
-                        {isDraftInvoice(invoice.status) ? (
+                        {isDraftInvoice(invoice.status) && (
                           <Link
                             href={`/invoices/${invoice.id}/edit`}
                             className="text-xs border border-gray-200 text-gray-600 px-2 py-0.5 rounded-lg hover:bg-gray-50 transition leading-tight"
                           >
                             Editează
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/invoices/${invoice.id}`}
-                            className="text-xs border border-gray-200 text-gray-600 px-2 py-0.5 rounded-lg hover:bg-gray-50 transition leading-tight"
-                          >
-                            Deschide
                           </Link>
                         )}
                         <InvoiceOverflow
@@ -551,8 +587,18 @@ export default function Invoices() {
                             {
                               label: 'SPV test (simulare)',
                               onClick: () => sendToSpvTest(invoice),
-                              disabled: bulkBusy || spvBusyId === invoice.id
+                              disabled: bulkBusy || spvBusyId === invoice.id || actionBusyId === invoice.id
                             },
+                            {
+                              label: 'Copiază factură',
+                              onClick: () => copyFromList(invoice),
+                              disabled: actionBusyId === invoice.id
+                            },
+                            ...(canCreateStorno(invoice, hasStornoIds.has(invoice.id)) ? [{
+                              label: 'Creează storno',
+                              onClick: () => stornoFromList(invoice),
+                              disabled: actionBusyId === invoice.id
+                            }] : []),
                             ...(isDraftInvoice(invoice.status) ? [{
                               label: 'Șterge ciorna',
                               onClick: () => deleteInvoice(invoice.id),
@@ -600,6 +646,45 @@ export default function Invoices() {
           </>
         )}
       </div>
+
+      {selectedCount > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-30 border-t border-[color:var(--color-border)] bg-white/95 px-6 py-3">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center gap-3 justify-between">
+            <div>
+              <p className="text-sm font-medium text-[color:var(--color-foreground)]">
+                {selectedCount === 1 ? '1 factură selectată' : `${selectedCount} facturi selectate`}
+              </p>
+              {bulkBusy && bulkProgress ? (
+                <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                  Se trimite {bulkProgress.current} din {bulkProgress.total} · {bulkProgress.invoiceRef} (simulare SPV, fără ANAF)
+                </p>
+              ) : (
+                <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                  Trimitere simulată în e-Factura SPV (mediu TEST). Ciornele sunt omise.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={sendBulkToSpv}
+                disabled={bulkBusy}
+                className="btn btn-primary disabled:opacity-50"
+              >
+                {bulkBusy ? 'Se trimite...' : 'Trimite în e-Factura'}
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={bulkBusy}
+                className="btn btn-outline disabled:opacity-50"
+              >
+                Anulează selecția
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {bulkSummary && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setBulkSummary(null)}>

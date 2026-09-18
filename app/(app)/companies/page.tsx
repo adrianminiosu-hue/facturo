@@ -6,7 +6,7 @@ import { useCompany } from '@/components/CompanyProvider'
 
 export default function CompaniesPage() {
   const router = useRouter()
-  const { companies, company, setActiveCompanyId, createCompany } = useCompany()
+  const { companies, company, setActiveCompanyId, createCompany, userId } = useCompany()
   const [name, setName] = useState('')
   const [cui, setCui] = useState('')
   const [saving, setSaving] = useState(false)
@@ -62,7 +62,10 @@ export default function CompaniesPage() {
             <div key={c.id} className={`px-6 py-4 flex items-center justify-between ${i < companies.length - 1 ? 'border-b border-gray-50' : ''}`}>
               <div>
                 <p className="font-medium text-[color:var(--color-foreground)]">{c.company_name || 'Firmă fără nume'}</p>
-                <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">CUI: {c.cui || '—'} · serie {c.invoice_series || 'FCT'}</p>
+                <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
+                  CUI: {c.cui || '—'} · serie {c.invoice_series || 'FCT'}
+                  {c.user_id !== userId ? ' · invitat' : ''}
+                </p>
               </div>
               <div className="flex gap-2">
                 {company?.id === c.id ? (

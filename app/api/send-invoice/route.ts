@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { loadSeller } from '@/lib/loadSeller'
 import { formatRon } from '@/lib/money'
+import { getInvoiceForActor } from '@/lib/portfolio'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -16,12 +17,7 @@ export async function POST(request: NextRequest) {
     const { invoiceId, userId } = await request.json()
 
     // Fetch invoice data
-    const { data: invoice } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', invoiceId)
-      .eq('user_id', userId)
-      .single()
+    const invoice = await getInvoiceForActor(supabase, invoiceId, userId)
 
     if (!invoice) {
       return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
@@ -33,7 +29,7 @@ export async function POST(request: NextRequest) {
       .eq('id', invoice.client_id)
       .single()
 
-    const profile = await loadSeller(supabase, invoice, userId)
+    const profile = await loadSeller(supabase, invoice, invoice.user_id)
 
     if (!client?.email) {
       return NextResponse.json({ error: 'Clientul nu are email setat' }, { status: 400 })

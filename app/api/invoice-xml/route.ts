@@ -4,6 +4,7 @@ import { generateEfacturaXml } from '@/lib/efactura'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
 import { resolveParty } from '@/lib/partySnapshot'
+import { getInvoiceForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,12 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }
 
-    const { data: invoice } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', invoiceId)
-      .eq('user_id', userId)
-      .single()
+    const invoice = await getInvoiceForActor(supabase, invoiceId, userId)
 
     if (!invoice) {
       return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
@@ -41,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Clientul nu a fost găsit' }, { status: 404 })
     }
 
-    const liveSeller = await loadSeller(supabase, invoice, userId)
+    const liveSeller = await loadSeller(supabase, invoice, invoice.user_id)
     const seller = resolveParty(invoice.seller_snapshot, liveSeller)
     const client = resolveParty(invoice.buyer_snapshot, liveClient)
 
@@ -52,7 +48,6 @@ export async function GET(request: NextRequest) {
         .from('invoices')
         .select('series, invoice_number, issue_date')
         .eq('id', invoice.credited_invoice_id)
-        .eq('user_id', userId)
         .single()
       if (original) {
         billing_reference = `${original.series}${original.invoice_number}`

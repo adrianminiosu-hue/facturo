@@ -11,6 +11,18 @@ export function defaultDueDate(issueDate: string, days = DEFAULT_DUE_DAYS) {
   return addDaysIso(issueDate, days)
 }
 
+/** 1 = Monday … 7 = Sunday (ISO), for a YYYY-MM-DD calendar date. */
+export function isoWeekday(isoDate: string) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  if (!year || !month || !day) return 1
+  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+  return dow === 0 ? 7 : dow
+}
+
+export function startOfIsoWeek(isoDate: string) {
+  return addDaysIso(isoDate, 1 - isoWeekday(isoDate))
+}
+
 export function calendarDateInBucharest(offsetDays = 0) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Bucharest',

@@ -35,7 +35,7 @@ export default function InvoiceOverflow({ actions }: { actions: OverflowAction[]
         Mai multe
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 z-20 min-w-[10rem] bg-white border border-gray-200 rounded-xl overflow-hidden py-1">
+        <div className="absolute right-0 mt-1 z-20 min-w-[12rem] bg-white border border-gray-200 rounded-xl overflow-hidden py-1">
           {visible.map(action => (
             <button
               key={action.label}

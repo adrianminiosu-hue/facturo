@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendInvoiceReminder } from '@/lib/dueReminders'
+import { getInvoiceForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,12 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }
 
-    const { data: invoice } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', invoiceId)
-      .eq('user_id', userId)
-      .single()
+    const invoice = await getInvoiceForActor(supabase, invoiceId, userId)
 
     if (!invoice) {
       return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
