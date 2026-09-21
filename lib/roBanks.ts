@@ -409,9 +409,9 @@ export function applyBicInput<T extends { bank_name: string; iban: string; bic: 
   }
 }
 
-export function withoutIbanCurrencyColumn<T extends { iban_currency?: string }>(row: T): Omit<T, 'iban_currency'> {
+export function withoutIbanCurrencyColumn<T extends { iban_currency?: string }>(row: T): T {
   const { iban_currency: _omit, ...rest } = row
-  return rest
+  return rest as T
 }
 
 export function isMissingIbanCurrencyColumnError(error: { message?: string } | null | undefined) {
@@ -422,10 +422,10 @@ export function isMissingIbanCurrencyColumnError(error: { message?: string } | n
   )
 }
 
-export function withoutBicColumn<T extends { bic?: string }>(row: T): Omit<T, 'bic'> {
+export function withoutBicColumn<T extends { bic?: string }>(row: T): T {
   const { bic, ...rest } = row
   void bic
-  return rest
+  return rest as T
 }
 
 export function isMissingBicColumnError(error: { message?: string; code?: string } | null | undefined) {

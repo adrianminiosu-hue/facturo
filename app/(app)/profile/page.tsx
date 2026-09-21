@@ -9,7 +9,7 @@ import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import BankDetailsFields from '@/components/BankDetailsFields'
 import { normalizeIban } from '@/lib/iban'
-import { normalizeBic, normalizeIbanCurrency, validateClientBankDetails } from '@/lib/roBanks'
+import { normalizeBic, normalizeIbanCurrency, validateClientBankDetails, type IbanCurrency } from '@/lib/roBanks'
 
 export default function Profile() {
   const router = useRouter()
@@ -32,7 +32,7 @@ export default function Profile() {
     bank_name: '',
     iban: '',
     bic: '',
-    iban_currency: 'LEI' as const,
+    iban_currency: 'LEI' as IbanCurrency,
     contact_person: '',
     contact_role: '',
     email: '',

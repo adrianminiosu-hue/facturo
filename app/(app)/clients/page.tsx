@@ -16,14 +16,17 @@ import {
   normalizeBic,
   normalizeIbanCurrency,
   withoutBicColumn,
-  withoutIbanCurrencyColumn
+  withoutIbanCurrencyColumn,
+  type IbanCurrency
 } from '@/lib/roBanks'
 import { tenantWrite } from '@/lib/portfolio'
 import {
   DEFAULT_LEGAL_FORM,
   inferLegalForm,
+  isLegalFormCode,
   isMissingLegalFormColumnError,
   LEGAL_FORMS,
+  type LegalFormCode,
   withoutLegalFormColumn
 } from '@/lib/legalForms'
 import {
@@ -87,13 +90,13 @@ const emptyForm = {
   reg_com: '',
   vat_registered: true,
   is_public_institution: false,
-  legal_form: DEFAULT_LEGAL_FORM,
+  legal_form: DEFAULT_LEGAL_FORM as LegalFormCode,
   email: '',
   phone: '',
   bank_name: '',
   iban: '',
   bic: '',
-  iban_currency: 'LEI' as const
+  iban_currency: 'LEI' as IbanCurrency
 }
 
 export default function Clients() {
@@ -203,7 +206,7 @@ export default function Clients() {
       reg_com: client.reg_com || '',
       vat_registered: client.vat_registered !== false,
       is_public_institution: client.is_public_institution === true,
-      legal_form: client.legal_form || inferLegalForm(client.company_name),
+      legal_form: isLegalFormCode(client.legal_form) ? client.legal_form : inferLegalForm(client.company_name),
       email: client.email || '',
       phone: client.phone || '',
       bank_name: client.bank_name || '',
@@ -564,7 +567,10 @@ export default function Clients() {
                   <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Formă legală</label>
                   <select
                     value={form.legal_form}
-                    onChange={e => setForm(f => ({ ...f, legal_form: e.target.value }))}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      legal_form: isLegalFormCode(e.target.value) ? e.target.value : DEFAULT_LEGAL_FORM
+                    }))}
                     className="input bg-white"
                   >
                     <option value="">Selectează forma legală...</option>

@@ -173,7 +173,7 @@ export async function loadRecentInvoiceLines(
 ) {
   let query = client
     .from('invoices')
-    .select('issue_date, status, invoice_type_code, notes, invoice_items(description, quantity, unit_price, tva_rate, unit_code, vat_category, vat_exemption_reason, discount_percent)')
+    .select('issue_date, status, invoice_type_code, notes, direction, invoice_items(description, quantity, unit_price, tva_rate, unit_code, vat_category, vat_exemption_reason, discount_percent)')
     .neq('status', 'draft')
     .order('issue_date', { ascending: false })
     .limit(opts.invoiceLimit ?? 40)
@@ -185,6 +185,8 @@ export async function loadRecentInvoiceLines(
   const lines: CatalogSuggestion[] = []
   for (const invoice of data as Array<{
     invoice_type_code?: string | null
+    direction?: string | null
+    notes?: string | null
     invoice_items?: Array<Record<string, unknown>> | null
   }>) {
     if (isCreditNote(invoice.invoice_type_code) || isPurchaseInvoice(invoice)) continue

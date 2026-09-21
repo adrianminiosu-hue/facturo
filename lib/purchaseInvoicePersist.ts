@@ -36,7 +36,7 @@ export function purchaseInvoiceFromRow(input: {
   const invoice = input.invoice
   const supplier = input.supplier || invoice.clients || invoice.seller_snapshot || {}
   const buyerSnap = invoice.buyer_snapshot || input.buyer || {}
-  const items = input.items || invoice.invoice_items || []
+  const items: Array<Record<string, unknown>> = input.items || invoice.invoice_items || []
   const indexIncarcare = String(invoice.efactura_index || '')
   return {
     id: String(invoice.id),
@@ -56,7 +56,7 @@ export function purchaseInvoiceFromRow(input: {
     lines: items.map(item => ({
       description: String(item.description || ''),
       quantity: Number(item.quantity || 0),
-      unit: unitLabel(item.unit_code) || String(item.unit_code || 'BUC'),
+      unit: unitLabel(String(item.unit_code || '')) || String(item.unit_code || 'BUC'),
       unitPrice: Number(item.unit_price || 0),
       vatRate: Number(item.tva_rate || 0)
     })),

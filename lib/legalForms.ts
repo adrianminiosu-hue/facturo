@@ -62,7 +62,7 @@ export function isMissingLegalFormColumnError(error: { message?: string } | null
   )
 }
 
-export function withoutLegalFormColumn<T extends { legal_form?: string }>(row: T): Omit<T, 'legal_form'> {
+export function withoutLegalFormColumn<T extends { legal_form?: string }>(row: T): T {
   const { legal_form: _omit, ...rest } = row
-  return rest
+  return rest as T
 }
