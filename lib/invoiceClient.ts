@@ -29,24 +29,27 @@ export async function sendInvoiceEmail(invoiceId: string, userId: string) {
 
 export type SimulatedSpvUpload = {
   invoiceRef: string
-  simulated: true
+  simulated?: boolean
+  code?: string
   environment: string
-  endpoint: string
+  endpoint?: string
   executionStatus: string
   indexIncarcare?: string
   stare?: string
   error?: string
-  uploadResponseXml: string
+  uploadResponseXml?: string
   statusResponseXml?: string
   note: string
   invoicePatch?: {
     status?: string | null
     efactura_status?: string | null
     notes?: string | null
+    efactura_index?: string | null
+    efactura_error?: string | null
   }
 }
 
-export type BulkSpvOutcome = 'accepted' | 'rejected' | 'skipped' | 'error'
+export type BulkSpvOutcome = 'accepted' | 'rejected' | 'skipped' | 'error' | 'processing'
 
 export type BulkSpvResultItem = {
   invoiceId: string
@@ -55,28 +58,66 @@ export type BulkSpvResultItem = {
   error?: string
 }
 
-export async function simulateSpvUpload(invoiceId: string, userId: string): Promise<SimulatedSpvUpload> {
+export async function uploadToEfactura(invoiceId: string, userId: string): Promise<SimulatedSpvUpload> {
   const res = await fetch('/api/efactura/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ invoiceId, userId })
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Eroare simulare SPV')
+  if (!res.ok) throw new Error(data.error || 'Eroare e-Factura')
   return data
 }
+
+export const simulateSpvUpload = uploadToEfactura
 
 export async function simulateSpvUploads(
   invoiceIds: string[],
   userId: string
-): Promise<{ simulated: true; note: string; results: BulkSpvResultItem[] }> {
+): Promise<{ simulated?: boolean; note: string; results: BulkSpvResultItem[] }> {
   const res = await fetch('/api/efactura/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ invoiceIds, userId })
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Eroare simulare SPV')
+  if (!res.ok) throw new Error(data.error || 'Eroare e-Factura')
+  return data
+}
+
+export type EfacturaConnection = {
+  configured: boolean
+  connected: boolean
+  missingTable?: boolean
+  environment?: string
+  expiresAt?: string | null
+  certSerial?: string | null
+  error?: string
+}
+
+export async function loadEfacturaConnection(userId: string, ownerUserId?: string): Promise<EfacturaConnection> {
+  const params = new URLSearchParams({ userId })
+  if (ownerUserId) params.set('ownerUserId', ownerUserId)
+  const res = await fetch(`/api/efactura/oauth/status?${params.toString()}`)
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Eroare conexiune e-Factura')
+  return data
+}
+
+export function efacturaConnectUrl(userId: string, ownerUserId?: string) {
+  const params = new URLSearchParams({ userId })
+  if (ownerUserId) params.set('ownerUserId', ownerUserId)
+  return `/api/efactura/oauth/start?${params.toString()}`
+}
+
+export async function disconnectEfactura(userId: string, ownerUserId?: string) {
+  const res = await fetch('/api/efactura/oauth/disconnect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, ownerUserId })
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Nu s-a putut deconecta e-Factura.')
   return data
 }
 

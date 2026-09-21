@@ -19,6 +19,9 @@ export const SPV_NOTE_MARK = '[[FACTURO_SPV]]'
 export const PURCHASE_NOTE_MARK = '[[FACTURO_PURCHASE]]'
 
 export const ALREADY_SENT_TO_SPV = 'Factura a fost deja transmisă.'
+export const EFACTURA_PROCESSING = 'Factura este încă în prelucrare la ANAF.'
+
+export type EfacturaStatus = 'uploaded' | 'in_processing' | 'accepted' | 'rejected'
 
 export function isDraftInvoice(status?: string | null) {
   return status === 'draft' || !status
@@ -26,6 +29,12 @@ export function isDraftInvoice(status?: string | null) {
 
 export function isOpenReceivable(status?: string | null) {
   return status === 'sent' || status === 'overdue' || status === 'spv'
+}
+
+export function isEfacturaProcessing(invoice: {
+  efactura_status?: string | null
+}) {
+  return invoice.efactura_status === 'uploaded' || invoice.efactura_status === 'in_processing'
 }
 
 export function alreadySentToSpv(invoice: {
@@ -52,6 +61,9 @@ export function invoiceStatusAppearance(invoice: {
   notes?: string | null
 }) {
   if (isDraftInvoice(invoice.status)) return INVOICE_STATUS_LABEL.draft
+  if (isEfacturaProcessing(invoice)) {
+    return { label: 'În prelucrare ANAF', style: 'bg-amber-50 text-amber-800' }
+  }
   const transferred = alreadySentToSpv(invoice)
   if (invoice.status === 'paid' && transferred) {
     return { label: 'Plătită · SPV', style: INVOICE_STATUS_LABEL.spv.style }
@@ -67,7 +79,7 @@ export function canSendToEfactura(invoice: {
   efactura_status?: string | null
   notes?: string | null
 }) {
-  return !isDraftInvoice(invoice.status) && !alreadySentToSpv(invoice)
+  return !isDraftInvoice(invoice.status) && !alreadySentToSpv(invoice) && !isEfacturaProcessing(invoice)
 }
 
 export function isCreditNote(typeCode?: string | null) {

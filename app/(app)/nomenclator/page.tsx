@@ -134,7 +134,6 @@ export default function NomenclatorPage() {
     setImporting(true)
     const result = await importCatalogFromRecent(supabase, {
       userId: ownerUserId || userId,
-      companyId: company?.id,
       items
     })
     setImporting(false)

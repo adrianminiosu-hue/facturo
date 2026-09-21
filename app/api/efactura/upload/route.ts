@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
 import { simulateSpvUpload } from '@/lib/efacturaSpv'
+import {
+  errorTextFromDescarcare,
+  isStareNok,
+  isStareOk,
+  pollStareMesaj,
+  uploadEfacturaXml
+} from '@/lib/anafEfactura'
+import {
+  ANAF_CONNECT_ERROR,
+  anafEfacturaMode,
+  anafOAuthConfigured,
+  getValidAccessToken
+} from '@/lib/anafOAuth'
 import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
 import { resolveParty } from '@/lib/partySnapshot'
-import { isDraftInvoice, alreadySentToSpv, ALREADY_SENT_TO_SPV } from '@/lib/invoiceStatus'
-import { persistSpvAccepted } from '@/lib/spvPersist'
+import { alreadySentToSpv, isDraftInvoice, isEfacturaProcessing, ALREADY_SENT_TO_SPV } from '@/lib/invoiceStatus'
+import { persistEfacturaState, persistSpvAccepted } from '@/lib/spvPersist'
 import { getInvoiceForActor } from '@/lib/portfolio'
 
 const supabase = createClient(
@@ -14,13 +27,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
-const SPV_NOTE = 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.'
+const SIMULATE_NOTE = 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.'
+const TEST_NOTE = 'Trimitere e-Factura TEST către ANAF.'
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-type UploadOutcome = 'accepted' | 'rejected' | 'skipped' | 'error'
+type UploadOutcome = 'accepted' | 'rejected' | 'skipped' | 'error' | 'processing'
 
 type ProcessedUpload = {
   invoiceId: string
@@ -29,6 +43,138 @@ type ProcessedUpload = {
   error?: string
   httpStatus?: number
   body?: Record<string, unknown>
+}
+
+function numericCif(cui?: string | null) {
+  return (cui || '').replace(/\D/g, '')
+}
+
+async function processSimulate(
+  invoice: { id: string; status?: string | null; notes?: string | null; _sellerCui?: string | null },
+  invoiceRef: string,
+  xmlError?: string
+): Promise<ProcessedUpload> {
+  const result = simulateSpvUpload({
+    sellerCui: invoice._sellerCui,
+    invoiceRef,
+    xmlError
+  })
+  const accepted = result.executionStatus === '0'
+  let invoicePatch: Record<string, unknown> = {}
+  if (accepted) {
+    invoicePatch = await persistSpvAccepted(supabase, invoice, {
+      efactura_index: result.indexIncarcare,
+      efactura_environment: 'test'
+    })
+  } else {
+    await persistEfacturaState(supabase, invoice, {
+      efactura_status: 'rejected',
+      efactura_error: result.error || null,
+      efactura_environment: 'test'
+    })
+  }
+  return {
+    invoiceId: invoice.id,
+    invoiceRef,
+    outcome: accepted ? 'accepted' : 'rejected',
+    error: result.error,
+    body: {
+      ...result,
+      simulated: true,
+      invoiceRef,
+      note: SIMULATE_NOTE,
+      invoicePatch
+    }
+  }
+}
+
+async function applyStare(input: {
+  invoice: { id: string; status?: string | null; notes?: string | null }
+  accessToken: string
+  indexIncarcare: string
+  invoiceRef: string
+  extra?: Record<string, unknown>
+}): Promise<ProcessedUpload> {
+  const stare = await pollStareMesaj({
+    accessToken: input.accessToken,
+    indexIncarcare: input.indexIncarcare
+  })
+  if (isStareOk(stare.stare)) {
+    const invoicePatch = await persistEfacturaState(supabase, input.invoice, {
+      efactura_status: 'accepted',
+      efactura_index: input.indexIncarcare,
+      efactura_error: null,
+      efactura_environment: 'test'
+    })
+    return {
+      invoiceId: input.invoice.id,
+      invoiceRef: input.invoiceRef,
+      outcome: 'accepted',
+      body: {
+        simulated: false,
+        environment: 'test',
+        invoiceRef: input.invoiceRef,
+        executionStatus: '0',
+        indexIncarcare: input.indexIncarcare,
+        stare: stare.stare,
+        statusResponseXml: stare.statusResponseXml,
+        note: TEST_NOTE,
+        invoicePatch,
+        ...(input.extra || {})
+      }
+    }
+  }
+  if (isStareNok(stare.stare)) {
+    const error = await errorTextFromDescarcare(input.accessToken, stare.idDescarcare)
+    const invoicePatch = await persistEfacturaState(supabase, input.invoice, {
+      efactura_status: 'rejected',
+      efactura_index: input.indexIncarcare,
+      efactura_error: error,
+      efactura_environment: 'test'
+    })
+    return {
+      invoiceId: input.invoice.id,
+      invoiceRef: input.invoiceRef,
+      outcome: 'rejected',
+      error,
+      body: {
+        simulated: false,
+        environment: 'test',
+        invoiceRef: input.invoiceRef,
+        executionStatus: '1',
+        indexIncarcare: input.indexIncarcare,
+        stare: stare.stare,
+        statusResponseXml: stare.statusResponseXml,
+        error,
+        note: TEST_NOTE,
+        invoicePatch,
+        ...(input.extra || {})
+      }
+    }
+  }
+  const invoicePatch = await persistEfacturaState(supabase, input.invoice, {
+    efactura_status: 'in_processing',
+    efactura_index: input.indexIncarcare,
+    efactura_error: null,
+    efactura_environment: 'test'
+  })
+  return {
+    invoiceId: input.invoice.id,
+    invoiceRef: input.invoiceRef,
+    outcome: 'processing',
+    body: {
+      simulated: false,
+      environment: 'test',
+      invoiceRef: input.invoiceRef,
+      executionStatus: '0',
+      indexIncarcare: input.indexIncarcare,
+      stare: stare.stare || 'in prelucrare',
+      statusResponseXml: stare.statusResponseXml,
+      note: 'ANAF încă prelucrează factura. Reîncearcă „Actualizează stare ANAF” peste câteva secunde.',
+      invoicePatch,
+      ...(input.extra || {})
+    }
+  }
 }
 
 async function processOne(
@@ -59,7 +205,8 @@ async function processOne(
     }
   }
 
-  if (alreadySentToSpv(invoice)) {
+  const processing = isEfacturaProcessing(invoice)
+  if (alreadySentToSpv(invoice) && !processing) {
     return {
       invoiceId,
       invoiceRef,
@@ -79,11 +226,10 @@ async function processOne(
   const client = resolveParty(invoice.buyer_snapshot, liveClient)
   const seller = resolveParty(invoice.seller_snapshot, liveSeller)
 
-  await delay(700)
-
+  let xml = ''
   let xmlError: string | undefined
   try {
-    generateEfacturaXml({
+    xml = generateEfacturaXml({
       invoice,
       seller,
       buyer: client,
@@ -93,37 +239,112 @@ async function processOne(
     xmlError = error instanceof Error ? error.message : 'XML invalid'
   }
 
-  const result = simulateSpvUpload({
-    sellerCui: seller?.cui,
-    invoiceRef,
-    xmlError
-  })
-
-  const accepted = result.executionStatus === '0'
-  let invoicePatch: Record<string, unknown> = {}
-  if (accepted) {
-    invoicePatch = await persistSpvAccepted(supabase, invoice)
-  } else {
-    await supabase.from('invoices').update({
-      efactura_status: 'rejected',
-      efactura_error: result.error || null,
-      efactura_uploaded_at: new Date().toISOString()
-    }).eq('id', invoiceId)
+  const mode = anafEfacturaMode()
+  if (mode === 'simulate') {
+    await delay(400)
+    return processSimulate({ ...invoice, _sellerCui: seller?.cui }, invoiceRef, xmlError)
   }
 
-  const outcome: UploadOutcome = accepted ? 'accepted' : 'rejected'
-  return {
-    invoiceId,
-    invoiceRef,
-    outcome,
-    error: result.error,
-    body: {
-      ...result,
+  if (!anafOAuthConfigured()) {
+    return {
+      invoiceId,
       invoiceRef,
-      note: SPV_NOTE,
-      invoicePatch
+      outcome: 'error',
+      error: 'ANAF OAuth nu este configurat. Completează ANAF_OAUTH_CLIENT_ID, SECRET și REDIRECT_URI.',
+      httpStatus: 400
     }
   }
+
+  const tokens = await getValidAccessToken(invoice.user_id, 'test')
+  if (!tokens?.access_token) {
+    return {
+      invoiceId,
+      invoiceRef,
+      outcome: 'error',
+      error: ANAF_CONNECT_ERROR,
+      httpStatus: 401,
+      body: { code: 'ANAF_CONNECT', error: ANAF_CONNECT_ERROR, invoiceRef }
+    }
+  }
+
+  if (processing && invoice.efactura_index) {
+    return applyStare({
+      invoice,
+      accessToken: tokens.access_token,
+      indexIncarcare: String(invoice.efactura_index),
+      invoiceRef
+    })
+  }
+
+  if (xmlError) {
+    const invoicePatch = await persistEfacturaState(supabase, invoice, {
+      efactura_status: 'rejected',
+      efactura_error: xmlError,
+      efactura_environment: 'test'
+    })
+    return {
+      invoiceId,
+      invoiceRef,
+      outcome: 'rejected',
+      error: xmlError,
+      body: {
+        simulated: false,
+        environment: 'test',
+        invoiceRef,
+        executionStatus: '1',
+        error: xmlError,
+        note: TEST_NOTE,
+        invoicePatch
+      }
+    }
+  }
+
+  const uploaded = await uploadEfacturaXml({
+    accessToken: tokens.access_token,
+    cif: numericCif(seller?.cui),
+    xml,
+    invoiceTypeCode: invoice.invoice_type_code
+  })
+
+  if (uploaded.executionStatus !== '0' || !uploaded.indexIncarcare) {
+    const error = uploaded.error || 'ANAF a refuzat încărcarea.'
+    const invoicePatch = await persistEfacturaState(supabase, invoice, {
+      efactura_status: 'rejected',
+      efactura_error: error,
+      efactura_environment: 'test'
+    })
+    return {
+      invoiceId,
+      invoiceRef,
+      outcome: 'rejected',
+      error,
+      body: {
+        simulated: false,
+        environment: 'test',
+        invoiceRef,
+        executionStatus: '1',
+        error,
+        uploadResponseXml: uploaded.uploadResponseXml,
+        note: TEST_NOTE,
+        invoicePatch
+      }
+    }
+  }
+
+  await persistEfacturaState(supabase, invoice, {
+    efactura_status: 'uploaded',
+    efactura_index: uploaded.indexIncarcare,
+    efactura_error: null,
+    efactura_environment: 'test'
+  })
+
+  return applyStare({
+    invoice,
+    accessToken: tokens.access_token,
+    indexIncarcare: uploaded.indexIncarcare,
+    invoiceRef,
+    extra: { uploadResponseXml: uploaded.uploadResponseXml }
+  })
 }
 
 function asBulkItem(processed: ProcessedUpload) {
@@ -160,14 +381,15 @@ export async function POST(request: NextRequest) {
             invoiceId: id,
             invoiceRef: id,
             outcome: 'error' as const,
-            error: error instanceof Error ? error.message : 'Eroare simulare SPV'
+            error: error instanceof Error ? error.message : 'Eroare e-Factura'
           })
         }
+        await delay(400)
       }
 
       return NextResponse.json({
-        simulated: true,
-        note: SPV_NOTE,
+        simulated: anafEfacturaMode() === 'simulate',
+        note: anafEfacturaMode() === 'simulate' ? SIMULATE_NOTE : TEST_NOTE,
         results
       })
     }
@@ -177,16 +399,22 @@ export async function POST(request: NextRequest) {
     }
 
     const processed = await processOne(invoiceId, userId, { skipDrafts: false })
-    if (processed.outcome === 'skipped' || (processed.outcome === 'error' && !processed.body)) {
+    if (processed.outcome === 'skipped') {
       return NextResponse.json(
-        { error: processed.error || 'Eroare simulare SPV' },
+        { error: processed.error || 'Eroare e-Factura' },
+        { status: processed.httpStatus || 400 }
+      )
+    }
+    if (processed.outcome === 'error') {
+      return NextResponse.json(
+        { error: processed.error || 'Eroare e-Factura', ...(processed.body || {}) },
         { status: processed.httpStatus || 400 }
       )
     }
 
     return NextResponse.json(processed.body)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Eroare simulare SPV'
+    const message = error instanceof Error ? error.message : 'Eroare e-Factura'
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

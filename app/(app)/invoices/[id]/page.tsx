@@ -10,7 +10,7 @@ import PaymentModal from '@/components/PaymentModal'
 import { INVOICE_TYPE_CODES } from '@/lib/efactura'
 import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { formatAmount, formatRon } from '@/lib/money'
 import { computeInvoiceTotals, remainingOf } from '@/lib/invoiceMath'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
@@ -57,6 +57,9 @@ type Invoice = {
   prepaid_amount?: number | null
   discount_percent?: number | null
   efactura_status?: string | null
+  efactura_index?: string | null
+  efactura_error?: string | null
+  efactura_environment?: string | null
   clients?: { company_name?: string; cui?: string; email?: string; city?: string } | null
   invoice_items?: Line[]
 }
@@ -205,9 +208,18 @@ export default function InvoiceViewPage() {
 
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>{status.label}</span>
-          {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-500">SPV test · respins</span>}
+          {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-500">e-Factura TEST · respins</span>}
+          {isEfacturaProcessing(invoice) && <span className="text-xs text-amber-700">ANAF prelucrează</span>}
+          {invoice.efactura_index && (
+            <span className="text-xs font-mono text-[color:var(--color-muted-foreground)]">index {invoice.efactura_index}</span>
+          )}
           {hasStorno && <span className="text-xs text-[color:var(--color-muted-foreground)]">Are storno</span>}
         </div>
+        {invoice.efactura_error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-6">
+            {invoice.efactura_error}
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-8">
           {draft ? (
@@ -264,31 +276,36 @@ export default function InvoiceViewPage() {
                 }
               },
               {
-                label: 'SPV test (simulare)',
+                label: isEfacturaProcessing(invoice) ? 'Actualizează stare ANAF' : 'Trimite în e-Factura TEST',
                 onClick: async () => {
                   if (alreadySentToSpv(invoice)) {
                     alert(ALREADY_SENT_TO_SPV)
                     return
                   }
-                  if (!confirm('Simulare SPV. Nu se trimite nimic la ANAF.')) return
+                  const processing = isEfacturaProcessing(invoice)
+                  if (!confirm(processing
+                    ? 'Actualizezi starea ANAF pentru această factură?'
+                    : 'Trimiți factura în e-Factura TEST?')) return
                   try {
                     const data = await simulateSpvUpload(invoice.id, userId)
                     if (data.executionStatus !== '0' && data.error) {
                       alert(data.error)
                     } else {
-                      alert(data.note || 'Simulare finalizată')
+                      alert(data.note || (processing ? 'Stare actualizată.' : 'Trimisă în e-Factura TEST.'))
                     }
                     if (data.invoicePatch || data.executionStatus === '0') {
                       setInvoice(prev => prev ? {
                         ...prev,
-                        status: data.invoicePatch?.status || (prev.status === 'paid' ? 'paid' : 'spv'),
-                        efactura_status: data.invoicePatch?.efactura_status ?? (data.executionStatus === '0' ? 'accepted' : prev.efactura_status),
+                        status: data.invoicePatch?.status || prev.status,
+                        efactura_status: data.invoicePatch?.efactura_status ?? prev.efactura_status,
+                        efactura_index: data.invoicePatch?.efactura_index ?? prev.efactura_index,
+                        efactura_error: data.invoicePatch?.efactura_error ?? prev.efactura_error,
                         notes: data.invoicePatch?.notes ?? prev.notes
                       } : prev)
                     }
                     load()
                   } catch (e) {
-                    alert(e instanceof Error ? e.message : 'Eroare SPV')
+                    alert(e instanceof Error ? e.message : 'Eroare e-Factura')
                   }
                 }
               }

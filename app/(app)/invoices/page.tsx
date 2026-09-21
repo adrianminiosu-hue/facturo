@@ -11,7 +11,7 @@ import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/li
 import { calendarDateInBucharest } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, INVOICE_STATUS_LABEL, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
+import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, INVOICE_STATUS_LABEL, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 
 interface Invoice {
   id: string
@@ -59,7 +59,8 @@ const OUTCOME_LABEL: Record<BulkSpvOutcome, { label: string; style: string }> = 
   accepted: { label: 'Acceptat', style: 'text-green-600' },
   rejected: { label: 'Respins', style: 'text-red-500' },
   skipped: { label: 'Omis', style: 'text-[color:var(--color-muted-foreground)]' },
-  error: { label: 'Eroare', style: 'text-red-500' }
+  error: { label: 'Eroare', style: 'text-red-500' },
+  processing: { label: 'În prelucrare', style: 'text-amber-700' }
 }
 
 export default function Invoices() {
@@ -135,15 +136,21 @@ export default function Invoices() {
       alert(ALREADY_SENT_TO_SPV)
       return
     }
-    if (!confirm(`Simulezi trimiterea ${invoice.series}${invoice.invoice_number} în e-Factura SPV (mediu TEST)?\n\nNu se folosește certificat și nu se trimite nimic la ANAF.`)) return
+    const processing = isEfacturaProcessing(invoice)
+    if (!processing && !canSendToEfactura(invoice)) return
+    if (!confirm(processing
+      ? `Actualizezi starea ANAF pentru ${invoice.series}${invoice.invoice_number}?`
+      : `Trimiți ${invoice.series}${invoice.invoice_number} în e-Factura TEST?`)) return
     setSpvBusyId(invoice.id)
     try {
       const data = await simulateSpvUpload(invoice.id, userId)
       if (data.executionStatus === '0') {
         setInvoices(prev => prev.map(inv => inv.id === invoice.id ? {
           ...inv,
-          status: data.invoicePatch?.status || (inv.status === 'paid' ? 'paid' : 'spv'),
-          efactura_status: data.invoicePatch?.efactura_status ?? 'accepted',
+          status: data.invoicePatch?.status || inv.status,
+          efactura_status: data.invoicePatch?.efactura_status ?? inv.efactura_status,
+          efactura_index: data.invoicePatch?.efactura_index ?? inv.efactura_index,
+          efactura_error: data.invoicePatch?.efactura_error ?? inv.efactura_error,
           notes: data.invoicePatch?.notes ?? inv.notes
         } : inv))
       } else if (data.error) {
@@ -152,7 +159,7 @@ export default function Invoices() {
       setSpvResult(data)
       await loadInvoices()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Eroare simulare SPV')
+      alert(e instanceof Error ? e.message : 'Eroare e-Factura')
     } finally {
       setSpvBusyId('')
     }
@@ -295,12 +302,16 @@ export default function Invoices() {
 
     if (toSend.length === 0) {
       setBulkSummary({
-        note: 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.',
+        note: 'Nu există facturi eligibile în selecție.',
         results: skipped.map(inv => ({
           invoiceId: inv.id,
           invoiceRef: invoiceRef(inv),
           outcome: 'skipped' as const,
-          error: alreadySentToSpv(inv) ? ALREADY_SENT_TO_SPV : 'Ciornă — nu se trimite în e-Factura.'
+          error: alreadySentToSpv(inv)
+            ? ALREADY_SENT_TO_SPV
+            : isEfacturaProcessing(inv)
+              ? 'Factura este încă în prelucrare la ANAF.'
+              : 'Ciornă — nu se trimite în e-Factura.'
         }))
       })
       setSelectedIds([])
@@ -308,16 +319,21 @@ export default function Invoices() {
     }
 
     if (!confirm(
-      `Simulezi trimiterea a ${countLabel} în e-Factura SPV (mediu TEST)?\n\nNu se folosește certificat și nu se trimite nimic la ANAF.` +
+      `Trimiți ${countLabel} în e-Factura TEST?` +
       (skipped.length ? `\n${skipped.length === 1 ? 'O ciornă va fi omisă.' : `${skipped.length} ciorne vor fi omise.`}` : '')
     )) return
 
     setBulkBusy(true)
+    let lastNote = 'Trimitere e-Factura TEST.'
     const results: BulkSpvResultItem[] = skipped.map(inv => ({
       invoiceId: inv.id,
       invoiceRef: invoiceRef(inv),
       outcome: 'skipped',
-      error: alreadySentToSpv(inv) ? ALREADY_SENT_TO_SPV : 'Ciornă — nu se trimite în e-Factura.'
+      error: alreadySentToSpv(inv)
+        ? ALREADY_SENT_TO_SPV
+        : isEfacturaProcessing(inv)
+          ? 'Factura este încă în prelucrare la ANAF.'
+          : 'Ciornă — nu se trimite în e-Factura.'
     }))
 
     try {
@@ -326,18 +342,23 @@ export default function Invoices() {
         setBulkProgress({ current: i + 1, total: toSend.length, invoiceRef: invoiceRef(inv) })
         try {
           const data = await simulateSpvUpload(inv.id, userId)
+          if (data.note) lastNote = data.note
           if (data.executionStatus === '0') {
             setInvoices(prev => prev.map(row => row.id === inv.id ? {
               ...row,
-              status: data.invoicePatch?.status || (row.status === 'paid' ? 'paid' : 'spv'),
-              efactura_status: data.invoicePatch?.efactura_status ?? 'accepted',
+              status: data.invoicePatch?.status || row.status,
+              efactura_status: data.invoicePatch?.efactura_status ?? row.efactura_status,
+              efactura_index: data.invoicePatch?.efactura_index ?? row.efactura_index,
+              efactura_error: data.invoicePatch?.efactura_error ?? row.efactura_error,
               notes: data.invoicePatch?.notes ?? row.notes
             } : row))
           }
           results.push({
             invoiceId: inv.id,
             invoiceRef: data.invoiceRef || invoiceRef(inv),
-            outcome: data.executionStatus === '0' ? 'accepted' : 'rejected',
+            outcome: data.executionStatus === '0'
+              ? (data.invoicePatch?.efactura_status === 'in_processing' || data.invoicePatch?.efactura_status === 'uploaded' ? 'processing' : 'accepted')
+              : 'rejected',
             error: data.error
           })
         } catch (e) {
@@ -345,13 +366,13 @@ export default function Invoices() {
             invoiceId: inv.id,
             invoiceRef: invoiceRef(inv),
             outcome: 'error',
-            error: e instanceof Error ? e.message : 'Eroare simulare SPV'
+            error: e instanceof Error ? e.message : 'Eroare e-Factura'
           })
         }
       }
 
       setBulkSummary({
-        note: 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.',
+        note: lastNote,
         results
       })
       setSelectedIds([])
@@ -554,7 +575,13 @@ export default function Invoices() {
                           {status.label}
                         </span>
                         {invoice.efactura_status === 'rejected' && (
-                          <p className="text-[10px] text-red-500 mt-1 font-medium">SPV test · respins</p>
+                          <p className="text-[10px] text-red-500 mt-1 font-medium">e-Factura TEST · respins</p>
+                        )}
+                        {isEfacturaProcessing(invoice) && (
+                          <p className="text-[10px] text-amber-700 mt-1 font-medium">ANAF prelucrează</p>
+                        )}
+                        {invoice.efactura_index && alreadySentToSpv(invoice) && (
+                          <p className="text-[10px] text-[color:var(--color-muted-foreground)] mt-1 font-mono">#{invoice.efactura_index}</p>
                         )}
                       </span>
                       <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
@@ -585,9 +612,9 @@ export default function Invoices() {
                               disabled: isDraftInvoice(invoice.status)
                             },
                             {
-                              label: 'SPV test (simulare)',
+                              label: isEfacturaProcessing(invoice) ? 'Actualizează stare ANAF' : 'Trimite în e-Factura TEST',
                               onClick: () => sendToSpvTest(invoice),
-                              disabled: bulkBusy || spvBusyId === invoice.id || actionBusyId === invoice.id
+                              disabled: bulkBusy || spvBusyId === invoice.id || actionBusyId === invoice.id || (!canSendToEfactura(invoice) && !isEfacturaProcessing(invoice))
                             },
                             {
                               label: 'Copiază factură',
@@ -656,11 +683,11 @@ export default function Invoices() {
               </p>
               {bulkBusy && bulkProgress ? (
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                  Se trimite {bulkProgress.current} din {bulkProgress.total} · {bulkProgress.invoiceRef} (simulare SPV, fără ANAF)
+                  Se trimite {bulkProgress.current} din {bulkProgress.total} · {bulkProgress.invoiceRef} (e-Factura TEST)
                 </p>
               ) : (
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                  Trimitere simulată în e-Factura SPV (mediu TEST). Ciornele sunt omise.
+                  Trimitere în e-Factura TEST. Ciornele sunt omise.
                 </p>
               )}
             </div>
@@ -691,7 +718,7 @@ export default function Invoices() {
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Simulare e-Factura SPV (test)</h3>
+                <h3 className="text-lg font-bold text-gray-900">e-Factura TEST</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   {summaryCounts
                     ? `${summaryCounts.accepted} acceptate · ${summaryCounts.rejected} respinse · ${summaryCounts.skipped} omise · ${summaryCounts.error} erori`
@@ -728,7 +755,7 @@ export default function Invoices() {
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Simulare e-Factura SPV (test)</h3>
+                <h3 className="text-lg font-bold text-gray-900">e-Factura TEST</h3>
                 <p className="text-sm text-gray-500 mt-1">{spvResult.invoiceRef}</p>
               </div>
               <button onClick={() => setSpvResult(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
@@ -736,15 +763,23 @@ export default function Invoices() {
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
               {spvResult.note}
             </p>
-            <p className="text-xs text-gray-500 mb-1">Endpoint simulat</p>
-            <p className="text-sm font-mono break-all mb-4">{spvResult.endpoint}</p>
-            <p className={`text-sm font-medium mb-3 ${spvResult.executionStatus === '0' ? 'text-green-600' : 'text-red-600'}`}>
+            {spvResult.endpoint && (
+              <>
+                <p className="text-xs text-gray-500 mb-1">Endpoint ANAF</p>
+                <p className="text-sm font-mono break-all mb-4">{spvResult.endpoint}</p>
+              </>
+            )}
+            <p className={`text-sm font-medium mb-3 ${spvResult.executionStatus === '0' ? (spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'text-amber-700' : 'text-green-600') : 'text-red-600'}`}>
               {spvResult.executionStatus === '0'
-                ? `Acceptat · index_incarcare ${spvResult.indexIncarcare} · stare ${spvResult.stare}`
+                ? `${spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'În prelucrare' : 'Acceptat'} · index_incarcare ${spvResult.indexIncarcare || '—'} · stare ${spvResult.stare || '—'}`
                 : spvResult.error}
             </p>
-            <p className="text-xs text-gray-500 mb-1">Răspuns upload (XML ANAF)</p>
-            <pre className="text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 overflow-x-auto mb-3 whitespace-pre-wrap">{spvResult.uploadResponseXml}</pre>
+            {spvResult.uploadResponseXml && (
+              <>
+                <p className="text-xs text-gray-500 mb-1">Răspuns upload (XML ANAF)</p>
+                <pre className="text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 overflow-x-auto mb-3 whitespace-pre-wrap">{spvResult.uploadResponseXml}</pre>
+              </>
+            )}
             {spvResult.statusResponseXml && (
               <>
                 <p className="text-xs text-gray-500 mb-1">Răspuns stareMesaj</p>

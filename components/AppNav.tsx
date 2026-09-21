@@ -7,7 +7,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import BrandLockup from '@/components/BrandLockup'
 import UserAvatar from '@/components/UserAvatar'
 
-export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' }) {
+export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
   const router = useRouter()
   const { userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
   const [invoicesOpen, setInvoicesOpen] = useState(false)
@@ -20,7 +20,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
 
   const linkClass = (key: typeof active) => key === active ? 'nav-link-active' : 'nav-link'
   const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
-  const settingsActive = active === 'profile' || active === 'companies' || active === 'account' || active === 'team' || active === 'nomenclator'
+  const settingsActive = active === 'profile' || active === 'companies' || active === 'account' || active === 'team' || active === 'nomenclator' || active === 'efactura'
 
   return (
     <nav className="top-nav gap-4 flex-wrap">
@@ -91,6 +91,9 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
               </Link>
               <Link href="/nomenclator" className="block px-3 py-2 text-sm text-[color:var(--color-foreground)] hover:bg-gray-50" onClick={() => setSettingsOpen(false)}>
                 Nomenclator articole
+              </Link>
+              <Link href="/efactura" className="block px-3 py-2 text-sm text-[color:var(--color-foreground)] hover:bg-gray-50" onClick={() => setSettingsOpen(false)}>
+                e-Factura TEST
               </Link>
               <Link href="/companies" className="block px-3 py-2 text-sm text-[color:var(--color-foreground)] hover:bg-gray-50" onClick={() => setSettingsOpen(false)}>
                 Firme
