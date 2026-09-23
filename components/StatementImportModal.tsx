@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react'
 import type { MatchRow, OpenInvoice } from '@/lib/paymentMatch'
 import { remainingOf } from '@/lib/paymentMatch'
 import { formatRon } from '@/lib/money'
+import { useLocale } from '@/components/LocaleProvider'
+import type { MessageKey } from '@/lib/messages'
 
 type ImportAction = 'import' | 'unallocated' | 'skip'
 
@@ -28,16 +30,20 @@ function remaining(inv: OpenInvoice) {
   return remainingOf(inv)
 }
 
-function invoiceLabel(inv: OpenInvoice) {
-  return `${inv.series}${inv.invoice_number} · ${inv.client_name || 'Client'} · rest ${ron(remaining(inv))}`
+function invoiceLabel(t: (key: MessageKey, vars?: Record<string, string | number>) => string, inv: OpenInvoice) {
+  return t('imp.invoiceRest', {
+    ref: `${inv.series}${inv.invoice_number}`,
+    client: inv.client_name || t('common.client'),
+    amount: ron(remaining(inv))
+  })
 }
 
-function statusLabel(status: MatchRow['status']) {
-  if (status === 'matched') return { text: 'Potrivită', className: 'text-green-700 bg-green-50' }
-  if (status === 'suggested') return { text: 'De confirmat', className: 'text-amber-800 bg-amber-50' }
-  if (status === 'duplicate') return { text: 'Duplicat', className: 'text-gray-600 bg-gray-100' }
-  if (status === 'skipped') return { text: 'Omisă', className: 'text-gray-600 bg-gray-100' }
-  return { text: 'Nepereche', className: 'text-[color:var(--color-muted-foreground)] bg-[color:var(--color-muted)]' }
+function statusLabel(status: MatchRow['status']): { key: MessageKey; className: string } {
+  if (status === 'matched') return { key: 'imp.status.matched', className: 'text-green-700 bg-green-50' }
+  if (status === 'suggested') return { key: 'imp.status.suggested', className: 'text-amber-800 bg-amber-50' }
+  if (status === 'duplicate') return { key: 'imp.status.duplicate', className: 'text-gray-600 bg-gray-100' }
+  if (status === 'skipped') return { key: 'imp.status.skipped', className: 'text-gray-600 bg-gray-100' }
+  return { key: 'imp.status.unmatched', className: 'text-[color:var(--color-muted-foreground)] bg-[color:var(--color-muted)]' }
 }
 
 function defaultAction(row: MatchRow): ImportAction {
@@ -59,6 +65,7 @@ export default function StatementImportModal({
   onClose: () => void
   onImported: () => void
 }) {
+  const { t } = useLocale()
   const [fileName, setFileName] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -81,7 +88,7 @@ export default function StatementImportModal({
     setFileName(file.name)
     const xml = await file.text()
     if (!xml.trim()) {
-      setError('Fișierul este gol.')
+      setError(t('imp.emptyFile'))
       return
     }
     setBusy('preview')
@@ -93,7 +100,7 @@ export default function StatementImportModal({
       })
       const data = await res.json() as PreviewResponse
       if (!res.ok) {
-        setError(data.error || 'Nu am putut citi extrasul.')
+        setError(data.error || t('imp.readFail'))
         setLines([])
         return
       }
@@ -108,7 +115,7 @@ export default function StatementImportModal({
         invoiceId: row.proposedInvoiceId || ''
       })))
     } catch {
-      setError('Nu am putut citi extrasul. Verifică fișierul XML.')
+      setError(t('imp.readFailXml'))
     } finally {
       setBusy('')
     }
@@ -139,16 +146,16 @@ export default function StatementImportModal({
     setSummary('')
     const payload = lines.filter(l => l.action !== 'skip')
     if (payload.length === 0) {
-      setError('Nicio linie de importat. Alege facturi sau importă ca nealocate.')
+      setError(t('imp.noLines'))
       return
     }
     if (ibanMismatch && !allowIbanMismatch) {
-      setError('IBAN-ul extrasului nu coincide cu firma activă. Confirmă explicit mai jos.')
+      setError(t('imp.ibanConfirmNeeded'))
       return
     }
     const missingInvoice = payload.filter(l => l.action === 'import' && !l.invoiceId)
     if (missingInvoice.length) {
-      setError('Ai linii „import” fără factură. Alege factura sau trece-le ca nealocate / omise.')
+      setError(t('imp.missingInvoice'))
       return
     }
     setBusy('commit')
@@ -178,19 +185,19 @@ export default function StatementImportModal({
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Importul a eșuat.')
+        setError(data.error || t('imp.fail'))
         return
       }
       const bits = [
-        data.imported ? `${data.imported} potrivite` : '',
-        data.unallocated ? `${data.unallocated} nealocate` : '',
-        data.duplicates ? `${data.duplicates} duplicate` : '',
-        data.errors ? `${data.errors} erori` : ''
+        data.imported ? t('imp.matched', { count: data.imported }) : '',
+        data.unallocated ? t('imp.unallocated', { count: data.unallocated }) : '',
+        data.duplicates ? t('imp.duplicates', { count: data.duplicates }) : '',
+        data.errors ? t('imp.errors', { count: data.errors }) : ''
       ].filter(Boolean)
-      setSummary(`Import finalizat: ${bits.join(', ') || 'nimic salvat'}.`)
+      setSummary(t('imp.done', { bits: bits.join(', ') || t('imp.nothing') }))
       if (data.imported > 0 || data.unallocated > 0) onImported()
     } catch {
-      setError('Importul a eșuat. Încearcă din nou.')
+      setError(t('imp.failRetry'))
     } finally {
       setBusy('')
     }
@@ -204,19 +211,19 @@ export default function StatementImportModal({
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <p className="kicker mb-2">Extras bancar</p>
-            <h3 className="brand text-2xl">Importă Multicash XML 940</h3>
+            <p className="kicker mb-2">{t('imp.kicker')}</p>
+            <h3 className="brand text-2xl">{t('imp.title')}</h3>
             <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
-              {companyName ? `${companyName} · ` : ''}Încasările se salvează în Facturo. Fișierul nu pleacă la ANAF.
+              {companyName ? `${companyName} · ` : ''}{t('imp.lead')}
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)]">
-            Închide
+            {t('common.close')}
           </button>
         </div>
 
         <label className="block mb-4">
-          <span className="block text-sm mb-1 text-[color:var(--color-muted-foreground)]">Fișier extras (.xml)</span>
+          <span className="block text-sm mb-1 text-[color:var(--color-muted-foreground)]">{t('imp.file')}</span>
           <input
             type="file"
             accept=".xml,text/xml,application/xml"
@@ -233,7 +240,7 @@ export default function StatementImportModal({
         </label>
 
         {busy === 'preview' && (
-          <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Citesc extrasul și propun potriviri…</p>
+          <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">{t('imp.reading')}</p>
         )}
 
         {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
@@ -251,19 +258,19 @@ export default function StatementImportModal({
               checked={allowIbanMismatch}
               onChange={e => setAllowIbanMismatch(e.target.checked)}
             />
-            <span>Confirm că import extrasul chiar dacă IBAN-ul nu coincide cu firma activă.</span>
+            <span>{t('imp.allowMismatch')}</span>
           </label>
         )}
 
         {skippedDebits > 0 && lines.length > 0 && (
           <p className="text-xs text-[color:var(--color-muted-foreground)] mb-3">
-            {skippedDebits} mișcări de debit (plăți ieșite / comisioane) sunt omise — importăm doar credite.
+            {t('imp.skippedDebits', { count: skippedDebits })}
           </p>
         )}
 
         {lines.length === 0 && !busy && fileName && !error && (
           <div className="card p-8 text-center mb-4">
-            <p className="text-[color:var(--color-muted-foreground)]">Nicio tranzacție de încasare în acest extras.</p>
+            <p className="text-[color:var(--color-muted-foreground)]">{t('imp.noCredits')}</p>
           </div>
         )}
 
@@ -276,10 +283,10 @@ export default function StatementImportModal({
                 onClick={confirmHighConfidence}
                 disabled={highConfidence.length === 0}
               >
-                Confirmă {highConfidence.length} potriviri sigure
+                {t('imp.confirmSafe', { count: highConfidence.length })}
               </button>
               <p className="text-xs text-[color:var(--color-muted-foreground)] self-center">
-                Poți schimba factura, omite linia sau o poți salva nealocată.
+                {t('imp.hint')}
               </p>
             </div>
 
@@ -287,11 +294,11 @@ export default function StatementImportModal({
               <table className="min-w-[860px] w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)] text-left">
-                    <th className="px-3 py-2 font-medium">Dată / sumă</th>
-                    <th className="px-3 py-2 font-medium">Plătitor</th>
-                    <th className="px-3 py-2 font-medium">Factură propusă</th>
-                    <th className="px-3 py-2 font-medium">Motiv</th>
-                    <th className="px-3 py-2 font-medium">Acțiune</th>
+                    <th className="px-3 py-2 font-medium">{t('imp.dateAmount')}</th>
+                    <th className="px-3 py-2 font-medium">{t('imp.payer')}</th>
+                    <th className="px-3 py-2 font-medium">{t('imp.proposed')}</th>
+                    <th className="px-3 py-2 font-medium">{t('imp.reason')}</th>
+                    <th className="px-3 py-2 font-medium">{t('imp.action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -304,13 +311,13 @@ export default function StatementImportModal({
                           <p className="font-medium">{ron(line.amount)}</p>
                           <p className="text-xs text-[color:var(--color-muted-foreground)]">{line.paidOn || '—'}</p>
                           <span className={`inline-block mt-1 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full ${badge.className}`}>
-                            {badge.text}{line.status === 'matched' || line.status === 'suggested' ? ` · ${line.confidence}` : ''}
+                            {t(badge.key)}{line.status === 'matched' || line.status === 'suggested' ? ` · ${line.confidence}` : ''}
                           </span>
                         </td>
                         <td className="px-3 py-3">
                           <p className="truncate max-w-[14rem]">{line.counterpartName || '—'}</p>
                           <p className="text-xs text-[color:var(--color-muted-foreground)] truncate max-w-[14rem]">
-                            {line.counterpartIban || 'fără IBAN'}
+                            {line.counterpartIban || t('imp.noIban')}
                           </p>
                           {line.details && (
                             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1 line-clamp-2 max-w-[14rem]">
@@ -328,16 +335,16 @@ export default function StatementImportModal({
                               action: e.target.value ? 'import' : line.action === 'import' ? 'unallocated' : line.action
                             })}
                           >
-                            <option value="">Fără factură</option>
+                            <option value="">{t('imp.noInvoice')}</option>
                             {invoices
                               .filter(inv => inv.id === line.invoiceId || remaining(inv) + 0.009 >= line.amount)
                               .map(inv => (
-                              <option key={inv.id} value={inv.id}>{invoiceLabel(inv)}</option>
+                              <option key={inv.id} value={inv.id}>{invoiceLabel(t, inv)}</option>
                             ))}
                           </select>
                         </td>
                         <td className="px-3 py-3 text-xs text-[color:var(--color-muted-foreground)]">
-                          {line.skipReason || line.reasons[0] || 'Nicio potrivire automată'}
+                          {line.skipReason || line.reasons[0] || t('imp.noMatch')}
                           {line.warnings[0] && (
                             <p className="text-amber-800 mt-1">{line.warnings[0]}</p>
                           )}
@@ -349,9 +356,9 @@ export default function StatementImportModal({
                             value={locked ? 'skip' : line.action}
                             onChange={e => updateLine(line.fingerprint, { action: e.target.value as ImportAction })}
                           >
-                            <option value="import">Importă pe factură</option>
-                            <option value="unallocated">Nealocată</option>
-                            <option value="skip">Omite</option>
+                            <option value="import">{t('imp.importOn')}</option>
+                            <option value="unallocated">{t('imp.unallocatedOpt')}</option>
+                            <option value="skip">{t('imp.skip')}</option>
                           </select>
                         </td>
                       </tr>
@@ -368,10 +375,10 @@ export default function StatementImportModal({
                 disabled={busy !== ''}
                 className="btn btn-primary disabled:opacity-50"
               >
-                {busy === 'commit' ? 'Se importă...' : 'Importă liniile alese'}
+                {busy === 'commit' ? t('common.importing') : t('imp.commit')}
               </button>
               <button type="button" onClick={onClose} className="btn btn-outline">
-                Închide
+                {t('common.close')}
               </button>
             </div>
           </>

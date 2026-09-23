@@ -60,17 +60,20 @@ export function invoiceStatusAppearance(invoice: {
   efactura_status?: string | null
   notes?: string | null
 }) {
-  if (isDraftInvoice(invoice.status)) return INVOICE_STATUS_LABEL.draft
+  if (isDraftInvoice(invoice.status)) {
+    return { ...INVOICE_STATUS_LABEL.draft, key: 'status.draft' as const }
+  }
   if (isEfacturaProcessing(invoice)) {
-    return { label: 'În prelucrare ANAF', style: 'bg-amber-50 text-amber-800' }
+    return { key: 'status.anafProcessing' as const, label: 'În prelucrare ANAF', style: 'bg-amber-50 text-amber-800' }
   }
   const transferred = alreadySentToSpv(invoice)
   if (invoice.status === 'paid' && transferred) {
-    return { label: 'Plătită · SPV', style: INVOICE_STATUS_LABEL.spv.style }
+    return { key: 'status.paidSpv' as const, label: 'Plătită · SPV', style: INVOICE_STATUS_LABEL.spv.style }
   }
-  if (transferred) return INVOICE_STATUS_LABEL.spv
-  if (invoice.status === 'paid') return INVOICE_STATUS_LABEL.paid
-  return INVOICE_STATUS_LABEL[invoice.status || 'sent'] || INVOICE_STATUS_LABEL.sent
+  if (transferred) return { ...INVOICE_STATUS_LABEL.spv, key: 'status.spv' as const }
+  if (invoice.status === 'paid') return { ...INVOICE_STATUS_LABEL.paid, key: 'status.paid' as const }
+  if (invoice.status === 'overdue') return { ...INVOICE_STATUS_LABEL.overdue, key: 'status.overdue' as const }
+  return { ...INVOICE_STATUS_LABEL.sent, key: 'status.sent' as const }
 }
 
 /** Issued documents that are not already in SPV. */

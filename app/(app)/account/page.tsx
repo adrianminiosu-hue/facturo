@@ -4,12 +4,18 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
 import UserAvatar from '@/components/UserAvatar'
+import ThemePicker from '@/components/ThemePicker'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import Link from 'next/link'
 
-async function avatarRequest(method: 'POST' | 'DELETE', file?: File) {
+async function avatarRequest(
+  method: 'POST' | 'DELETE',
+  file?: File,
+  errors?: { session: string; photo: string }
+) {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) throw new Error('Sesiune invalidă.')
+  if (!session?.access_token) throw new Error(errors?.session)
   const body = new FormData()
   if (file) body.append('file', file)
   const res = await fetch('/api/account/avatar', {
@@ -18,12 +24,13 @@ async function avatarRequest(method: 'POST' | 'DELETE', file?: File) {
     body: method === 'POST' ? body : undefined
   })
   const json = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(json.error || 'Nu s-a putut actualiza fotografia.')
+  if (!res.ok) throw new Error(json.error || errors?.photo)
   return json as { avatarUrl?: string }
 }
 
 export default function AccountPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, userEmail, userName, userAvatarUrl, loading, refreshCompanies } = useCompany()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
@@ -36,6 +43,7 @@ export default function AccountPage() {
   const [photoError, setPhotoError] = useState('')
   const [busy, setBusy] = useState('')
   const photoInput = useRef<HTMLInputElement>(null)
+  const avatarErrors = { session: t('set.sessionInvalid'), photo: t('set.photoFail') }
 
   useEffect(() => {
     setName(userName)
@@ -61,7 +69,7 @@ export default function AccountPage() {
       return
     }
     await refreshCompanies()
-    setProfileMsg('Numele a fost salvat.')
+    setProfileMsg(t('set.nameSaved'))
   }
 
   const savePhoto = async (file?: File) => {
@@ -70,12 +78,12 @@ export default function AccountPage() {
     setPhotoError('')
     setPhotoMsg('')
     try {
-      const json = await avatarRequest('POST', file)
+      const json = await avatarRequest('POST', file, avatarErrors)
       await supabase.auth.updateUser({ data: { avatar_url: json.avatarUrl || '' } })
       await refreshCompanies()
-      setPhotoMsg('Fotografia a fost salvată.')
+      setPhotoMsg(t('set.photoSaved'))
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Nu s-a putut salva fotografia.')
+      setPhotoError(err instanceof Error ? err.message : t('set.photoSaveFail'))
     }
     if (photoInput.current) photoInput.current.value = ''
     setBusy('')
@@ -86,26 +94,26 @@ export default function AccountPage() {
     setPhotoError('')
     setPhotoMsg('')
     try {
-      await avatarRequest('DELETE')
+      await avatarRequest('DELETE', undefined, avatarErrors)
       await supabase.auth.updateUser({ data: { avatar_url: '' } })
       await refreshCompanies()
-      setPhotoMsg('Fotografia a fost ștearsă.')
+      setPhotoMsg(t('set.photoRemoved'))
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Nu s-a putut șterge fotografia.')
+      setPhotoError(err instanceof Error ? err.message : t('set.photoDeleteFail'))
     }
     setBusy('')
   }
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password !== confirmPassword) { setError('Parolele nu coincid'); return }
-    if (password.length < 6) { setError('Parola trebuie să aibă minim 6 caractere'); return }
+    if (password !== confirmPassword) { setError(t('set.passwordMismatch')); return }
+    if (password.length < 6) { setError(t('set.passwordShort')); return }
     setBusy('password')
     setError('')
     const { error } = await supabase.auth.updateUser({ password })
     setBusy('')
     if (error) setError(error.message)
-    else { setMsg('Parola a fost actualizată.'); setPassword(''); setConfirmPassword('') }
+    else { setMsg(t('set.passwordUpdated')); setPassword(''); setConfirmPassword('') }
   }
 
   const exportData = async () => {
@@ -141,10 +149,10 @@ export default function AccountPage() {
   }
 
   const deleteAccount = async () => {
-    if (!confirm('Ștergi contul și datele din aplicație? Exportă mai întâi facturile emise — păstrarea lor 10 ani este obligația ta legală. Acțiunea este ireversibilă.')) return
-    if (!confirm('Confirmi ștergerea definitivă?')) return
+    if (!confirm(t('set.confirmDeleteFull'))) return
+    if (!confirm(t('set.confirmDelete'))) return
     setBusy('delete')
-    try { await avatarRequest('DELETE') } catch { /* continue deleting the account */ }
+    try { await avatarRequest('DELETE', undefined, avatarErrors) } catch { /* continue deleting the account */ }
     const invoiceIds = (await supabase.from('invoices').select('id').eq('user_id', userId)).data || []
     await supabase.from('invoice_payments').delete().eq('user_id', userId)
     await supabase.from('catalog_items').delete().eq('user_id', userId)
@@ -165,32 +173,32 @@ export default function AccountPage() {
   }
 
   if (loading) {
-    return <div className="app-shell flex items-center justify-center"><p className="text-[color:var(--color-muted-foreground)]">Se încarcă...</p></div>
+    return <div className="app-shell flex items-center justify-center"><p className="text-[color:var(--color-muted-foreground)]">{t('common.loading')}</p></div>
   }
 
   return (
     <div className="app-shell">
       <AppNav active="account" />
       <div className="max-w-2xl mx-auto px-8 py-8">
-        <h2 className="text-3xl mb-2">Cont</h2>
-        <p className="text-[color:var(--color-muted-foreground)] mb-8">Datele tale de acces și de prezentare</p>
+        <h2 className="text-3xl mb-2">{t('set.account')}</h2>
+        <p className="text-[color:var(--color-muted-foreground)] mb-8">{t('set.accountLead')}</p>
 
         <div className="card p-8 mb-6">
-          <h3 className="font-bold mb-4">Date personale</h3>
+          <h3 className="font-bold mb-4">{t('set.personal')}</h3>
           <div className="flex items-start gap-5 mb-6">
             <button
               type="button"
               onClick={() => photoInput.current?.click()}
               className="rounded-full focus-visible:outline-none focus-visible:shadow-[0_0_0_4px_var(--ring)]"
-              title="Schimbă fotografia"
+              title={t('set.changePhoto')}
               disabled={busy === 'photo'}
             >
               <UserAvatar url={userAvatarUrl} name={name || userName} email={userEmail} size="lg" />
             </button>
             <div className="min-w-0">
-              <p className="text-sm font-medium mb-1">Fotografie</p>
+              <p className="text-sm font-medium mb-1">{t('set.photo')}</p>
               <p className="text-sm text-[color:var(--color-muted-foreground)] mb-3">
-                Apare lângă email, sus în dreapta. JPG, PNG, WEBP sau GIF, maxim 2 MB.
+                {t('set.photoLead')}
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -199,7 +207,7 @@ export default function AccountPage() {
                   disabled={busy === 'photo'}
                   className="btn btn-outline disabled:opacity-50"
                 >
-                  {busy === 'photo' ? 'Se salvează...' : userAvatarUrl ? 'Schimbă fotografia' : 'Încarcă o fotografie'}
+                  {busy === 'photo' ? t('common.saving') : userAvatarUrl ? t('set.changePhoto') : t('set.uploadPhoto')}
                 </button>
                 {userAvatarUrl && (
                   <button
@@ -208,7 +216,7 @@ export default function AccountPage() {
                     disabled={busy === 'photo'}
                     className="btn btn-outline disabled:opacity-50"
                   >
-                    Șterge
+                    {t('common.delete')}
                   </button>
                 )}
               </div>
@@ -225,11 +233,11 @@ export default function AccountPage() {
           </div>
           <form onSubmit={saveName} className="space-y-4">
             <div>
-              <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">Email</label>
+              <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')}</label>
               <input type="email" className="input bg-gray-50" value={userEmail} readOnly />
             </div>
             <div>
-              <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">Nume</label>
+              <label className="block text-sm text-[color:var(--color-muted-foreground)] mb-1">{t('common.name')}</label>
               <input
                 type="text"
                 className="input"
@@ -241,42 +249,50 @@ export default function AccountPage() {
             {profileError && <p className="text-sm text-red-500">{profileError}</p>}
             {profileMsg && <p className="text-sm text-green-700">{profileMsg}</p>}
             <button type="submit" disabled={busy === 'profile'} className="btn btn-primary disabled:opacity-50">
-              {busy === 'profile' ? 'Se salvează...' : 'Salvează numele'}
+              {busy === 'profile' ? t('common.saving') : t('set.saveName')}
             </button>
           </form>
         </div>
 
         <div className="card p-8 mb-6">
-          <h3 className="font-bold mb-4">Parolă</h3>
+          <h3 className="font-bold mb-2">{t('set.theme')}</h3>
+          <p className="text-sm text-[color:var(--color-muted-foreground)] mb-5">
+            {t('set.themeLead')}
+          </p>
+          <ThemePicker />
+        </div>
+
+        <div className="card p-8 mb-6">
+          <h3 className="font-bold mb-4">{t('common.password')}</h3>
           <form onSubmit={changePassword} className="space-y-4">
-            <input type="password" className="input" placeholder="Parolă nouă" value={password} onChange={e => setPassword(e.target.value)} />
-            <input type="password" className="input" placeholder="Confirmă parola" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            <input type="password" className="input" placeholder={t('common.newPassword')} value={password} onChange={e => setPassword(e.target.value)} />
+            <input type="password" className="input" placeholder={t('set.confirmPassword')} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
             {error && <p className="text-sm text-red-500">{error}</p>}
             {msg && <p className="text-sm text-green-700">{msg}</p>}
             <button type="submit" disabled={busy === 'password'} className="btn btn-primary disabled:opacity-50">
-              {busy === 'password' ? 'Se salvează...' : 'Actualizează parola'}
+              {busy === 'password' ? t('common.saving') : t('set.updatePassword')}
             </button>
           </form>
         </div>
 
         <div className="card p-8 mb-6">
-          <h3 className="font-bold mb-2">Export date</h3>
+          <h3 className="font-bold mb-2">{t('set.export')}</h3>
           <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">
-            Descarci firmele, clienții, facturile și încasările în JSON.
+            {t('set.exportLead')}
           </p>
           <button onClick={exportData} disabled={busy === 'export'} className="btn btn-outline disabled:opacity-50">
-            {busy === 'export' ? 'Se exportă...' : 'Descarcă exportul'}
+            {busy === 'export' ? t('common.exporting') : t('set.downloadExport')}
           </button>
         </div>
 
         <div className="card p-8">
-          <h3 className="font-bold mb-2">Ștergere cont</h3>
+          <h3 className="font-bold mb-2">{t('set.deleteAccount')}</h3>
           <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">
-            Șterge datele din aplicație și accesul la cont. Facturile emise trebuie arhivate de tine, conform legislației contabile (10 ani).
-            Citește <Link href="/gdpr" className="underline">politica de confidențialitate</Link>.
+            {t('set.deleteLead')}{' '}
+            {t('set.readPrivacy')} <Link href="/gdpr" className="underline">{t('set.privacy')}</Link>.
           </p>
           <button onClick={deleteAccount} disabled={busy === 'delete'} className="text-sm text-red-600 border border-red-100 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50">
-            {busy === 'delete' ? 'Se șterge...' : 'Șterge contul'}
+            {busy === 'delete' ? t('common.deleting') : t('set.deleteBtn')}
           </button>
         </div>
       </div>

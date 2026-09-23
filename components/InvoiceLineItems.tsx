@@ -2,6 +2,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/lib/efactura'
+import { useLocale } from '@/components/LocaleProvider'
+import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
+import { useLocale } from '@/components/LocaleProvider'
+import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
 import { formatAmount } from '@/lib/money'
 import { computeInvoiceTotals, vatRateOptions } from '@/lib/invoiceMath'
 import { supabase } from '@/lib/supabase'
@@ -68,6 +72,8 @@ export default function InvoiceLineItems({
   items: InvoiceLineItem[]
   onChange: (items: InvoiceLineItem[]) => void
 }) {
+  const { t } = useLocale()
+  const { t } = useLocale()
   const { userId, company, ownerUserId } = useCompany()
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [recent, setRecent] = useState<CatalogSuggestion[]>([])
@@ -164,15 +170,15 @@ export default function InvoiceLineItems({
   return (
     <div className="card p-6" ref={wrapRef}>
       <div className="flex items-start justify-between gap-4 mb-4">
-        <h3 className="font-bold text-[color:var(--color-foreground)]">Produse / Servicii</h3>
+        <h3 className="font-bold text-[color:var(--color-foreground)]">{t('inv.lines')}</h3>
         <Link href="/nomenclator" className="text-xs text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] underline">
-          Nomenclator articole
+          {t('inv.catalogLink')}
         </Link>
       </div>
 
       {recentChips.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs text-[color:var(--color-muted-foreground)] uppercase tracking-wider mb-2">Ultimele linii</p>
+          <p className="text-xs text-[color:var(--color-muted-foreground)] uppercase tracking-wider mb-2">{t('inv.recentLines')}</p>
           <div className="flex flex-wrap gap-2">
             {recentChips.map(line => (
               <button
@@ -201,7 +207,7 @@ export default function InvoiceLineItems({
             <div key={index} className="border border-gray-100 rounded-xl p-3">
               <div className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-12 md:col-span-3 relative">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Descriere</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.description')}</label>}
                   <input
                     type="text"
                     value={item.description}
@@ -231,14 +237,14 @@ export default function InvoiceLineItems({
                       if (e.key === 'Escape') setOpenIndex(null)
                     }}
                     className="input px-3 py-2.5"
-                    placeholder="Serviciu / produs"
+                    placeholder={t('inv.linePlaceholder')}
                     autoComplete="off"
                   />
                   {showMenu && (
                     <div className="absolute z-30 left-0 right-0 md:min-w-[22rem] mt-1 bg-white border border-gray-200 rounded-xl overflow-hidden">
                       {catalogMatches.length > 0 && (
                         <SuggestionGroup
-                          label="Nomenclator articole"
+                          label={t('inv.catalogLink')}
                           items={catalogMatches}
                           offset={0}
                           highlight={highlight}
@@ -247,7 +253,7 @@ export default function InvoiceLineItems({
                       )}
                       {recentMatches.length > 0 && (
                         <SuggestionGroup
-                          label="Ultimele linii"
+                          label={t('inv.recentLines')}
                           items={recentMatches}
                           offset={catalogMatches.length}
                           highlight={highlight}
@@ -258,7 +264,7 @@ export default function InvoiceLineItems({
                   )}
                 </div>
                 <div className="col-span-4 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Cant.</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.qty')}</label>}
                   <input
                     type="number"
                     value={item.quantity}
@@ -268,19 +274,19 @@ export default function InvoiceLineItems({
                   />
                 </div>
                 <div className="col-span-8 md:col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">UM</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.unit')}</label>}
                   <select
                     value={item.unit_code}
                     onChange={e => updateItem(index, 'unit_code', e.target.value)}
                     className="input bg-white px-3 py-2.5"
                   >
                     {UNIT_CODES.map(unit => (
-                      <option key={unit.code} value={unit.code}>{unit.label}</option>
+                      <option key={unit.code} value={unit.code}>{unitMessageKey(unit.code) ? t(unitMessageKey(unit.code)!) : unit.label}</option>
                     ))}
                   </select>
                 </div>
                 <div className="col-span-4 md:col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Preț unitar</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.unitPrice')}</label>}
                   <input
                     type="number"
                     value={item.unit_price}
@@ -290,7 +296,7 @@ export default function InvoiceLineItems({
                   />
                 </div>
                 <div className="col-span-4 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Disc. %</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.discount')}</label>}
                   <input
                     type="number"
                     value={item.discount_percent}
@@ -301,7 +307,7 @@ export default function InvoiceLineItems({
                   />
                 </div>
                 <div className="col-span-4 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">TVA %</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.vat')}</label>}
                   <select
                     value={item.tva_rate}
                     onChange={e => updateItem(index, 'tva_rate', parseFloat(e.target.value))}
@@ -334,7 +340,7 @@ export default function InvoiceLineItems({
                     className="input bg-white px-3 py-2.5"
                   >
                     {VAT_CATEGORIES.filter(cat => cat.code !== 'S').map(cat => (
-                      <option key={cat.code} value={cat.code}>{cat.label}</option>
+                      <option key={cat.code} value={cat.code}>{vatCategoryKey(cat.code) ? t(vatCategoryKey(cat.code)!) : cat.label}</option>
                     ))}
                   </select>
                   <input
@@ -342,7 +348,7 @@ export default function InvoiceLineItems({
                     value={item.vat_exemption_reason}
                     onChange={e => updateItem(index, 'vat_exemption_reason', e.target.value)}
                     className="input px-3 py-2.5"
-                    placeholder="Motiv scutire TVA (obligatoriu pentru E/AE/K/G/O)"
+                    placeholder={t('inv.vatExemptionPh')}
                   />
                 </div>
               )}
@@ -353,7 +359,7 @@ export default function InvoiceLineItems({
                   disabled={savingIndex === index}
                   className="mt-2 text-xs text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] underline disabled:opacity-50"
                 >
-                  {savingIndex === index ? 'Se salvează...' : 'Salvează în nomenclator'}
+                  {savingIndex === index ? t('common.saving') : t('inv.saveToCatalog')}
                 </button>
               )}
             </div>
@@ -361,7 +367,7 @@ export default function InvoiceLineItems({
         })}
       </div>
       <button onClick={addItem} className="mt-4 btn btn-outline w-full border-dashed">
-        + Adaugă linie
+        {t('inv.addLine')}
       </button>
     </div>
   )
@@ -384,6 +390,7 @@ function SuggestionGroup({
   highlight: number
   onPick: (item: CatalogSuggestion) => void
 }) {
+  const { t } = useLocale()
   return (
     <div>
       <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">{label}</p>
@@ -402,7 +409,7 @@ function SuggestionGroup({
               {item.code ? <span className="text-[color:var(--color-muted-foreground)]"> · {item.code}</span> : null}
             </p>
             <p className="text-xs text-[color:var(--color-muted-foreground)]">
-              {unitLabel(item.unit_code)} · {formatAmount(item.unit_price)} · TVA {item.tva_rate}%
+              {(unitMessageKey(item.unit_code) ? t(unitMessageKey(item.unit_code)!) : unitLabel(item.unit_code))} · {formatAmount(item.unit_price)} · {t('inv.vatOnly', { rate: item.tva_rate })}
             </p>
           </button>
         )

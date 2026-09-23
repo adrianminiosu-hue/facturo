@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
+import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
 import { supabase } from '@/lib/supabase'
 import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/lib/efactura'
 import { formatAmount } from '@/lib/money'
@@ -20,6 +22,7 @@ import {
 
 export default function NomenclatorPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, ownerUserId, loading: companyLoading } = useCompany()
   const [items, setItems] = useState<CatalogItem[]>([])
   const [missingTable, setMissingTable] = useState(false)
@@ -96,7 +99,7 @@ export default function NomenclatorPage() {
   const save = async () => {
     if (!userId) return
     if (!form.name.trim()) {
-      alert('Denumirea este obligatorie.')
+      alert(t('cat.nameRequired'))
       return
     }
     setSaving(true)
@@ -107,7 +110,7 @@ export default function NomenclatorPage() {
     setSaving(false)
     if (result.error) {
       alert(isCatalogDuplicateError(result.error)
-        ? 'Există deja un articol cu această denumire în nomenclator.'
+        ? t('cat.dup')
         : result.error.message)
       return
     }
@@ -117,7 +120,7 @@ export default function NomenclatorPage() {
   }
 
   const remove = async (item: CatalogItem) => {
-    if (!confirm(`Ștergi „${item.name}” din nomenclator? Articolul dispare de pe toate firmele din profil.`)) return
+    if (!confirm(t('cat.confirmDelete', { name: item.name }))) return
     const result = await deleteCatalogItemsByName(supabase, {
       userId: ownerUserId || userId,
       name: item.name
@@ -142,7 +145,7 @@ export default function NomenclatorPage() {
       return
     }
     if (!result.inserted) {
-      alert('Nu sunt linii noi de importat din facturile emise.')
+      alert(t('cat.noImport'))
       return
     }
     await loadItems()
@@ -151,7 +154,7 @@ export default function NomenclatorPage() {
   if (loading || companyLoading) {
     return (
       <div className="app-shell flex items-center justify-center">
-        <p className="text-gray-500">Se încarcă...</p>
+        <p className="text-gray-500">{t('common.loading')}</p>
       </div>
     )
   }
@@ -162,26 +165,26 @@ export default function NomenclatorPage() {
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Nomenclator articole</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cat.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              Nomenclator comun pentru toate firmele din profil. Articolele din facturi emise sau din e-Factura se adaugă o dată și sunt disponibile pe orice firmă.
+              {t('cat.lead')}
             </p>
           </div>
           <div className="flex gap-2">
             <button onClick={importRecent} disabled={importing || missingTable} className="btn btn-outline disabled:opacity-50">
-              {importing ? 'Se importă...' : 'Importă din facturi'}
+              {importing ? t('common.importing') : t('cat.import')}
             </button>
             <button onClick={openNew} disabled={missingTable} className="btn btn-primary disabled:opacity-50">
-              + Articol nou
+              {t('cat.newBtn')}
             </button>
           </div>
         </div>
 
         {missingTable && (
           <div className="card p-6 mb-6">
-            <p className="font-medium text-[color:var(--color-foreground)]">Nomenclatorul nu este instalat pe baza de date.</p>
+            <p className="font-medium text-[color:var(--color-foreground)]">{t('cat.missing')}</p>
             <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
-              Rulează migrația <span className="font-mono">20260917_catalog_items.sql</span> în Supabase, apoi reîncarcă pagina.
+              {t('cat.missingLead')}
             </p>
           </div>
         )}
@@ -190,7 +193,7 @@ export default function NomenclatorPage() {
           <div className="card p-8 mb-6">
             <div className="flex items-start justify-between mb-6">
               <h3 className="font-bold text-[color:var(--color-foreground)] text-lg">
-                {editItem ? 'Editează articol' : 'Articol nou'}
+                {editItem ? t('cat.edit') : t('cat.new')}
               </h3>
               <button
                 onClick={() => { setShowForm(false); setEditItem(null) }}
@@ -199,50 +202,50 @@ export default function NomenclatorPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Denumire</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cat.name')}</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   className="input"
-                  placeholder="ex: Consultanță contabilă"
+                  placeholder={t('cat.namePh')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Cod articol</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cat.code')}</label>
                 <input
                   type="text"
                   value={form.code}
                   onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
                   className="input"
-                  placeholder="opțional"
+                  placeholder={t('common.optional')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Tip</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cat.kind')}</label>
                 <select
                   value={form.kind}
                   onChange={e => setKind(e.target.value as CatalogDraft['kind'])}
                   className="input bg-white"
                 >
-                  <option value="service">Serviciu</option>
-                  <option value="product">Produs</option>
+                  <option value="service">{t('cat.service')}</option>
+                  <option value="product">{t('cat.product')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">UM</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.unit')}</label>
                 <select
                   value={form.unit_code}
                   onChange={e => setForm(f => ({ ...f, unit_code: e.target.value }))}
                   className="input bg-white"
                 >
                   {UNIT_CODES.map(unit => (
-                    <option key={unit.code} value={unit.code}>{unit.label}</option>
+                    <option key={unit.code} value={unit.code}>{unitMessageKey(unit.code) ? t(unitMessageKey(unit.code)!) : unit.label}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Preț unitar</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.unitPrice')}</label>
                 <input
                   type="number"
                   min="0"
@@ -252,7 +255,7 @@ export default function NomenclatorPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Discount %</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cat.discount')}</label>
                 <input
                   type="number"
                   min="0"
@@ -263,7 +266,7 @@ export default function NomenclatorPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">TVA %</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.vat')}</label>
                 <select
                   value={form.tva_rate}
                   onChange={e => {
@@ -285,19 +288,19 @@ export default function NomenclatorPage() {
               {form.tva_rate === 0 && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Categorie TVA</label>
+                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cat.vatCat')}</label>
                     <select
                       value={form.vat_category}
                       onChange={e => setForm(f => ({ ...f, vat_category: e.target.value }))}
                       className="input bg-white"
                     >
                       {VAT_CATEGORIES.filter(cat => cat.code !== 'S').map(cat => (
-                        <option key={cat.code} value={cat.code}>{cat.label}</option>
+                        <option key={cat.code} value={cat.code}>{vatCategoryKey(cat.code) ? t(vatCategoryKey(cat.code)!) : cat.label}</option>
                       ))}
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Motiv scutire</label>
+                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cat.exemption')}</label>
                     <input
                       type="text"
                       value={form.vat_exemption_reason}
@@ -314,16 +317,16 @@ export default function NomenclatorPage() {
                     checked={form.active}
                     onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                   />
-                  Activ — apare la completarea facturii
+                  {t('cat.active')}
                 </label>
               )}
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => { setShowForm(false); setEditItem(null) }} className="btn btn-outline">
-                Anulează
+                {t('common.cancel')}
               </button>
               <button onClick={save} disabled={saving} className="btn btn-primary disabled:opacity-50">
-                {saving ? 'Se salvează...' : 'Salvează'}
+                {saving ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -332,14 +335,14 @@ export default function NomenclatorPage() {
         {!missingTable && items.length > 0 && (
           <div className="card p-5 mb-6">
             <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">
-              Caută articol
+              {t('cat.search')}
             </label>
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="input"
-              placeholder="Denumire sau cod..."
+              placeholder={t('cat.searchPh')}
             />
           </div>
         )}
@@ -347,32 +350,32 @@ export default function NomenclatorPage() {
         {!missingTable && filtered.length === 0 ? (
           <div className="card p-12 text-center">
             <p className="font-medium text-[color:var(--color-foreground)]">
-              {items.length === 0 ? 'Nomenclatorul este gol' : 'Niciun articol găsit'}
+              {items.length === 0 ? t('cat.empty') : t('cat.noneFound')}
             </p>
             <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">
               {items.length === 0
-                ? 'Adaugă serviciile recurente o dată; apar pe toate firmele din profil. Poți importa și liniile deja emise.'
-                : 'Încearcă alt termen de căutare.'}
+                ? t('cat.emptyLead')
+                : t('cat.tryOther')}
             </p>
             {items.length === 0 ? (
               <div className="flex justify-center gap-2">
                 <button onClick={importRecent} disabled={importing} className="btn btn-outline">
-                  Importă din facturi
+                  {t('cat.import')}
                 </button>
-                <button onClick={openNew} className="btn btn-primary">+ Articol nou</button>
+                <button onClick={openNew} className="btn btn-primary">{t('cat.newBtn')}</button>
               </div>
             ) : (
-              <button onClick={() => setSearch('')} className="btn btn-outline">Resetează căutarea</button>
+              <button onClick={() => setSearch('')} className="btn btn-outline">{t('cli.resetSearch')}</button>
             )}
           </div>
         ) : !missingTable ? (
           <div className="card overflow-hidden">
             <div className="grid grid-cols-12 px-6 py-3 border-b border-gray-100 bg-gray-50">
-              <span className="col-span-5 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Articol</span>
-              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">UM</span>
-              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Preț</span>
-              <span className="col-span-1 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">TVA</span>
-              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">Acțiuni</span>
+              <span className="col-span-5 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('cat.item')}</span>
+              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('inv.unit')}</span>
+              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('cat.price')}</span>
+              <span className="col-span-1 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('inv.vat')}</span>
+              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">{t('common.actions')}</span>
             </div>
             {filtered.map((item, i) => (
               <div
@@ -382,12 +385,12 @@ export default function NomenclatorPage() {
                 <div className="col-span-5 min-w-0">
                   <p className="font-medium text-[color:var(--color-foreground)] truncate">{item.name}</p>
                   <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                    {item.kind === 'product' ? 'Produs' : 'Serviciu'}
+                    {item.kind === 'product' ? t('cat.product') : t('cat.service')}
                     {item.code ? ` · ${item.code}` : ''}
-                    {item.active ? '' : ' · inactiv'}
+                    {item.active ? '' : ` · ${t('cat.inactive')}`}
                   </p>
                 </div>
-                <p className="col-span-2 text-sm text-[color:var(--color-muted-foreground)]">{unitLabel(item.unit_code)}</p>
+                <p className="col-span-2 text-sm text-[color:var(--color-muted-foreground)]">{unitMessageKey(item.unit_code) ? t(unitMessageKey(item.unit_code)!) : unitLabel(item.unit_code)}</p>
                 <p className="col-span-2 text-sm tabular-nums">{formatAmount(item.unit_price)}</p>
                 <p className="col-span-1 text-sm tabular-nums">{item.tva_rate}%</p>
                 <div className="col-span-2 flex items-center justify-end gap-2">
@@ -395,13 +398,13 @@ export default function NomenclatorPage() {
                     onClick={() => openEdit(item)}
                     className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
                   >
-                    Editează
+                    {t('common.edit')}
                   </button>
                   <button
                     onClick={() => remove(item)}
                     className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
                   >
-                    Șterge
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>

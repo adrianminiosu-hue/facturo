@@ -4,9 +4,12 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import BrandLockup from '@/components/BrandLockup'
+import LocaleSwitch from '@/components/LocaleSwitch'
+import { useLocale } from '@/components/LocaleProvider'
 
 export default function Register() {
   const router = useRouter()
+  const { t } = useLocale()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -23,15 +26,15 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!consent) {
-      setError('Acceptă politica de confidențialitate pentru a continua')
+      setError(t('auth.acceptPrivacy'))
       return
     }
     if (password !== confirm) {
-      setError('Parolele nu coincid')
+      setError(t('set.passwordMismatch'))
       return
     }
     if (password.length < 6) {
-      setError('Parola trebuie să aibă minim 6 caractere')
+      setError(t('set.passwordShort'))
       return
     }
     setLoading(true)
@@ -51,17 +54,18 @@ export default function Register() {
     <div className="app-shell flex flex-col">
       <nav className="top-nav">
         <BrandLockup href="/" />
+        <LocaleSwitch />
       </nav>
       <div className="flex-1 flex items-center justify-center px-6 py-16">
       <div className="card p-10 w-full max-w-md">
-        <p className="kicker mb-4">Cont nou</p>
+        <p className="kicker mb-4">{t('auth.newAccount')}</p>
         <div className="mb-8">
-          <h1 className="text-4xl text-[color:var(--color-foreground)]">Cont nou.</h1>
-          <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">Un spațiu pentru toate firmele pe care le administrezi.</p>
+          <h1 className="text-4xl text-[color:var(--color-foreground)]">{t('auth.newAccountTitle')}</h1>
+          <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">{t('auth.registerLead')}</p>
         </div>
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')}</label>
             <input
               type="email"
               value={email}
@@ -72,18 +76,18 @@ export default function Register() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Parolă</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.password')}</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="input"
-              placeholder="minim 6 caractere"
+              placeholder={t('common.minPassword')}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Confirmă parola</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.confirmPassword')}</label>
             <input
               type="password"
               value={confirm}
@@ -102,9 +106,9 @@ export default function Register() {
               className="mt-1"
             />
             <span>
-              Am citit și accept{' '}
+              {t('auth.acceptPrefix')}{' '}
               <Link href="/gdpr" className="underline text-[color:var(--color-foreground)]">
-                politica de confidențialitate
+                {t('auth.privacy')}
               </Link>
               .
             </span>
@@ -114,13 +118,13 @@ export default function Register() {
             disabled={loading}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            {loading ? 'Se creează contul...' : 'Creează cont gratuit'}
+            {loading ? t('auth.creating') : t('auth.createFree')}
           </button>
         </form>
         <p className="text-center text-sm mt-6 text-[color:var(--color-muted-foreground)]">
-          Ai deja cont?{' '}
+          {t('auth.hasAccountLogin')}{' '}
           <Link href="/login" className="font-medium hover:underline text-[color:var(--color-foreground)]">
-            Autentifică-te
+            {t('auth.signIn')}
           </Link>
         </p>
       </div>

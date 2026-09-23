@@ -11,11 +11,13 @@ import { importPurchaseInvoicesFromEfactura, openPurchaseInvoicePdf } from '@/li
 import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { purchaseInvoiceFromRow } from '@/lib/purchaseInvoicePersist'
 import type { SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
+import { useLocale } from '@/components/LocaleProvider'
 
 const LIST_GRID = 'grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_8.5rem_8rem_minmax(10rem,auto)] gap-x-4 px-6'
 
 export default function PurchaseInvoicesPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [invoices, setInvoices] = useState<SimulatedPurchaseInvoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,8 +50,8 @@ export default function PurchaseInvoicesPage() {
   }
 
   const importFromEfactura = async () => {
-    const companyName = company?.company_name || 'firma curentă'
-    if (!confirm(`Simulezi interogarea e-Factura SPV (mediu TEST) pentru facturile de achiziție primite pe ${companyName}?\n\nNu se folosește certificat și nu se trimite nimic la ANAF. Facturile găsite se înregistrează în baza de date.`)) return
+    const companyName = company?.company_name || t('pur.currentFirm')
+    if (!confirm(t('pur.confirmImport', { name: companyName }))) return
     setImporting(true)
     try {
       const data = await importPurchaseInvoicesFromEfactura(userId, company)
@@ -58,15 +60,15 @@ export default function PurchaseInvoicesPage() {
       const added = data.added ?? data.invoices.length
       const catalogInserted = data.catalogInserted || 0
       const catalogNote = catalogInserted
-        ? ` ${catalogInserted} ${catalogInserted === 1 ? 'articol nou a fost adăugat' : 'articole noi au fost adăugate'} în nomenclator.`
-        : ' Articolele din facturi erau deja în nomenclator.'
+        ? (catalogInserted === 1 ? t('pur.catalogOne') : t('pur.catalogMany', { count: catalogInserted }))
+        : t('pur.catalogNone')
       if (added === 0) {
-        alert(`e-Factura a returnat ${data.count} facturi pe ${data.buyerName}. Erau deja înregistrate.${catalogNote}`)
+        alert(t('pur.already', { count: data.count, name: data.buyerName, catalog: catalogNote }))
       } else {
-        alert(`Au fost înregistrate ${added} facturi din e-Factura pe numele ${data.buyerName}.${catalogNote}`)
+        alert(t('pur.added', { added, name: data.buyerName, catalog: catalogNote }))
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Eroare interogare e-Factura')
+      alert(error instanceof Error ? error.message : t('pur.queryError'))
     } finally {
       setImporting(false)
     }
@@ -78,11 +80,11 @@ export default function PurchaseInvoicesPage() {
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi de achiziție</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('pur.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {company?.company_name
-                ? `Facturi primite pe ${company.company_name}${company.cui ? ` · ${company.cui}` : ''}`
-                : 'Facturi primite de la furnizori prin e-Factura'}
+                ? `${t('pur.receivedOn', { name: company.company_name })}${company.cui ? ` · ${company.cui}` : ''}`
+                : t('pur.receivedLead')}
             </p>
           </div>
           <button
@@ -91,17 +93,17 @@ export default function PurchaseInvoicesPage() {
             disabled={importing || !userId}
             className="btn btn-primary whitespace-nowrap disabled:opacity-50"
           >
-            {importing ? 'Se interoghează e-Factura...' : 'Importă facturi din e-Factura'}
+            {importing ? t('pur.importing') : t('pur.import')}
           </button>
         </div>
 
         {loading ? (
-          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">Se încarcă...</p>
+          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">{t('common.loading')}</p>
         ) : invoices.length === 0 ? (
           <div className="card p-12 text-center">
-            <p className="font-medium text-[color:var(--color-foreground)]">Nicio factură de achiziție încă</p>
+            <p className="font-medium text-[color:var(--color-foreground)]">{t('pur.empty')}</p>
             <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">
-              Interoghează e-Factura SPV și înregistrează facturile primite pe numele firmei active.
+              {t('pur.emptyLead')}
             </p>
             <button
               type="button"
@@ -109,25 +111,25 @@ export default function PurchaseInvoicesPage() {
               disabled={importing || !userId}
               className="btn btn-primary disabled:opacity-50"
             >
-              {importing ? 'Se interoghează e-Factura...' : 'Importă facturi din e-Factura'}
+              {importing ? t('pur.importing') : t('pur.import')}
             </button>
           </div>
         ) : (
           <>
             <p className="text-sm text-[color:var(--color-muted-foreground)] mb-2">
-              {invoices.length} facturi înregistrate pe {invoices[0].buyerName} · {invoices[0].buyerCui}
+              {t('pur.registeredOn', { count: invoices.length, name: invoices[0].buyerName, cui: invoices[0].buyerCui })}
             </p>
             {importNote && (
               <p className="text-xs text-[color:var(--color-muted-foreground)] mb-3">{importNote}</p>
             )}
             <div className="card overflow-hidden">
               <div className={`${LIST_GRID} py-1.5 border-b border-gray-50 items-center`}>
-                <span className="text-xs font-medium text-gray-400">NUMĂR</span>
-                <span className="text-xs font-medium text-gray-400">FURNIZOR</span>
-                <span className="text-xs font-medium text-gray-400">DATA</span>
+                <span className="text-xs font-medium text-gray-400">{t('common.number')}</span>
+                <span className="text-xs font-medium text-gray-400">{t('pur.supplier')}</span>
+                <span className="text-xs font-medium text-gray-400">{t('common.date')}</span>
                 <span className="text-xs font-medium text-gray-400">SPV</span>
-                <span className="text-xs font-medium text-gray-400 text-right">TOTAL</span>
-                <span className="text-xs font-medium text-gray-400 text-right">ACȚIUNI</span>
+                <span className="text-xs font-medium text-gray-400 text-right">{t('common.total')}</span>
+                <span className="text-xs font-medium text-gray-400 text-right">{t('common.actions')}</span>
               </div>
               {invoices.map((invoice, i) => (
                 <div
@@ -145,7 +147,7 @@ export default function PurchaseInvoicesPage() {
                   </span>
                   <span className="text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(invoice.issueDate)}</span>
                   <span className="inline-block text-xs px-2 py-1 rounded-lg font-medium bg-teal-50 text-teal-700 w-fit">
-                    În e-Factura
+                    {t('pur.inEfactura')}
                   </span>
                   <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
                     {formatRon(invoice.total)}
@@ -156,14 +158,14 @@ export default function PurchaseInvoicesPage() {
                       onClick={() => openPurchaseInvoicePdf(invoice.id, userId, company?.id)}
                       className="text-xs border border-gray-200 text-gray-600 px-2 py-0.5 rounded-lg hover:bg-gray-50 transition leading-tight"
                     >
-                      Deschide PDF
+                      {t('common.open')} PDF
                     </button>
                     <button
                       type="button"
                       onClick={() => setSealInvoice(invoice)}
                       className="text-xs border border-teal-200 text-teal-700 px-2 py-0.5 rounded-lg hover:bg-teal-50 transition leading-tight"
                     >
-                      Sigiliu
+                      {t('pur.sealShort')}
                     </button>
                   </div>
                 </div>
@@ -181,8 +183,8 @@ export default function PurchaseInvoicesPage() {
                 ✓
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-teal-700 font-semibold">Sigiliu electronic e-Factura</p>
-                <h3 className="text-xl text-[color:var(--color-foreground)] mt-1">Valid</h3>
+                <p className="text-xs uppercase tracking-wide text-teal-700 font-semibold">{t('pur.seal')}</p>
+                <h3 className="text-xl text-[color:var(--color-foreground)] mt-1">{t('pur.valid')}</h3>
                 <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
                   {sealInvoice.series}{sealInvoice.invoiceNumber} · {sealInvoice.supplierName}
                 </p>
@@ -190,31 +192,31 @@ export default function PurchaseInvoicesPage() {
             </div>
             <dl className="mt-5 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Cumpărător</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.buyer')}</dt>
                 <dd className="text-right font-medium">{sealInvoice.buyerName} · {sealInvoice.buyerCui}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Emitent</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.issuer')}</dt>
                 <dd className="text-right">{sealInvoice.seal.issuer}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Certificat</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.certificate')}</dt>
                 <dd className="text-right text-xs">{sealInvoice.seal.certificate}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Serial</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.serial')}</dt>
                 <dd className="text-right font-mono text-xs">{sealInvoice.seal.serial}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Semnat</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.signed')}</dt>
                 <dd className="text-right">{sealInvoice.seal.signedAt}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Index încărcare</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.uploadIndex')}</dt>
                 <dd className="text-right font-mono text-xs">{sealInvoice.indexIncarcare}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[color:var(--color-muted-foreground)]">Id descărcare</dt>
+                <dt className="text-[color:var(--color-muted-foreground)]">{t('pur.downloadId')}</dt>
                 <dd className="text-right font-mono text-xs">{sealInvoice.idDescarcare}</dd>
               </div>
               <div>
@@ -228,10 +230,10 @@ export default function PurchaseInvoicesPage() {
                 onClick={() => openPurchaseInvoicePdf(sealInvoice.id, userId, company?.id)}
                 className="btn btn-outline"
               >
-                Deschide PDF
+                {t('common.open')} PDF
               </button>
               <button type="button" onClick={() => setSealInvoice(null)} className="btn btn-primary">
-                Închide
+                {t('common.close')}
               </button>
             </div>
           </div>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,11 +34,20 @@ export default function RootLayout({
   return (
     <html
       lang="ro"
-      data-nav="light"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${display.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('facturo_theme');if(t==='atelier'||t==='nocturne'||t==='pergament'||t==='orizont')document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('facturo_locale');if(l==='en'||l==='ro')document.documentElement.lang=l}catch(e){}`
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
-        {children}
+        <ThemeProvider>
+          <LocaleProvider>{children}</LocaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

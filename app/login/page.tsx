@@ -4,9 +4,12 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import BrandLockup from '@/components/BrandLockup'
+import LocaleSwitch from '@/components/LocaleSwitch'
+import { useLocale } from '@/components/LocaleProvider'
 
 export default function Login() {
   const router = useRouter()
+  const { t } = useLocale()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +21,7 @@ export default function Login() {
     setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      setError('Email sau parolă incorectă')
+      setError(t('auth.invalidCredentials'))
       setLoading(false)
     } else {
       const next = new URLSearchParams(window.location.search).get('next')
@@ -30,17 +33,18 @@ export default function Login() {
     <div className="app-shell flex flex-col">
       <nav className="top-nav">
         <BrandLockup href="/" />
+        <LocaleSwitch />
       </nav>
       <div className="flex-1 flex items-center justify-center px-6 py-16">
       <div className="card p-10 w-full max-w-md">
-        <p className="kicker mb-4">Cont</p>
+        <p className="kicker mb-4">{t('auth.kicker')}</p>
         <div className="mb-8">
-          <h1 className="text-4xl text-[color:var(--color-foreground)]">Bun venit.</h1>
-          <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">Autentifică-te în atelierul tău de facturi.</p>
+          <h1 className="text-4xl text-[color:var(--color-foreground)]">{t('auth.welcome')}</h1>
+          <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">{t('auth.loginSubtitle')}</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')}</label>
             <input
               type="email"
               value={email}
@@ -51,7 +55,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Parolă</label>
+            <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.password')}</label>
             <input
               type="password"
               value={password}
@@ -67,23 +71,23 @@ export default function Login() {
             disabled={loading}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            {loading ? 'Se încarcă...' : 'Autentificare'}
+            {loading ? t('common.loading') : t('auth.login')}
           </button>
         </form>
         <p className="text-center text-sm mt-6 text-[color:var(--color-muted-foreground)]">
-          Nu ai cont?{' '}
+          {t('auth.noAccount')}{' '}
           <Link href="/register" className="font-medium hover:underline text-[color:var(--color-foreground)]">
-            Înregistrează-te
+            {t('auth.register')}
           </Link>
         </p>
         <p className="text-center text-sm mt-3">
           <Link href="/forgot-password" className="text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
-            Ai uitat parola?
+            {t('auth.forgotPassword')}
           </Link>
         </p>
         <p className="text-center text-sm mt-3">
           <Link href="/" className="text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
-            ← Înapoi la pagina principală
+            {t('auth.backHome')}
           </Link>
         </p>
       </div>

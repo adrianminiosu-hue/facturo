@@ -2,12 +2,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import { supabase } from '@/lib/supabase'
 import { MAX_OPERATORS, isMissingPortfolioTableError, type PortfolioMember } from '@/lib/portfolio'
 
 export default function TeamPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, userEmail, loading: companyLoading } = useCompany()
   const [members, setMembers] = useState<PortfolioMember[]>([])
   const [missingTable, setMissingTable] = useState(false)
@@ -53,17 +55,17 @@ export default function TeamPage() {
     const data = await res.json()
     setBusy('')
     if (!res.ok) {
-      setError(data.error || 'Nu s-a putut trimite invitația.')
+      setError(data.error || t('team.inviteFail'))
       return
     }
     setEmail('')
-    setMessage(data.warning || 'Invitația a fost trimisă.')
-    if (data.inviteUrl && data.warning) setMessage(`${data.warning} Link: ${data.inviteUrl}`)
+    setMessage(data.warning || t('team.inviteOk'))
+    if (data.inviteUrl && data.warning) setMessage(t('team.inviteLink', { warning: data.warning, url: data.inviteUrl }))
     await loadMembers()
   }
 
   const revoke = async (member: PortfolioMember) => {
-    if (!confirm(`Revoci accesul pentru ${member.email}?`)) return
+    if (!confirm(t('team.confirmRevoke', { email: member.email }))) return
     setBusy(member.id)
     const res = await fetch('/api/team/revoke', {
       method: 'POST',
@@ -73,14 +75,14 @@ export default function TeamPage() {
     const data = await res.json()
     setBusy('')
     if (!res.ok) {
-      setError(data.error || 'Nu s-a putut revoca.')
+      setError(data.error || t('team.revokeFail'))
       return
     }
     await loadMembers()
   }
 
   if (companyLoading) {
-    return <div className="app-shell flex items-center justify-center"><p className="text-gray-500">Se încarcă...</p></div>
+    return <div className="app-shell flex items-center justify-center"><p className="text-gray-500">{t('common.loading')}</p></div>
   }
 
   const canInvite = members.length < MAX_OPERATORS && !missingTable
@@ -89,28 +91,28 @@ export default function TeamPage() {
     <div className="app-shell">
       <AppNav active="team" />
       <div className="max-w-3xl mx-auto px-8 py-8">
-        <h2 className="text-3xl text-[color:var(--color-foreground)]">Echipă</h2>
+        <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('team.title')}</h2>
         <p className="mt-1 text-[color:var(--color-muted-foreground)] mb-8">
-          Un operator vede toate firmele din cabinetul tău. Nu poate șterge firmele sau contul.
+          {t('team.lead')}
         </p>
 
         {missingTable && (
           <div className="card p-6 mb-6">
-            <p className="font-medium">Echipa nu este instalată pe baza de date.</p>
+            <p className="font-medium">{t('team.missing')}</p>
             <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
-              Rulează migrația <span className="font-mono">20260917_portfolio_members.sql</span> în Supabase.
+              {t('team.missingLead')}
             </p>
           </div>
         )}
 
         <div className="card p-6 mb-6">
-          <p className="kicker mb-2">Titular</p>
-          <p className="text-[color:var(--color-foreground)]">{userEmail || 'Tu'}</p>
-          <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">Contul care deține firmele</p>
+          <p className="kicker mb-2">{t('team.owner')}</p>
+          <p className="text-[color:var(--color-foreground)]">{userEmail || t('common.you')}</p>
+          <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('team.ownerLead')}</p>
         </div>
 
         <div className="card p-6 mb-6">
-          <h3 className="font-bold mb-4">Invită un operator</h3>
+          <h3 className="font-bold mb-4">{t('team.invite')}</h3>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="email"
@@ -125,12 +127,12 @@ export default function TeamPage() {
               disabled={!canInvite || busy === 'invite' || !email.trim()}
               className="btn btn-primary disabled:opacity-50"
             >
-              {busy === 'invite' ? 'Se trimite...' : 'Trimite invitația'}
+              {busy === 'invite' ? t('common.sending') : t('team.sendInvite')}
             </button>
           </div>
           {!canInvite && !missingTable && (
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
-              Limita actuală este un operator. Revocă locul existent ca să inviți pe altcineva.
+              {t('team.limit')}
             </p>
           )}
           {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
@@ -139,7 +141,7 @@ export default function TeamPage() {
 
         <div className="card overflow-hidden">
           {members.length === 0 ? (
-            <p className="p-8 text-[color:var(--color-muted-foreground)]">Niciun operator încă.</p>
+            <p className="p-8 text-[color:var(--color-muted-foreground)]">{t('team.empty')}</p>
           ) : members.map((member, i) => (
             <div
               key={member.id}
@@ -148,7 +150,7 @@ export default function TeamPage() {
               <div>
                 <p className="font-medium text-[color:var(--color-foreground)]">{member.email}</p>
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                  Operator · {member.status === 'active' ? 'activ' : 'invitație în așteptare'}
+                  {member.status === 'active' ? t('team.active') : t('team.pending')}
                 </p>
               </div>
               <button
@@ -156,7 +158,7 @@ export default function TeamPage() {
                 disabled={busy === member.id}
                 className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50"
               >
-                Revocă
+                {t('team.revoke')}
               </button>
             </div>
           ))}

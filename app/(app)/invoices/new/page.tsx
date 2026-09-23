@@ -7,6 +7,7 @@ import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/I
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
 import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
@@ -32,6 +33,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
     selectedClient: Client | null
     onSelect: (client: Client) => void
   }) {
+    const { t } = useLocale()
     const [search, setSearch] = useState('')
     const [open, setOpen] = useState(false)
   
@@ -52,7 +54,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
               <p className="text-xs text-gray-500">CUI: {selectedClient.cui || '—'} · {clientAddressLine(selectedClient)}</p>
             </div>
           ) : (
-            <p className="text-sm text-gray-400">Selectează client...</p>
+            <p className="text-sm text-gray-400">{t('common.selectClient')}</p>
           )}
           <span className="text-gray-400 text-xs ml-2">{open ? '▲' : '▼'}</span>
         </div>
@@ -65,14 +67,14 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                placeholder="Caută după nume sau CUI..."
+                placeholder={t('inv.searchPlaceholder')}
                 autoFocus
                 onClick={e => e.stopPropagation()}
               />
             </div>
             <div className="max-h-60 overflow-y-auto">
               {filtered.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">Niciun client găsit</p>
+                <p className="text-sm text-gray-400 text-center py-4">{t('inv.noClientFound')}</p>
               ) : (
                 filtered.map(client => (
                   <div
@@ -92,6 +94,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
     )
   }
 export default function NewInvoice() {
+  const { t } = useLocale()
   const router = useRouter()
   const { userId, company, ownerUserId } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
@@ -161,10 +164,10 @@ export default function NewInvoice() {
   })
 
   const saveInvoice = async (status: 'draft' | 'sent') => {
-    if (!selectedClient) { alert('Selectează un client!'); return }
-    if (items.some(i => !i.description)) { alert('Completează descrierea pentru toate produsele/serviciile!'); return }
+    if (!selectedClient) { alert(t('inv.selectClientAlert')); return }
+    if (items.some(i => !i.description)) { alert(t('inv.completeLines')); return }
     if (selectedClient.is_public_institution && !form.buyer_reference.trim()) {
-      alert('Pentru o instituție publică, referința cumpărător (BT-10) este obligatorie.')
+      alert(t('inv.publicBuyerAlert'))
       return
     }
     setSaving(true)
@@ -201,7 +204,7 @@ export default function NewInvoice() {
       })
     })
 
-    if (error) { alert('Eroare la salvare! Rulează migrarea e-Factura în Supabase dacă ai adăugat coloane noi.'); setSaving(false); return }
+    if (error) { alert(t('inv.saveError')); setSaving(false); return }
 
     await supabase.from('invoice_items').insert(
       items.map((item, index) => ({
@@ -229,11 +232,11 @@ export default function NewInvoice() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Factură nouă</h2>
-            <p className="mt-1 text-[color:var(--color-muted-foreground)]">Completează detaliile facturii</p>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.newTitle')}</h2>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{t('inv.newLead')}</p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
-            ← Înapoi la facturi emise
+            {t('inv.backToIssued')}
           </Link>
         </div>
 
@@ -241,10 +244,10 @@ export default function NewInvoice() {
 
           {/* Invoice details */}
           <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Detalii factură</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">{t('inv.details')}</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Serie</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.series')}</label>
                 <input
                   type="text"
                   value={form.series}
@@ -253,7 +256,7 @@ export default function NewInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Număr</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.number')}</label>
                 <input
                   type="text"
                   value={form.invoice_number}
@@ -262,7 +265,7 @@ export default function NewInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data emiterii</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.issueDate')}</label>
                 <input
                   type="date"
                   value={form.issue_date}
@@ -280,7 +283,7 @@ export default function NewInvoice() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Scadență</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.dueDate')}</label>
                 <input
                   type="date"
                   value={form.due_date}
@@ -296,9 +299,9 @@ export default function NewInvoice() {
 
           {/* Client selection */}
           <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Client</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">{t('common.client')}</h3>
             {clients.length === 0 ? (
-              <p className="text-[color:var(--color-muted-foreground)] text-sm">Nu ai clienți adăugați. <Link href="/clients" className="underline text-[color:var(--color-foreground)]">Adaugă un client</Link> mai întâi.</p>
+              <p className="text-[color:var(--color-muted-foreground)] text-sm">{t('inv.noClients')} <Link href="/clients" className="underline text-[color:var(--color-foreground)]">{t('inv.addClient')}</Link></p>
             ) : (
               <div className="relative">
                 <ClientSearch
@@ -328,13 +331,13 @@ export default function NewInvoice() {
 
           {/* Notes */}
           <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Mențiuni</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">{t('inv.notes')}</h3>
             <textarea
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               className="input text-sm"
               rows={3}
-              placeholder="Mențiuni suplimentare, termeni de plată, etc."
+              placeholder={t('inv.notesPlaceholder')}
             />
           </div>
 
@@ -345,14 +348,14 @@ export default function NewInvoice() {
               disabled={saving}
               className="btn btn-outline disabled:opacity-50"
             >
-              {saving ? 'Se salvează...' : 'Salvează ciornă'}
+              {saving ? t('common.saving') : t('inv.saveDraft')}
             </button>
             <button
               onClick={() => saveInvoice('sent')}
               disabled={saving}
               className="btn btn-primary disabled:opacity-50"
             >
-              {saving ? 'Se salvează...' : 'Emite factură'}
+              {saving ? t('common.saving') : t('inv.issue')}
             </button>
           </div>
         </div>

@@ -11,6 +11,8 @@ import {
   normalizeIbanCurrency,
   type BankAccountFields
 } from '@/lib/roBanks'
+import { useLocale } from '@/components/LocaleProvider'
+import { isMessageKey } from '@/lib/messages'
 
 export default function BankDetailsFields({
   value,
@@ -21,28 +23,31 @@ export default function BankDetailsFields({
   onChange: (next: BankAccountFields) => void
   required?: boolean
 }) {
+  const { t } = useLocale()
   const ibanHint = ibanLiveHint(value.iban, value.bank_name)
   const bicHint = bicLiveHint(value.bic, value.bank_name, value.iban)
   const star = required ? ' *' : ''
+  const hintText = (hint: { message: string; key?: string; vars?: Record<string, string | number> }) =>
+    hint.key && isMessageKey(hint.key) ? t(hint.key, hint.vars) : hint.message
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:col-span-2">
       <div>
-        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Bancă emitentă{star}</label>
+        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('bnk.issuer')}{star}</label>
         <select
           value={value.bank_name}
           onChange={e => onChange(applyBankSelection(e.target.value, value))}
           className="input bg-white"
           required={required}
         >
-          <option value="">Selectează banca...</option>
+          <option value="">{t('bnk.selectBank')}</option>
           {ROMANIAN_BANK_NAMES.map(bank => (
             <option key={bank} value={bank}>{bank}</option>
           ))}
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Monedă</label>
+        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.currency')}</label>
         <select
           value={normalizeIbanCurrency(value.iban_currency)}
           onChange={e => onChange({ ...value, iban_currency: normalizeIbanCurrency(e.target.value) })}
@@ -54,7 +59,7 @@ export default function BankDetailsFields({
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Cont bancar (IBAN){star}</label>
+        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('bnk.ibanLabel')}{star}</label>
         <input
           type="text"
           value={value.iban}
@@ -78,7 +83,7 @@ export default function BankDetailsFields({
             ibanHint.tone === 'warn' ? 'text-amber-500' :
             ibanHint.tone === 'ok' ? 'text-green-500' : 'text-[color:var(--color-muted-foreground)]'
           }`}>
-            {ibanHint.message}
+            {hintText(ibanHint)}
           </p>
         )}
       </div>
@@ -105,7 +110,7 @@ export default function BankDetailsFields({
             bicHint.tone === 'error' ? 'text-red-500' :
             bicHint.tone === 'ok' ? 'text-green-500' : 'text-[color:var(--color-muted-foreground)]'
           }`}>
-            {bicHint.message}
+            {hintText(bicHint)}
           </p>
         )}
       </div>

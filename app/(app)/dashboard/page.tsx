@@ -10,7 +10,9 @@ import DailyTrendChart from '@/components/DailyTrendChart'
 import { addDaysIso, calendarDateInBucharest, startOfIsoWeek } from '@/lib/dates'
 import { isCreditNote, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
-import { userGreeting } from '@/lib/userDisplay'
+import { displayUserName } from '@/lib/userDisplay'
+import { useLocale } from '@/components/LocaleProvider'
+import { localeTag } from '@/lib/i18n'
 
 type InvoiceRow = {
   id: string
@@ -61,6 +63,7 @@ function lastFifteenDays(): DailyAmount[] {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { t, locale } = useLocale()
   const { userId, company, ownerUserId, accessibleOwnerIds, loading: companyLoading, userName } = useCompany()
   const [loading, setLoading] = useState(true)
   const [onboarding, setOnboarding] = useState(false)
@@ -161,7 +164,7 @@ export default function Dashboard() {
       const id = inv.client_id || 'none'
       const current = byClient.get(id) || {
         id,
-        name: inv.clients?.company_name?.trim() || 'Fără client',
+        name: inv.clients?.company_name?.trim() || t('dash.unnamedClient'),
         amount: 0
       }
       current.amount += Number(inv.total) || 0
@@ -206,7 +209,7 @@ export default function Dashboard() {
   const weekUp = changePct !== null && changePct > 0
   const weekDown = changePct !== null && changePct < 0
   const weekHeadline = changePct === null
-    ? (thisWeek > 0 ? 'Nou' : '—')
+    ? (thisWeek > 0 ? t('dash.new') : '—')
     : formatChangePct(changePct)
   const weekColor = weekUp || (changePct === null && thisWeek > 0)
     ? 'text-emerald-700'
@@ -214,14 +217,14 @@ export default function Dashboard() {
       ? 'text-rose-700'
       : 'text-[color:var(--color-foreground)]'
   const weekCaption = changePct === null && lastWeek === 0 && thisWeek === 0
-    ? 'nicio factură emisă în ambele săptămâni'
+    ? t('dash.noInvoicesBothWeeks')
     : changePct === null
-      ? `${formatRon(thisWeek)} emis · fără bază săptămâna trecută`
-      : `${formatRon(thisWeek)} față de ${formatRon(lastWeek)}, aceleași zile`
+      ? t('dash.weekNoBase', { amount: formatRon(thisWeek) })
+      : t('dash.weekVs', { this: formatRon(thisWeek), last: formatRon(lastWeek) })
 
   if (loading || companyLoading) return (
     <div className="app-shell flex items-center justify-center">
-      <p className="text-gray-500">Se încarcă...</p>
+      <p className="text-gray-500">{t('common.loading')}</p>
     </div>
   )
 
@@ -236,8 +239,8 @@ export default function Dashboard() {
           <div className="card p-8 mb-8">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-2xl text-[color:var(--color-foreground)]">Bun venit în Facturo</h2>
-                <p className="text-[color:var(--color-muted-foreground)] mt-1">Completează cei 3 pași pentru a emite prima ta factură</p>
+                <h2 className="text-2xl text-[color:var(--color-foreground)]">{t('dash.welcome')}</h2>
+                <p className="text-[color:var(--color-muted-foreground)] mt-1">{t('dash.welcomeLead')}</p>
               </div>
               <button
                 onClick={() => {
@@ -251,7 +254,7 @@ export default function Dashboard() {
 
             <div className="mb-8">
               <div className="flex justify-between text-xs text-[color:var(--color-muted-foreground)] mb-2">
-                <span>{completedSteps} din 3 pași completați</span>
+                <span>{t('dash.stepsDone', { done: completedSteps })}</span>
                 <span>{Math.round(progressPct)}%</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -265,20 +268,20 @@ export default function Dashboard() {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${steps.profile ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {steps.profile ? '✓' : '1'}
                   </div>
-                  <p className="font-medium text-[color:var(--color-foreground)]">Profilul companiei</p>
+                  <p className="font-medium text-[color:var(--color-foreground)]">{t('dash.stepCompany')}</p>
                 </div>
-                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Adaugă datele companiei tale — apar pe toate facturile.</p>
+                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">{t('dash.stepCompanyLead')}</p>
                 {steps.profile ? (
                   <div className="flex flex-col gap-3">
-                    <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                    <p className="text-sm text-green-600 font-medium">✓ {t('common.done')}</p>
                     {!steps.client && (
                       <Link href="/clients" className="inline-block btn btn-primary">
-                        Mergi la pasul 2 →
+                        {t('dash.goStep2')}
                       </Link>
                     )}
                   </div>
                 ) : (
-                  <Link href="/profile" className="inline-block btn btn-primary">Configurează →</Link>
+                  <Link href="/profile" className="inline-block btn btn-primary">{t('common.configure')}</Link>
                 )}
               </div>
 
@@ -287,20 +290,20 @@ export default function Dashboard() {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${steps.client ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {steps.client ? '✓' : '2'}
                   </div>
-                  <p className="font-medium text-[color:var(--color-foreground)]">Primul client</p>
+                  <p className="font-medium text-[color:var(--color-foreground)]">{t('dash.stepClient')}</p>
                 </div>
-                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Adaugă un client cu completare automată din registrul public.</p>
+                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">{t('dash.stepClientLead')}</p>
                 {steps.client ? (
                   <div className="flex flex-col gap-3">
-                    <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                    <p className="text-sm text-green-600 font-medium">✓ {t('common.done')}</p>
                     {!steps.invoice && (
                       <Link href="/invoices/new" className="inline-block btn btn-primary">
-                        Mergi la pasul 3 →
+                        {t('dash.goStep3')}
                       </Link>
                     )}
                   </div>
                 ) : (
-                  <Link href="/clients" className={`inline-block btn btn-primary ${!steps.profile ? 'pointer-events-none opacity-40' : ''}`}>Adaugă client →</Link>
+                  <Link href="/clients" className={`inline-block btn btn-primary ${!steps.profile ? 'pointer-events-none opacity-40' : ''}`}>{t('dash.addClient')}</Link>
                 )}
               </div>
 
@@ -309,20 +312,20 @@ export default function Dashboard() {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${steps.invoice ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {steps.invoice ? '✓' : '3'}
                   </div>
-                  <p className="font-medium text-[color:var(--color-foreground)]">Prima factură</p>
+                  <p className="font-medium text-[color:var(--color-foreground)]">{t('dash.stepInvoice')}</p>
                 </div>
-                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">Emite prima ta factură și descarcă PDF-ul.</p>
+                <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">{t('dash.stepInvoiceLead')}</p>
                 {steps.invoice ? (
-                  <p className="text-sm text-green-600 font-medium">✓ Completat</p>
+                  <p className="text-sm text-green-600 font-medium">✓ {t('common.done')}</p>
                 ) : (
-                  <Link href="/invoices/new" className={`inline-block btn btn-primary ${!steps.client ? 'pointer-events-none opacity-40' : ''}`}>Creează factură →</Link>
+                  <Link href="/invoices/new" className={`inline-block btn btn-primary ${!steps.client ? 'pointer-events-none opacity-40' : ''}`}>{t('dash.createInvoice')}</Link>
                 )}
               </div>
             </div>
 
             {completedSteps === 3 && (
               <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
-                <p className="text-green-700 font-medium">🎉 Felicitări! Ai completat configurarea Facturo!</p>
+                <p className="text-green-700 font-medium">🎉 {t('dash.congrats')}</p>
                 <button
                   onClick={() => {
                     localStorage.setItem('facturo_onboarding_dismissed', '1')
@@ -331,7 +334,7 @@ export default function Dashboard() {
                   }}
                   className="mt-2 text-sm text-green-600 hover:text-green-800 underline"
                 >
-                  Închide acest mesaj
+                  {t('dash.dismiss')}
                 </button>
               </div>
             )}
@@ -340,10 +343,12 @@ export default function Dashboard() {
 
         {/* Header */}
         <div className="mb-8">
-        <h2 className="text-4xl text-[color:var(--color-foreground)]">{userGreeting(userName)}</h2>
+        <h2 className="text-4xl text-[color:var(--color-foreground)]">
+            {displayUserName(userName) ? t('dash.helloName', { name: displayUserName(userName) }) : t('dash.hello')}
+          </h2>
           <p className="text-[color:var(--color-muted-foreground)] mt-2">
             {company?.company_name ? `${company.company_name} · ` : ''}
-            {new Date().toLocaleDateString('ro-RO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {new Date().toLocaleDateString(localeTag(locale), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
@@ -351,30 +356,30 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="kicker">Luna aceasta</p>
+              <p className="kicker">{t('dash.thisMonth')}</p>
             </div>
             <p className="text-4xl brand text-[color:var(--color-foreground)]">{stats.invoicesThisMonth}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">facturi emise</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('dash.issuedInvoices')}</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="kicker">Total facturat</p>
+              <p className="kicker">{t('dash.totalInvoiced')}</p>
             </div>
             <p className="text-4xl brand text-[color:var(--color-foreground)]">{formatRon(stats.totalAmount).replace(' RON', '')}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">RON emis</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('dash.ronIssued')}</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="kicker">Neîncasate</p>
+              <p className="kicker">{t('dash.unpaid')}</p>
             </div>
             <p className={`text-4xl brand ${stats.unpaidCount > 0 ? 'text-amber-700' : 'text-[color:var(--color-foreground)]'}`}>
               {stats.unpaidCount}
             </p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">în așteptare</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('dash.pending')}</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="kicker">Față de săptămâna trecută</p>
+              <p className="kicker">{t('dash.vsLastWeek')}</p>
             </div>
             <p className={`text-4xl brand ${weekColor}`}>{weekHeadline}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{weekCaption}</p>
@@ -386,14 +391,14 @@ export default function Dashboard() {
             <DailyInvoicedChart days={stats.daily} />
           </div>
           <div className="card p-6">
-            <p className="kicker mb-2">Clienți</p>
-            <h3 className="brand text-xl text-[color:var(--color-foreground)]">Top 5 · 30 zile</h3>
+            <p className="kicker mb-2">{t('dash.clients')}</p>
+            <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.top5')}</h3>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1 mb-5">
-              După sumă facturată, de azi înapoi 30 de zile
+              {t('dash.top5Lead')}
             </p>
             {stats.topCustomers.length === 0 ? (
               <p className="text-sm text-[color:var(--color-muted-foreground)] py-8 text-center">
-                Nicio factură emisă în ultimele 30 de zile
+                {t('dash.noInvoices30')}
               </p>
             ) : (
               <ol className="space-y-3">

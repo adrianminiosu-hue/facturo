@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useLocale } from '@/components/LocaleProvider'
 
 export type OverflowAction = {
   label: string
@@ -9,6 +10,7 @@ export type OverflowAction = {
 }
 
 export default function InvoiceOverflow({ actions }: { actions: OverflowAction[] }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const visible = actions.filter(Boolean)
@@ -32,7 +34,7 @@ export default function InvoiceOverflow({ actions }: { actions: OverflowAction[]
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        Mai multe
+        {t('common.more')}
       </button>
       {open && (
         <div className="absolute right-0 mt-1 z-20 min-w-[12rem] bg-white border border-gray-200 rounded-xl overflow-hidden py-1">

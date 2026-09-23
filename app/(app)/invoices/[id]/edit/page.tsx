@@ -13,6 +13,8 @@ import { applyStornoToOriginal } from '@/lib/storno'
 import { defaultDueDate } from '@/lib/dates'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import { updateInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
+import { useLocale } from '@/components/LocaleProvider'
+import { invoiceTypeKey } from '@/lib/uiLabels'
 
 interface Client {
   id: string
@@ -31,6 +33,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
   selectedClient: Client | null
   onSelect: (client: Client) => void
 }) {
+  const { t } = useLocale()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -51,7 +54,7 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
             <p className="text-xs text-gray-500">CUI: {selectedClient.cui || '—'} · {clientAddressLine(selectedClient)}</p>
           </div>
         ) : (
-          <p className="text-sm text-gray-400">Selectează client...</p>
+          <p className="text-sm text-gray-400">{t('common.selectClient')}</p>
         )}
         <span className="text-gray-400 text-xs ml-2">{open ? '▲' : '▼'}</span>
       </div>
@@ -64,14 +67,14 @@ function ClientSearch({ clients, selectedClient, onSelect }: {
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-              placeholder="Caută după nume sau CUI..."
+              placeholder={t('inv.searchPlaceholder')}
               autoFocus
               onClick={e => e.stopPropagation()}
             />
           </div>
           <div className="max-h-60 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Niciun client găsit</p>
+              <p className="text-sm text-gray-400 text-center py-4">{t('inv.noClientFound')}</p>
             ) : (
               filtered.map(client => (
                 <div
@@ -94,6 +97,7 @@ export default function EditInvoice() {
   const router = useRouter()
   const params = useParams()
   const invoiceId = params.id as string
+  const { t } = useLocale()
   const { userId, company, ownerUserId } = useCompany()
 
   const [clients, setClients] = useState<Client[]>([])
@@ -201,10 +205,10 @@ export default function EditInvoice() {
   })
 
   const saveInvoice = async (status: 'draft' | 'sent') => {
-    if (!selectedClient) { alert('Selectează un client!'); return }
-    if (items.some(i => !i.description)) { alert('Completează descrierea!'); return }
+    if (!selectedClient) { alert(t('inv.selectClientAlert')); return }
+    if (items.some(i => !i.description)) { alert(t('inv.completeDesc')); return }
     if (selectedClient.is_public_institution && !form.buyer_reference.trim()) {
-      alert('Pentru o instituție publică, referința cumpărător (BT-10) este obligatorie.')
+      alert(t('inv.publicBuyerAlert'))
       return
     }
     setSaving(true)
@@ -274,7 +278,7 @@ export default function EditInvoice() {
 
   if (loading) return (
     <div className="app-shell flex items-center justify-center">
-      <p className="text-[color:var(--color-muted-foreground)]">Se încarcă...</p>
+      <p className="text-[color:var(--color-muted-foreground)]">{t('common.loading')}</p>
     </div>
   )
 
@@ -285,32 +289,32 @@ export default function EditInvoice() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Editează factură</h2>
-            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}{form.invoice_type_code === '381' ? ' · storno' : ''}</p>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.editTitle')}</h2>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}{form.invoice_type_code === '381' ? ` · ${t(invoiceTypeKey('381'))}` : ''}</p>
           </div>
           <Link href={`/invoices/${invoiceId}`} className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
-            ← Înapoi la document
+            {t('inv.backToDoc')}
           </Link>
         </div>
 
         <div className="space-y-6">
           <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Detalii factură</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">{t('inv.details')}</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Serie</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.series')}</label>
                 <input type="text" value={form.series}
                   onChange={e => setForm(f => ({ ...f, series: e.target.value }))}
                   className="input" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Număr</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.number')}</label>
                 <input type="text" value={form.invoice_number}
                   onChange={e => setForm(f => ({ ...f, invoice_number: e.target.value }))}
                   className="input" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data emiterii</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.issueDate')}</label>
                 <input type="date" value={form.issue_date}
                   onChange={e => {
                     const issue_date = e.target.value
@@ -324,7 +328,7 @@ export default function EditInvoice() {
                   className="input" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Scadență</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.dueDate')}</label>
                 <input type="date" value={form.due_date}
                   onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
                   className="input" />
@@ -333,9 +337,9 @@ export default function EditInvoice() {
           </div>
 
           <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Client</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">{t('common.client')}</h3>
             {clients.length === 0 ? (
-              <p className="text-gray-400 text-sm">Nu ai clienți adăugați.</p>
+              <p className="text-gray-400 text-sm">{t('inv.noClientsShort')}</p>
             ) : (
               <ClientSearch
                 clients={clients}
@@ -363,21 +367,21 @@ export default function EditInvoice() {
           />
 
           <div className="card p-6">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">Mențiuni</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-4">{t('inv.notes')}</h3>
             <textarea value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               className="input text-sm"
-              rows={3} placeholder="Mențiuni suplimentare..." />
+              rows={3} placeholder={t('inv.notesPhShort')} />
           </div>
 
           <div className="card px-6 py-4 flex flex-wrap gap-3">
             <button onClick={() => saveInvoice('draft')} disabled={saving}
               className="btn btn-outline disabled:opacity-50">
-              {saving ? 'Se salvează...' : 'Salvează ciornă'}
+              {saving ? t('common.saving') : t('inv.saveDraft')}
             </button>
             <button onClick={() => saveInvoice('sent')} disabled={saving}
               className="btn btn-primary disabled:opacity-50">
-              {saving ? 'Se salvează...' : 'Emite factură'}
+              {saving ? t('common.saving') : t('inv.issue')}
             </button>
           </div>
         </div>

@@ -3,12 +3,15 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import BrandLockup from '@/components/BrandLockup'
+import LocaleSwitch from '@/components/LocaleSwitch'
+import { useLocale } from '@/components/LocaleProvider'
 import { supabase } from '@/lib/supabase'
 
 export default function InvitePage() {
   const { token } = useParams<{ token: string }>()
   const router = useRouter()
-  const [status, setStatus] = useState('Se încarcă...')
+  const { t } = useLocale()
+  const [status, setStatus] = useState('')
   const [email, setEmail] = useState('')
   const [ownerName, setOwnerName] = useState('')
   const [ready, setReady] = useState(false)
@@ -20,7 +23,7 @@ export default function InvitePage() {
       const res = await fetch(`/api/team/invite/${token}`)
       const data = await res.json()
       if (!res.ok) {
-        setStatus(data.error || 'Invitația nu este validă.')
+        setStatus(data.error || t('auth.inviteInvalid'))
         return
       }
       setEmail(data.email)
@@ -38,41 +41,42 @@ export default function InvitePage() {
         const body = await accept.json()
         setBusy(false)
         if (!accept.ok) {
-          setError(body.error || 'Nu s-a putut accepta invitația.')
+          setError(body.error || t('auth.acceptFail'))
           return
         }
         router.push('/dashboard')
       }
     }
     if (token) load()
-  }, [token, router])
+  }, [token, router, t])
 
   return (
     <div className="app-shell flex flex-col">
       <nav className="top-nav">
         <BrandLockup href="/" />
+        <LocaleSwitch />
       </nav>
       <div className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="card p-10 w-full max-w-md">
-          <p className="kicker mb-4">Echipă</p>
-          <h1 className="text-4xl text-[color:var(--color-foreground)] mb-3">Invitație</h1>
+          <p className="kicker mb-4">{t('auth.inviteKicker')}</p>
+          <h1 className="text-4xl text-[color:var(--color-foreground)] mb-3">{t('auth.inviteTitle')}</h1>
           {!ready ? (
-            <p className="text-[color:var(--color-muted-foreground)]">{status}</p>
+            <p className="text-[color:var(--color-muted-foreground)]">{status || t('common.loading')}</p>
           ) : (
             <>
               <p className="text-[color:var(--color-muted-foreground)] mb-6">
-                {ownerName} te-a invitat ca operator pe facturile cabinetului. Folosește {email}.
+                {t('auth.inviteLead', { name: ownerName, email })}
               </p>
               {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
               <div className="flex flex-col gap-3">
                 <Link href={`/register?invite=${token}&email=${encodeURIComponent(email)}`} className="btn btn-primary text-center">
-                  Creează cont
+                  {t('auth.createAccount')}
                 </Link>
                 <Link href={`/login?next=/invite/${token}`} className="btn btn-outline text-center">
-                  Am deja cont
+                  {t('auth.hasAccount')}
                 </Link>
               </div>
-              {busy && <p className="text-sm text-[color:var(--color-muted-foreground)] mt-4">Se acceptă invitația...</p>}
+              {busy && <p className="text-sm text-[color:var(--color-muted-foreground)] mt-4">{t('auth.accepting')}</p>}
             </>
           )}
         </div>

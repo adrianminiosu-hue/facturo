@@ -7,10 +7,11 @@ import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
 import PaymentModal from '@/components/PaymentModal'
-import { INVOICE_TYPE_CODES } from '@/lib/efactura'
 import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { useLocale } from '@/components/LocaleProvider'
+import { invoiceTypeKey } from '@/lib/uiLabels'
 import { formatAmount, formatRon } from '@/lib/money'
 import { computeInvoiceTotals, remainingOf } from '@/lib/invoiceMath'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
@@ -72,6 +73,7 @@ export default function InvoiceViewPage() {
   const params = useParams()
   const router = useRouter()
   const invoiceId = params.id as string
+  const { t } = useLocale()
   const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [creditedRef, setCreditedRef] = useState('')
@@ -127,13 +129,13 @@ export default function InvoiceViewPage() {
 
   const createStorno = async () => {
     if (!invoice || !userId) return
-    if (!confirm(`Creezi o notă de creditare (storno) pentru ${invoice.series}${invoice.invoice_number}? Factura originală rămâne neschimbată.`)) return
+    if (!confirm(t('inv.confirmCredit', { ref: `${invoice.series}${invoice.invoice_number}` }))) return
     setBusy('storno')
     try {
       const created = await createStornoDraft(supabase, { invoice, company, userId: ownerUserId || userId })
       router.push(`/invoices/${created.id}/edit`)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Nu s-a putut crea stornoul.')
+      alert(e instanceof Error ? e.message : t('inv.stornoFail'))
     } finally {
       setBusy('')
     }
@@ -141,13 +143,13 @@ export default function InvoiceViewPage() {
 
   const copyInvoice = async () => {
     if (!invoice || !userId) return
-    if (!confirm(`Creezi o ciornă cu aceleași detalii ca ${invoice.series}${invoice.invoice_number}? Data emiterii și scadența vor fi de azi (+15 zile). Poți edita datele înainte de emitere.`)) return
+    if (!confirm(t('inv.confirmDuplicate', { ref: `${invoice.series}${invoice.invoice_number}` }))) return
     setBusy('copy')
     try {
       const created = await copyInvoiceAsDraft(supabase, { invoice, company, userId: ownerUserId || userId })
       router.push(`/invoices/${created.id}/edit`)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Nu s-a putut copia factura.')
+      alert(e instanceof Error ? e.message : t('inv.copyFail'))
     } finally {
       setBusy('')
     }
@@ -160,13 +162,13 @@ export default function InvoiceViewPage() {
   if (loading || !invoice) {
     return (
       <div className="app-shell flex items-center justify-center">
-        <p className="text-[color:var(--color-muted-foreground)]">Se încarcă...</p>
+        <p className="text-[color:var(--color-muted-foreground)]">{t('common.loading')}</p>
       </div>
     )
   }
 
   const status = invoiceStatusAppearance(invoice)
-  const typeLabel = INVOICE_TYPE_CODES.find(t => t.code === (invoice.invoice_type_code || '380'))?.label || 'Factură'
+  const typeLabel = t(invoiceTypeKey(invoice.invoice_type_code || '380'))
   const draft = isDraftInvoice(invoice.status)
   const credit = isCreditNote(invoice.invoice_type_code)
   const canStorno = canCreateStorno(invoice, hasStorno)
@@ -187,19 +189,19 @@ export default function InvoiceViewPage() {
             </p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)]">
-            ← Facturi emise
+            {t('inv.backToIssued')}
           </Link>
         </div>
 
         {!draft && (
           <div className="card p-4 mb-6 text-sm text-[color:var(--color-muted-foreground)]">
-            Document emis — câmpurile fiscale sunt blocate. Corectarea se face prin notă de creditare (storno).
+            {t('inv.issuedLocked')}
           </div>
         )}
 
         {creditedRef && (
           <p className="text-sm mb-4">
-            Storno pentru{' '}
+            {t('inv.stornoFor')}{' '}
             <Link href={`/invoices/${invoice.credited_invoice_id}`} className="underline">
               {creditedRef}
             </Link>
@@ -207,13 +209,13 @@ export default function InvoiceViewPage() {
         )}
 
         <div className="flex flex-wrap items-center gap-2 mb-6">
-          <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>{status.label}</span>
-          {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-500">e-Factura TEST · respins</span>}
-          {isEfacturaProcessing(invoice) && <span className="text-xs text-amber-700">ANAF prelucrează</span>}
+          <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>{t(status.key)}</span>
+          {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-500">{t('inv.rejectedShort')}</span>}
+          {isEfacturaProcessing(invoice) && <span className="text-xs text-amber-700">{t('inv.anafWorking')}</span>}
           {invoice.efactura_index && (
             <span className="text-xs font-mono text-[color:var(--color-muted-foreground)]">index {invoice.efactura_index}</span>
           )}
-          {hasStorno && <span className="text-xs text-[color:var(--color-muted-foreground)]">Are storno</span>}
+          {hasStorno && <span className="text-xs text-[color:var(--color-muted-foreground)]">{t('inv.hasStorno')}</span>}
         </div>
         {invoice.efactura_error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-6">
@@ -224,7 +226,7 @@ export default function InvoiceViewPage() {
         <div className="flex flex-wrap gap-2 mb-8">
           {draft ? (
             <Link href={`/invoices/${invoice.id}/edit`} className="btn btn-primary">
-              Editează
+              {t('common.edit')}
             </Link>
           ) : (
             <button
@@ -239,59 +241,59 @@ export default function InvoiceViewPage() {
               className="btn btn-outline"
               disabled={busy === 'email'}
               onClick={async () => {
-                if (!confirm(`Trimiți factura ${invoice.series}${invoice.invoice_number} pe email?`)) return
+                if (!confirm(t('inv.confirmEmail', { ref: `${invoice.series}${invoice.invoice_number}` }))) return
                 setBusy('email')
                 try {
                   await sendInvoiceEmail(invoice.id, userId)
-                  alert('Factura a fost trimisă.')
+                  alert(t('inv.emailSent'))
                   load()
                 } catch (e) {
-                  alert(e instanceof Error ? e.message : 'Eroare email')
+                  alert(e instanceof Error ? e.message : t('inv.emailError'))
                 } finally { setBusy('') }
               }}
             >
-              Email
+              {t('inv.sendEmail')}
             </button>
           )}
           {canStorno && (
             <button className="btn btn-outline" disabled={busy === 'storno'} onClick={createStorno}>
-              {busy === 'storno' ? '...' : 'Creează storno'}
+              {busy === 'storno' ? '...' : t('inv.createStorno')}
             </button>
           )}
           <button className="btn btn-outline" disabled={busy === 'copy'} onClick={copyInvoice}>
-            {busy === 'copy' ? '...' : 'Copiază factură'}
+            {busy === 'copy' ? '...' : t('inv.copyInvoice')}
           </button>
           {!draft && !credit && invoice.status !== 'paid' && (
             <button className="btn btn-outline" onClick={() => setPayOpen(true)}>
-              Încasare
+              {t('inv.collection')}
             </button>
           )}
           <InvoiceOverflow
             actions={[
               {
-                label: 'XML e-Factura',
+                label: t('inv.xmlLabel'),
                 onClick: async () => {
                   try { await downloadInvoiceXml(invoice.id, userId, filename) }
-                  catch (e) { alert(e instanceof Error ? e.message : 'Eroare XML') }
+                  catch (e) { alert(e instanceof Error ? e.message : t('inv.xmlError')) }
                 }
               },
               {
-                label: isEfacturaProcessing(invoice) ? 'Actualizează stare ANAF' : 'Trimite în e-Factura TEST',
+                label: isEfacturaProcessing(invoice) ? t('inv.updateAnaf') : t('inv.sendEfactura'),
                 onClick: async () => {
                   if (alreadySentToSpv(invoice)) {
-                    alert(ALREADY_SENT_TO_SPV)
+                    alert(t('inv.alreadySent'))
                     return
                   }
                   const processing = isEfacturaProcessing(invoice)
                   if (!confirm(processing
-                    ? 'Actualizezi starea ANAF pentru această factură?'
-                    : 'Trimiți factura în e-Factura TEST?')) return
+                    ? t('inv.confirmStareThis')
+                    : t('inv.confirmSpvThis'))) return
                   try {
                     const data = await simulateSpvUpload(invoice.id, userId)
                     if (data.executionStatus !== '0' && data.error) {
                       alert(data.error)
                     } else {
-                      alert(data.note || (processing ? 'Stare actualizată.' : 'Trimisă în e-Factura TEST.'))
+                      alert(data.note || (processing ? t('inv.spvUpdated') : t('inv.spvSent')))
                     }
                     if (data.invoicePatch || data.executionStatus === '0') {
                       setInvoice(prev => prev ? {
@@ -305,7 +307,7 @@ export default function InvoiceViewPage() {
                     }
                     load()
                   } catch (e) {
-                    alert(e instanceof Error ? e.message : 'Eroare e-Factura')
+                    alert(e instanceof Error ? e.message : t('inv.efacturaError'))
                   }
                 }
               }
@@ -315,32 +317,32 @@ export default function InvoiceViewPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="card p-6">
-            <h3 className="font-bold mb-3">Client</h3>
+            <h3 className="font-bold mb-3">{t('common.client')}</h3>
             <p className="text-sm">{invoice.clients?.company_name || '—'}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-              CUI: {invoice.clients?.cui || '—'} · {invoice.clients?.city || '—'}
+              {t('cli.cui')}: {invoice.clients?.cui || '—'} · {invoice.clients?.city || '—'}
             </p>
           </div>
           <div className="card p-6">
-            <h3 className="font-bold mb-3">Date</h3>
-            <p className="text-sm">Emisă: {formatRoDate(invoice.issue_date)}</p>
-            <p className="text-sm mt-1">Exigibilitate TVA: {formatRoDate(invoice.tax_point_date || invoice.issue_date)}</p>
-            <p className="text-sm mt-1">Scadență: {invoice.due_date ? formatRoDate(invoice.due_date) : '—'}</p>
+            <h3 className="font-bold mb-3">{t('common.dates')}</h3>
+            <p className="text-sm">{t('inv.issuedOn', { date: formatRoDate(invoice.issue_date) })}</p>
+            <p className="text-sm mt-1">{t('inv.vatPointOn', { date: formatRoDate(invoice.tax_point_date || invoice.issue_date) })}</p>
+            <p className="text-sm mt-1">{t('inv.dueOn', { date: invoice.due_date ? formatRoDate(invoice.due_date) : '—' })}</p>
             {Number(invoice.amount_paid) > 0 && (
-              <p className="text-sm mt-1">Încasat: {ron(Number(invoice.amount_paid))} din {ron(Number(invoice.total))}</p>
+              <p className="text-sm mt-1">{t('inv.collectedOf', { paid: ron(Number(invoice.amount_paid)), total: ron(Number(invoice.total)) })}</p>
             )}
             {remainingOf(invoice) > 0 && remainingOf(invoice) < Number(invoice.total) && (
-              <p className="text-sm mt-1">Rest: {ron(remainingOf(invoice))}</p>
+              <p className="text-sm mt-1">{t('inv.remaining', { amount: ron(remainingOf(invoice)) })}</p>
             )}
           </div>
         </div>
 
         <div className="card overflow-hidden mb-6">
           <div className="grid grid-cols-12 px-6 py-3 border-b border-gray-100 text-xs text-[color:var(--color-muted-foreground)]">
-            <span className="col-span-6">Descriere</span>
-            <span className="col-span-2 text-right">Cant.</span>
-            <span className="col-span-2 text-right">Preț</span>
-            <span className="col-span-2 text-right">Total</span>
+            <span className="col-span-6">{t('inv.description')}</span>
+            <span className="col-span-2 text-right">{t('inv.qty')}</span>
+            <span className="col-span-2 text-right">{t('common.price')}</span>
+            <span className="col-span-2 text-right">{t('common.total')}</span>
           </div>
           {(invoice.invoice_items || []).map(item => (
             <div key={item.id} className="grid grid-cols-12 px-6 py-3 border-b border-gray-50 last:border-0 text-sm">
@@ -355,22 +357,22 @@ export default function InvoiceViewPage() {
         <div className="card p-6 mb-6">
           <div className="flex flex-col items-end gap-1">
             <div className="flex justify-between w-72 text-sm">
-              <span className="text-[color:var(--color-muted-foreground)]">Bază</span>
+              <span className="text-[color:var(--color-muted-foreground)]">{t('inv.base')}</span>
               <span>{ron(viewTotals?.lineExtension ?? invoice.subtotal)}</span>
             </div>
             {(viewTotals?.vatBreakdown || []).map(row => (
               <div key={row.rate} className="flex justify-between w-72 text-sm">
-                <span className="text-[color:var(--color-muted-foreground)]">TVA {row.rate}%</span>
+                <span className="text-[color:var(--color-muted-foreground)]">{t('inv.vatOnly', { rate: row.rate })}</span>
                 <span>{ron(row.tax)}</span>
               </div>
             ))}
             <div className="flex justify-between w-72 text-base font-bold pt-2 border-t border-gray-100">
-              <span>Total</span>
+              <span>{t('common.total')}</span>
               <span>{ron(viewTotals?.taxInclusive ?? invoice.total)}</span>
             </div>
             {(viewTotals?.prepaid || 0) > 0 && (
               <div className="flex justify-between w-72 text-sm">
-                <span className="text-[color:var(--color-muted-foreground)]">Avans</span>
+                <span className="text-[color:var(--color-muted-foreground)]">{t('inv.advance')}</span>
                 <span>-{ron(viewTotals!.prepaid)}</span>
               </div>
             )}
@@ -379,7 +381,7 @@ export default function InvoiceViewPage() {
 
         {notesWithoutSpvMark(invoice.notes) && (
           <div className="card p-6">
-            <h3 className="font-bold mb-2">Mențiuni</h3>
+            <h3 className="font-bold mb-2">{t('inv.notes')}</h3>
             <p className="text-sm text-[color:var(--color-muted-foreground)] whitespace-pre-wrap">{notesWithoutSpvMark(invoice.notes)}</p>
           </div>
         )}

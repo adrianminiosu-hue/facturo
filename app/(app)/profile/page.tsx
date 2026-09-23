@@ -6,6 +6,7 @@ import { isValidRomanianMobile } from '@/lib/romanianMobile'
 import RoAddressFields from '@/components/RoAddressFields'
 import { countyCodeFromName, countyNameFromCode } from '@/lib/romania'
 import AppNav from '@/components/AppNav'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import BankDetailsFields from '@/components/BankDetailsFields'
 import { normalizeIban } from '@/lib/iban'
@@ -13,6 +14,7 @@ import { normalizeBic, normalizeIbanCurrency, validateClientBankDetails, type Ib
 
 export default function Profile() {
   const router = useRouter()
+  const { t } = useLocale()
   const { company, userId, refreshCompanies, createCompany } = useCompany()
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -133,21 +135,21 @@ export default function Profile() {
           vat_registered: data.vat_registered ?? f.vat_registered
         }))
       } else {
-        alert('CUI negăsit în registrul public.')
+        alert(t('pro.cuiNotFound'))
       }
     } catch (e) {
-      alert('Eroare conexiune la registrul public.')
+      alert(t('pro.connError'))
     }
     setCuiLoading(false)
   }
 
   const saveProfile = async () => {
     if (form.phone && !isValidRomanianMobile(form.phone)) {
-      alert('Număr de mobil invalid. Format acceptat: 07xxxxxxxx sau +407xxxxxxxx.')
+      alert(t('common.mobileFormat'))
       return
     }
     if (!bankDetails.ok) {
-      alert(bankDetails.error || 'Datele bancare sunt invalide.')
+      alert(bankDetails.error || t('bnk.invalid'))
       return
     }
     setSaving(true)
@@ -160,7 +162,7 @@ export default function Profile() {
     }
     if (company?.id) {
       const { error } = await supabase.from('companies').update(payload).eq('id', company.id)
-      if (error) alert(error.message || 'Nu s-a putut salva. Rulează migrarea multi-company în Supabase.')
+      if (error) alert(error.message || t('pro.saveFail'))
     } else {
       const created = await createCompany(payload)
       if (!created) {
@@ -180,9 +182,9 @@ export default function Profile() {
 
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl text-[color:var(--color-foreground)]">Profilul firmei active</h2>
+          <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('pro.title')}</h2>
           <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-            Datele apar pe facturile firmei selectate în meniu. Poți adăuga alte firme din Firme.
+            {t('pro.lead')}
           </p>
         </div>
 
@@ -190,10 +192,10 @@ export default function Profile() {
 
           {/* Company details */}
           <div className="card p-8">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Date fiscale</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">{t('pro.fiscal')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">CUI / CIF</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.cuiCif')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -207,12 +209,12 @@ export default function Profile() {
                     disabled={cuiLoading}
                     className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                   >
-                    {cuiLoading ? 'Se caută...' : 'Caută CUI'}
+                    {cuiLoading ? t('common.searching') : t('cli.lookupCui')}
                   </button>
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Denumire companie *</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('pro.companyName')}</label>
                 <input
                   type="text"
                   value={form.company_name}
@@ -222,7 +224,7 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Nr. Reg. Comerț</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.regCom')}</label>
                 <input
                   type="text"
                   value={form.reg_com}
@@ -232,7 +234,7 @@ export default function Profile() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Adresă *</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('pro.address')}</label>
                 <input
                   type="text"
                   value={form.address}
@@ -257,7 +259,7 @@ export default function Profile() {
                     checked={form.vat_registered}
                     onChange={e => setForm(f => ({ ...f, vat_registered: e.target.checked }))}
                   />
-                  Platitor de TVA (identificatorul TVA RO+CUI este obligatoriu în e-Factura)
+                  {t('pro.vatPayerLong')}
                 </label>
               </div>
               <div className="md:col-span-2">
@@ -267,7 +269,7 @@ export default function Profile() {
                     checked={form.vat_on_collection}
                     onChange={e => setForm(f => ({ ...f, vat_on_collection: e.target.checked }))}
                   />
-                  TVA la încasare (mențiunea legală se pune automat pe factură)
+                  {t('pro.vatOnCollection')}
                 </label>
               </div>
             </div>
@@ -275,7 +277,7 @@ export default function Profile() {
 
           {/* Bank details */}
           <div className="card p-8">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Date bancare</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">{t('bnk.title')}</h3>
             <BankDetailsFields
               value={{
                 bank_name: form.bank_name,
@@ -289,10 +291,10 @@ export default function Profile() {
 
           {/* Contact */}
           <div className="card p-8">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">Contact</h3>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-6">{t('pro.contact')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Persoană de contact</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('pro.contactPerson')}</label>
                 <input
                   type="text"
                   value={form.contact_person}
@@ -302,7 +304,7 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Funcție</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.role')}</label>
                 <input
                   type="text"
                   value={form.contact_role}
@@ -312,7 +314,7 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')}</label>
                 <input
                   type="email"
                   value={form.email}
@@ -322,7 +324,7 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Telefon</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.phone')}</label>
                 <input
                   type="text"
                   value={form.phone}
@@ -331,7 +333,7 @@ export default function Profile() {
                   placeholder="0721 234 567"
                 />
                 {form.phone && !phoneValid && (
-                  <p className="text-red-500 text-xs mt-1">Mobil invalid (ex: 0721234567 sau +40721234567)</p>
+                  <p className="text-red-500 text-xs mt-1">{t('common.invalidMobile')}</p>
                 )}
               </div>
             </div>
@@ -339,11 +341,11 @@ export default function Profile() {
 
           {/* Invoice settings */}
           <div className="card p-8">
-            <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">Setări facturare</h3>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mb-5">Seria și numărul de start pentru facturile tale</p>
+            <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">{t('pro.invoiceSettings')}</h3>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mb-5">{t('pro.invoiceSettingsLead')}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Serie factură</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('pro.series')}</label>
                 <input
                   type="text"
                   value={form.invoice_series}
@@ -354,7 +356,7 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Număr de start</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('pro.startNumber')}</label>
                 <input
                   type="number"
                   value={form.invoice_start_number}
@@ -373,10 +375,10 @@ export default function Profile() {
               disabled={saving}
               className="btn btn-primary disabled:opacity-50"
             >
-              {saving ? 'Se salvează...' : 'Salvează profilul'}
+              {saving ? t('common.saving') : t('pro.save')}
             </button>
             {saved && (
-              <span className="text-sm text-green-600 font-medium">✓ Salvat cu succes!</span>
+              <span className="text-sm text-green-600 font-medium">{t('pro.saved')}</span>
             )}
           </div>
         </div>

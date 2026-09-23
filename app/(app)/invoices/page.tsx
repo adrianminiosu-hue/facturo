@@ -11,7 +11,9 @@ import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/li
 import { calendarDateInBucharest } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
-import { ALREADY_SENT_TO_SPV, alreadySentToSpv, canSendToEfactura, INVOICE_STATUS_LABEL, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
+import { alreadySentToSpv, canSendToEfactura, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
+import { useLocale } from '@/components/LocaleProvider'
+import { outcomeKey } from '@/lib/uiLabels'
 
 interface Invoice {
   id: string
@@ -34,37 +36,30 @@ interface Invoice {
 const LIST_GRID = 'grid w-full grid-cols-[2rem_6.5rem_minmax(0,1fr)_7rem_7.5rem_8rem_minmax(6.5rem,auto)] gap-x-4 px-6'
 const PAGE_SIZE = 20
 
-const STATUS_FILTERS = [
-  { id: '', label: 'Toate' },
-  { id: 'draft', label: INVOICE_STATUS_LABEL.draft.label },
-  { id: 'sent', label: INVOICE_STATUS_LABEL.sent.label },
-  { id: 'spv', label: INVOICE_STATUS_LABEL.spv.label },
-  { id: 'paid', label: INVOICE_STATUS_LABEL.paid.label },
-  { id: 'overdue', label: INVOICE_STATUS_LABEL.overdue.label }
-] as const
+const STATUS_FILTER_IDS = ['', 'draft', 'sent', 'spv', 'paid', 'overdue'] as const
 
 function matchesStatusFilter(invoice: Invoice, filter: string) {
   if (!filter) return true
-  const label = invoiceStatusAppearance(invoice).label
   if (filter === 'paid') return invoice.status === 'paid'
   if (filter === 'spv') return alreadySentToSpv(invoice)
-  return label === INVOICE_STATUS_LABEL[filter]?.label
+  return invoiceStatusAppearance(invoice).key === `status.${filter}`
 }
 
 function invoiceRef(invoice: Invoice) {
   return `${invoice.series}${invoice.invoice_number}`
 }
 
-const OUTCOME_LABEL: Record<BulkSpvOutcome, { label: string; style: string }> = {
-  accepted: { label: 'Acceptat', style: 'text-green-600' },
-  rejected: { label: 'Respins', style: 'text-red-500' },
-  skipped: { label: 'Omis', style: 'text-[color:var(--color-muted-foreground)]' },
-  error: { label: 'Eroare', style: 'text-red-500' },
-  processing: { label: 'În prelucrare', style: 'text-amber-700' }
+const OUTCOME_STYLE: Record<BulkSpvOutcome, string> = {
+  accepted: 'text-green-600',
+  rejected: 'text-red-500',
+  skipped: 'text-[color:var(--color-muted-foreground)]',
+  error: 'text-red-500',
+  processing: 'text-amber-700'
 }
 
 export default function Invoices() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -127,20 +122,20 @@ export default function Invoices() {
     try {
       await downloadInvoiceXml(invoice.id, userId, `e-Factura-${invoice.series}${invoice.invoice_number}.xml`)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Eroare XML')
+      alert(e instanceof Error ? e.message : t('inv.xmlError'))
     }
   }
 
   const sendToSpvTest = async (invoice: Invoice) => {
     if (alreadySentToSpv(invoice)) {
-      alert(ALREADY_SENT_TO_SPV)
+      alert(t('inv.alreadySent'))
       return
     }
     const processing = isEfacturaProcessing(invoice)
     if (!processing && !canSendToEfactura(invoice)) return
     if (!confirm(processing
-      ? `Actualizezi starea ANAF pentru ${invoice.series}${invoice.invoice_number}?`
-      : `Trimiți ${invoice.series}${invoice.invoice_number} în e-Factura TEST?`)) return
+      ? t('inv.confirmStare', { ref: invoiceRef(invoice) })
+      : t('inv.confirmSpv', { ref: invoiceRef(invoice) }))) return
     setSpvBusyId(invoice.id)
     try {
       const data = await simulateSpvUpload(invoice.id, userId)
@@ -159,39 +154,39 @@ export default function Invoices() {
       setSpvResult(data)
       await loadInvoices()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Eroare e-Factura')
+      alert(e instanceof Error ? e.message : t('inv.efacturaError'))
     } finally {
       setSpvBusyId('')
     }
   }
 
   const sendInvoice = async (invoice: Invoice) => {
-    if (!confirm(`Trimiți factura ${invoice.series}${invoice.invoice_number} pe email?`)) return
+    if (!confirm(t('inv.confirmEmail', { ref: invoiceRef(invoice) }))) return
     try {
       await sendInvoiceEmail(invoice.id, userId)
-      alert('Factura a fost trimisă.')
+      alert(t('inv.emailSent'))
       loadInvoices()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Eroare email')
+      alert(e instanceof Error ? e.message : t('inv.emailError'))
     }
   }
 
   const deleteInvoice = async (id: string) => {
-    if (!confirm('Ești sigur că vrei să ștergi această ciornă?')) return
+    if (!confirm(t('inv.confirmDeleteDraft'))) return
     await supabase.from('invoice_items').delete().eq('invoice_id', id)
     await supabase.from('invoices').delete().eq('id', id)
     loadInvoices()
   }
 
   const copyFromList = async (invoice: Invoice) => {
-    if (!confirm(`Creezi o ciornă cu aceleași detalii ca ${invoice.series}${invoice.invoice_number}? Data emiterii și scadența vor fi de azi (+15 zile). Poți edita datele înainte de emitere.`)) return
+    if (!confirm(t('inv.confirmDuplicate', { ref: invoiceRef(invoice) }))) return
     setActionBusyId(invoice.id)
     try {
       const full = await loadInvoiceForClone(supabase, invoice.id)
       const created = await copyInvoiceAsDraft(supabase, { invoice: full, company, userId: ownerUserId || userId })
       router.push(`/invoices/${created.id}/edit`)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Nu s-a putut copia factura.')
+      alert(e instanceof Error ? e.message : t('inv.copyFail'))
     } finally {
       setActionBusyId('')
     }
@@ -199,14 +194,14 @@ export default function Invoices() {
 
   const stornoFromList = async (invoice: Invoice) => {
     if (!canCreateStorno(invoice, hasStornoIds.has(invoice.id))) return
-    if (!confirm(`Creezi o notă de creditare (storno) pentru ${invoice.series}${invoice.invoice_number}? Factura originală rămâne neschimbată.`)) return
+    if (!confirm(t('inv.confirmCredit', { ref: invoiceRef(invoice) }))) return
     setActionBusyId(invoice.id)
     try {
       const full = await loadInvoiceForClone(supabase, invoice.id)
       const created = await createStornoDraft(supabase, { invoice: full, company, userId: ownerUserId || userId })
       router.push(`/invoices/${created.id}/edit`)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Nu s-a putut crea stornoul.')
+      alert(e instanceof Error ? e.message : t('inv.stornoFail'))
     } finally {
       setActionBusyId('')
     }
@@ -298,20 +293,22 @@ export default function Invoices() {
 
     const skipped = selected.filter(inv => !canSendToEfactura(inv))
     const toSend = selected.filter(inv => canSendToEfactura(inv))
-    const countLabel = toSend.length === 1 ? 'o factură emisă' : `${toSend.length} facturi emise`
+    const countLabel = toSend.length === 1 ? t('inv.oneIssued') : t('inv.manyIssued', { count: toSend.length })
+    const skipError = (inv: Invoice) =>
+      alreadySentToSpv(inv)
+        ? t('inv.alreadySent')
+        : isEfacturaProcessing(inv)
+          ? t('inv.anafProcessing')
+          : t('inv.draftSkip')
 
     if (toSend.length === 0) {
       setBulkSummary({
-        note: 'Nu există facturi eligibile în selecție.',
+        note: t('inv.noEligible'),
         results: skipped.map(inv => ({
           invoiceId: inv.id,
           invoiceRef: invoiceRef(inv),
           outcome: 'skipped' as const,
-          error: alreadySentToSpv(inv)
-            ? ALREADY_SENT_TO_SPV
-            : isEfacturaProcessing(inv)
-              ? 'Factura este încă în prelucrare la ANAF.'
-              : 'Ciornă — nu se trimite în e-Factura.'
+          error: skipError(inv)
         }))
       })
       setSelectedIds([])
@@ -319,21 +316,17 @@ export default function Invoices() {
     }
 
     if (!confirm(
-      `Trimiți ${countLabel} în e-Factura TEST?` +
-      (skipped.length ? `\n${skipped.length === 1 ? 'O ciornă va fi omisă.' : `${skipped.length} ciorne vor fi omise.`}` : '')
+      t('inv.confirmBulk', { count: countLabel }) +
+      (skipped.length ? `\n${skipped.length === 1 ? t('inv.skipOneDraft') : t('inv.skipManyDrafts', { count: skipped.length })}` : '')
     )) return
 
     setBulkBusy(true)
-    let lastNote = 'Trimitere e-Factura TEST.'
+    let lastNote = t('inv.bulkStart')
     const results: BulkSpvResultItem[] = skipped.map(inv => ({
       invoiceId: inv.id,
       invoiceRef: invoiceRef(inv),
       outcome: 'skipped',
-      error: alreadySentToSpv(inv)
-        ? ALREADY_SENT_TO_SPV
-        : isEfacturaProcessing(inv)
-          ? 'Factura este încă în prelucrare la ANAF.'
-          : 'Ciornă — nu se trimite în e-Factura.'
+      error: skipError(inv)
     }))
 
     try {
@@ -366,7 +359,7 @@ export default function Invoices() {
             invoiceId: inv.id,
             invoiceRef: invoiceRef(inv),
             outcome: 'error',
-            error: e instanceof Error ? e.message : 'Eroare e-Factura'
+            error: e instanceof Error ? e.message : t('inv.efacturaError')
           })
         }
       }
@@ -422,39 +415,43 @@ export default function Invoices() {
       <div className={`max-w-7xl mx-auto px-6 py-8 ${selectedCount > 0 ? 'pb-28' : ''}`}>
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Facturi emise</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {company?.company_name ? `${company.company_name} · ` : ''}
-              {filteredInvoices.length} facturi{filtersActive ? ` din ${invoices.length}` : ''} · {unpaidCount} neplătite
+              {filtersActive
+                ? t('inv.countFiltered', { count: filteredInvoices.length, total: invoices.length })
+                : t('inv.count', { count: filteredInvoices.length })}
+              {' · '}
+              {t('inv.unpaidCount', { count: unpaidCount })}
             </p>
           </div>
           <Link href="/invoices/new" className="btn btn-primary">
-            + Factură nouă
+            {t('inv.new')}
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">Total facturi</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.totalInvoices')}</p>
             <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{filteredInvoices.length}</p>
           </div>
           <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">Valoare totală</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.totalValue')}</p>
             <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{formatRon(totalValue)}</p>
           </div>
           <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">Total facturat luna în curs</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.monthValue')}</p>
             <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{formatRon(billedThisMonth)}</p>
           </div>
         </div>
 
         {loading ? (
-          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">Se încarcă...</p>
+          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">{t('common.loading')}</p>
         ) : invoices.length === 0 ? (
           <div className="card p-12 text-center">
-            <p className="text-[color:var(--color-muted-foreground)]">Nu ai nicio factură încă</p>
+            <p className="text-[color:var(--color-muted-foreground)]">{t('inv.empty')}</p>
             <Link href="/invoices/new" className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]">
-              Creează prima factură →
+              {t('inv.createFirst')}
             </Link>
           </div>
         ) : (
@@ -462,32 +459,34 @@ export default function Invoices() {
             <div className="card p-4 mb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                 <div>
-                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Client</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.filterClient')}</label>
                   <select
                     value={filterClientId}
                     onChange={e => setFilterClientId(e.target.value)}
                     className="input bg-white px-3 py-2.5"
                   >
-                    <option value="">Toți clienții</option>
+                    <option value="">{t('inv.allClients')}</option>
                     {clientOptions.map(opt => (
                       <option key={opt.id} value={opt.id}>{opt.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Status</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.status')}</label>
                   <select
                     value={filterStatus}
                     onChange={e => setFilterStatus(e.target.value)}
                     className="input bg-white px-3 py-2.5"
                   >
-                    {STATUS_FILTERS.map(opt => (
-                      <option key={opt.id || 'all'} value={opt.id}>{opt.label}</option>
+                    {STATUS_FILTER_IDS.map(id => (
+                      <option key={id || 'all'} value={id}>
+                        {id ? t(`status.${id}` as 'status.draft') : t('common.all')}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">De la</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.from')}</label>
                   <input
                     type="date"
                     value={filterFrom}
@@ -496,7 +495,7 @@ export default function Invoices() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">Până la</label>
+                  <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.to')}</label>
                   <input
                     type="date"
                     value={filterTo}
@@ -510,7 +509,7 @@ export default function Invoices() {
                     disabled={!filtersActive}
                     className="btn btn-outline disabled:opacity-50"
                   >
-                    Resetează
+                    {t('inv.reset')}
                   </button>
                 </div>
               </div>
@@ -518,12 +517,12 @@ export default function Invoices() {
 
             {filteredInvoices.length === 0 ? (
               <div className="card p-12 text-center">
-                <p className="text-[color:var(--color-muted-foreground)]">Nu există facturi pentru filtrele selectate</p>
+                <p className="text-[color:var(--color-muted-foreground)]">{t('inv.noFilterMatch')}</p>
                 <button
                   onClick={() => { setFilterClientId(''); setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}
                   className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]"
                 >
-                  Resetează filtrele →
+                  {t('inv.resetFiltersArrow')}
                 </button>
               </div>
             ) : (
@@ -536,16 +535,16 @@ export default function Invoices() {
                     checked={allEligibleSelected}
                     disabled={eligibleOnPage.length === 0 || bulkBusy}
                     onChange={toggleSelectAll}
-                    aria-label="Selectează toate facturile emise din această pagină"
-                    title={eligibleOnPage.length === 0 ? 'Nu există facturi emise, netransmise în SPV pe această pagină' : 'Selectează toate facturile emise, netransmise în SPV de pe această pagină'}
+                    aria-label={t('inv.selectAll')}
+                    title={eligibleOnPage.length === 0 ? t('inv.selectAllEmpty') : t('inv.selectAllTitle')}
                     className="h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
                   />
-                  <span className="text-xs font-medium text-gray-400">NUMĂR</span>
-                  <span className="text-xs font-medium text-gray-400">CLIENT</span>
-                  <span className="text-xs font-medium text-gray-400">DATA</span>
-                  <span className="text-xs font-medium text-gray-400">STATUS</span>
-                  <span className="text-xs font-medium text-gray-400 text-right">TOTAL</span>
-                  <span className="text-xs font-medium text-gray-400 text-right">ACȚIUNI</span>
+                  <span className="text-xs font-medium text-gray-400">{t('common.number')}</span>
+                  <span className="text-xs font-medium text-gray-400">{t('common.client')}</span>
+                  <span className="text-xs font-medium text-gray-400">{t('common.date')}</span>
+                  <span className="text-xs font-medium text-gray-400">{t('common.status')}</span>
+                  <span className="text-xs font-medium text-gray-400 text-right">{t('common.total')}</span>
+                  <span className="text-xs font-medium text-gray-400 text-right">{t('common.actions')}</span>
                 </div>
                 {pagedInvoices.map((invoice, i) => {
                   const eligible = canSendToEfactura(invoice)
@@ -559,8 +558,8 @@ export default function Invoices() {
                         checked={checked}
                         disabled={!eligible || bulkBusy}
                         onChange={() => toggleSelected(invoice.id, eligible)}
-                        aria-label={`Selectează ${invoiceRef(invoice)}`}
-                        title={eligible ? `Selectează ${invoiceRef(invoice)}` : alreadySpv ? ALREADY_SENT_TO_SPV : 'Ciornele nu se trimit în e-Factura'}
+                        aria-label={t('inv.selectOne', { ref: invoiceRef(invoice) })}
+                        title={eligible ? t('inv.selectOne', { ref: invoiceRef(invoice) }) : alreadySpv ? t('inv.alreadySent') : t('inv.draftsSkip')}
                         className="h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
                       />
                       <Link href={`/invoices/${invoice.id}`} className="text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
@@ -572,13 +571,13 @@ export default function Invoices() {
                       <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
                       <span>
                         <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>
-                          {status.label}
+                          {t(status.key)}
                         </span>
                         {invoice.efactura_status === 'rejected' && (
-                          <p className="text-[10px] text-red-500 mt-1 font-medium">e-Factura TEST · respins</p>
+                          <p className="text-[10px] text-red-500 mt-1 font-medium">{t('inv.rejectedShort')}</p>
                         )}
                         {isEfacturaProcessing(invoice) && (
-                          <p className="text-[10px] text-amber-700 mt-1 font-medium">ANAF prelucrează</p>
+                          <p className="text-[10px] text-amber-700 mt-1 font-medium">{t('inv.anafWorking')}</p>
                         )}
                         {invoice.efactura_index && alreadySentToSpv(invoice) && (
                           <p className="text-[10px] text-[color:var(--color-muted-foreground)] mt-1 font-mono">#{invoice.efactura_index}</p>
@@ -593,7 +592,7 @@ export default function Invoices() {
                             href={`/invoices/${invoice.id}/edit`}
                             className="text-xs border border-gray-200 text-gray-600 px-2 py-0.5 rounded-lg hover:bg-gray-50 transition leading-tight"
                           >
-                            Editează
+                            {t('common.edit')}
                           </Link>
                         )}
                         <InvoiceOverflow
@@ -603,31 +602,31 @@ export default function Invoices() {
                               onClick: () => downloadInvoicePdf(invoice.id, userId)
                             }] : []),
                             {
-                              label: 'XML e-Factura',
+                              label: t('inv.xmlLabel'),
                               onClick: () => runXml(invoice)
                             },
                             {
-                              label: 'Email',
+                              label: t('inv.sendEmail'),
                               onClick: () => sendInvoice(invoice),
                               disabled: isDraftInvoice(invoice.status)
                             },
                             {
-                              label: isEfacturaProcessing(invoice) ? 'Actualizează stare ANAF' : 'Trimite în e-Factura TEST',
+                              label: isEfacturaProcessing(invoice) ? t('inv.updateAnaf') : t('inv.sendEfactura'),
                               onClick: () => sendToSpvTest(invoice),
                               disabled: bulkBusy || spvBusyId === invoice.id || actionBusyId === invoice.id || (!canSendToEfactura(invoice) && !isEfacturaProcessing(invoice))
                             },
                             {
-                              label: 'Copiază factură',
+                              label: t('inv.copyInvoice'),
                               onClick: () => copyFromList(invoice),
                               disabled: actionBusyId === invoice.id
                             },
                             ...(canCreateStorno(invoice, hasStornoIds.has(invoice.id)) ? [{
-                              label: 'Creează storno',
+                              label: t('inv.createStorno'),
                               onClick: () => stornoFromList(invoice),
                               disabled: actionBusyId === invoice.id
                             }] : []),
                             ...(isDraftInvoice(invoice.status) ? [{
-                              label: 'Șterge ciorna',
+                              label: t('inv.deleteDraftAction'),
                               onClick: () => deleteInvoice(invoice.id),
                               danger: true
                             }] : [])
@@ -641,26 +640,30 @@ export default function Invoices() {
               {filteredInvoices.length > PAGE_SIZE && (
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
                   <p className="text-xs text-[color:var(--color-muted-foreground)]">
-                    {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredInvoices.length)} din {filteredInvoices.length} facturi
+                    {t('inv.range', {
+                      from: (currentPage - 1) * PAGE_SIZE + 1,
+                      to: Math.min(currentPage * PAGE_SIZE, filteredInvoices.length),
+                      total: filteredInvoices.length
+                    })}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                       disabled={currentPage <= 1}
-                      aria-label="Înapoi"
+                      aria-label={t('common.prev')}
                       className="btn btn-outline text-sm px-3 py-1.5 disabled:opacity-40"
                     >
                       ←
                     </button>
                     <span className="text-sm text-[color:var(--color-foreground)] tabular-nums">
-                      Pagina {currentPage} din {pageCount}
+                      {t('common.pageOf', { page: currentPage, pages: pageCount })}
                     </span>
                     <button
                       type="button"
                       onClick={() => setPage(p => Math.min(pageCount, p + 1))}
                       disabled={currentPage >= pageCount}
-                      aria-label="Înainte"
+                      aria-label={t('common.next')}
                       className="btn btn-outline text-sm px-3 py-1.5 disabled:opacity-40"
                     >
                       →
@@ -679,15 +682,15 @@ export default function Invoices() {
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center gap-3 justify-between">
             <div>
               <p className="text-sm font-medium text-[color:var(--color-foreground)]">
-                {selectedCount === 1 ? '1 factură selectată' : `${selectedCount} facturi selectate`}
+                {selectedCount === 1 ? t('inv.selectedOne') : t('inv.selectedMany', { count: selectedCount })}
               </p>
               {bulkBusy && bulkProgress ? (
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                  Se trimite {bulkProgress.current} din {bulkProgress.total} · {bulkProgress.invoiceRef} (e-Factura TEST)
+                  {t('inv.bulkProgress', { current: bulkProgress.current, total: bulkProgress.total, ref: bulkProgress.invoiceRef })}
                 </p>
               ) : (
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                  Trimitere în e-Factura TEST. Ciornele sunt omise.
+                  {t('inv.bulkHint')}
                 </p>
               )}
             </div>
@@ -698,7 +701,7 @@ export default function Invoices() {
                 disabled={bulkBusy}
                 className="btn btn-primary disabled:opacity-50"
               >
-                {bulkBusy ? 'Se trimite...' : 'Trimite în e-Factura'}
+                {bulkBusy ? t('inv.sending') : t('inv.bulkSend')}
               </button>
               <button
                 type="button"
@@ -706,7 +709,7 @@ export default function Invoices() {
                 disabled={bulkBusy}
                 className="btn btn-outline disabled:opacity-50"
               >
-                Anulează selecția
+                {t('inv.clearSelection')}
               </button>
             </div>
           </div>
@@ -718,10 +721,15 @@ export default function Invoices() {
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">e-Factura TEST</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('nav.efactura')}</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   {summaryCounts
-                    ? `${summaryCounts.accepted} acceptate · ${summaryCounts.rejected} respinse · ${summaryCounts.skipped} omise · ${summaryCounts.error} erori`
+                    ? t('inv.bulkCounts', {
+                        accepted: summaryCounts.accepted,
+                        rejected: summaryCounts.rejected,
+                        skipped: summaryCounts.skipped,
+                        error: summaryCounts.error
+                      })
                     : ''}
                 </p>
               </div>
@@ -735,8 +743,8 @@ export default function Invoices() {
                 <li key={item.invoiceId} className="text-sm border border-gray-100 rounded-xl px-3 py-2">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium text-gray-900">{item.invoiceRef}</span>
-                    <span className={`text-xs font-medium ${OUTCOME_LABEL[item.outcome].style}`}>
-                      {OUTCOME_LABEL[item.outcome].label}
+                    <span className={`text-xs font-medium ${OUTCOME_STYLE[item.outcome]}`}>
+                      {t(outcomeKey(item.outcome))}
                     </span>
                   </div>
                   {item.error && (
@@ -745,7 +753,7 @@ export default function Invoices() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => setBulkSummary(null)} className="mt-5 btn btn-primary">Închide</button>
+            <button onClick={() => setBulkSummary(null)} className="mt-5 btn btn-primary">{t('common.close')}</button>
           </div>
         </div>
       )}
@@ -755,7 +763,7 @@ export default function Invoices() {
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">e-Factura TEST</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('nav.efactura')}</h3>
                 <p className="text-sm text-gray-500 mt-1">{spvResult.invoiceRef}</p>
               </div>
               <button onClick={() => setSpvResult(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
@@ -765,28 +773,31 @@ export default function Invoices() {
             </p>
             {spvResult.endpoint && (
               <>
-                <p className="text-xs text-gray-500 mb-1">Endpoint ANAF</p>
+                <p className="text-xs text-gray-500 mb-1">{t('inv.anafEndpoint')}</p>
                 <p className="text-sm font-mono break-all mb-4">{spvResult.endpoint}</p>
               </>
             )}
             <p className={`text-sm font-medium mb-3 ${spvResult.executionStatus === '0' ? (spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'text-amber-700' : 'text-green-600') : 'text-red-600'}`}>
               {spvResult.executionStatus === '0'
-                ? `${spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'În prelucrare' : 'Acceptat'} · index_incarcare ${spvResult.indexIncarcare || '—'} · stare ${spvResult.stare || '—'}`
+                ? t(spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'inv.processingIndex' : 'inv.acceptedIndex', {
+                    index: spvResult.indexIncarcare || '—',
+                    stare: spvResult.stare || '—'
+                  })
                 : spvResult.error}
             </p>
             {spvResult.uploadResponseXml && (
               <>
-                <p className="text-xs text-gray-500 mb-1">Răspuns upload (XML ANAF)</p>
+                <p className="text-xs text-gray-500 mb-1">{t('inv.uploadXml')}</p>
                 <pre className="text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 overflow-x-auto mb-3 whitespace-pre-wrap">{spvResult.uploadResponseXml}</pre>
               </>
             )}
             {spvResult.statusResponseXml && (
               <>
-                <p className="text-xs text-gray-500 mb-1">Răspuns stareMesaj</p>
+                <p className="text-xs text-gray-500 mb-1">{t('inv.statusXml')}</p>
                 <pre className="text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap">{spvResult.statusResponseXml}</pre>
               </>
             )}
-            <button onClick={() => setSpvResult(null)} className="mt-5 btn btn-primary">Închide</button>
+            <button onClick={() => setSpvResult(null)} className="mt-5 btn btn-primary">{t('common.close')}</button>
           </div>
         </div>
       )}

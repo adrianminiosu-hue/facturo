@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { supabase } from '@/lib/supabase'
 import { ACTIVE_COMPANY_KEY, companyFromRow, emptyCompanyFields, type Company } from '@/lib/company'
 import { loadMembershipOwnerIds, uniqueIds, type PortfolioRole } from '@/lib/portfolio'
+import { useLocale } from '@/components/LocaleProvider'
 
 type CompanyContextValue = {
   userId: string
@@ -37,6 +38,7 @@ async function acceptPendingInvites(userId: string) {
 }
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useLocale()
   const [userId, setUserId] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
@@ -150,12 +152,12 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         ...emptyCompanyFields,
         ...rest,
         user_id: userId,
-        company_name: rest.company_name || 'Firmă nouă'
+        company_name: rest.company_name || t('co.newName')
       })
       .select()
       .single()
     if (error || !data) {
-      alert(error?.message || 'Nu s-a putut crea firma. Rulează migrarea multi-company în Supabase.')
+      alert(error?.message || t('co.createFail'))
       return null
     }
     const created = companyFromRow(data, userId)

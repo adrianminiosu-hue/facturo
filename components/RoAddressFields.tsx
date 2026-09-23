@@ -1,5 +1,6 @@
 'use client'
 import { BUCHAREST_SECTORS, RO_COUNTIES } from '@/lib/romania'
+import { useLocale } from '@/components/LocaleProvider'
 
 export type RoAddressValue = {
   county_code: string
@@ -17,6 +18,7 @@ export default function RoAddressFields({
   onChange: (next: RoAddressValue) => void
   disabled?: boolean
 }) {
+  const { t } = useLocale()
   const isBucharest = value.county_code === 'B'
   const fieldClass = `input ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`
 
@@ -24,7 +26,7 @@ export default function RoAddressFields({
     <>
       <div>
         <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">
-          Județ (cod e-Factura) *
+          {t('common.county')} *
         </label>
         <select
           value={value.county_code}
@@ -39,7 +41,7 @@ export default function RoAddressFields({
           }}
           className={`${fieldClass} bg-white`}
         >
-          <option value="">Selectează județul...</option>
+          <option value="">{t('common.selectCounty')}</option>
           {RO_COUNTIES.map(county => (
             <option key={county.code} value={county.code}>{county.name} ({county.code})</option>
           ))}
@@ -47,7 +49,7 @@ export default function RoAddressFields({
       </div>
       <div>
         <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">
-          Cod poștal
+          {t('common.postalCode')}
         </label>
         <input
           type="text"
@@ -61,7 +63,7 @@ export default function RoAddressFields({
       </div>
       <div>
         <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">
-          {isBucharest ? 'Sector *' : 'Oraș *'}
+          {isBucharest ? `${t('common.sector')} *` : `${t('common.city')} *`}
         </label>
         {isBucharest ? (
           <select
@@ -70,7 +72,7 @@ export default function RoAddressFields({
             onChange={e => onChange({ ...value, city: e.target.value })}
             className={`${fieldClass} bg-white`}
           >
-            <option value="">Selectează sectorul...</option>
+            <option value="">{t('common.selectSector')}</option>
             {BUCHAREST_SECTORS.map(sector => (
               <option key={sector} value={sector}>{sector}</option>
             ))}
@@ -87,7 +89,7 @@ export default function RoAddressFields({
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Țară</label>
+        <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.country')}</label>
         <input
           type="text"
           value={value.country}

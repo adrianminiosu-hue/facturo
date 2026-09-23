@@ -1,49 +1,53 @@
+'use client'
 import Link from 'next/link'
 import BrandLockup from '@/components/BrandLockup'
-
-const features = [
-  { n: '01', title: 'Completare CUI', text: 'Introdu CUI-ul și datele fiscale se completează din registrul public. Fără transcriere.' },
-  { n: '02', title: 'PDF de atelier', text: 'Facturi cu aspect editorial, cu toate câmpurile obligatorii pentru România.' },
-  { n: '03', title: 'Trimite pe email', text: 'Un click. PDF-ul pleacă atașat, cu datele firmei tale pe document.' },
-  { n: '04', title: 'TVA în timp real', text: '21%, 9%, 5% sau scutit. Totalurile se calculează pe măsură ce scrii.' },
-  { n: '05', title: 'Dashboard precis', text: 'Emis, neîncasat, luna curentă — fără zgomot vizual, doar cifrele care contează.' },
-  { n: '06', title: 'GDPR & UE', text: 'Date stocate în Europa, izolate pe firmă. Fiecare contabil vede doar portofoliul lui.' }
-]
+import LocaleSwitch from '@/components/LocaleSwitch'
+import { useLocale } from '@/components/LocaleProvider'
 
 export default function Home() {
+  const { t } = useLocale()
+  const features = [
+    { n: '01', title: t('landing.f1t'), text: t('landing.f1d') },
+    { n: '02', title: t('landing.f2t'), text: t('landing.f2d') },
+    { n: '03', title: t('landing.f3t'), text: t('landing.f3d') },
+    { n: '04', title: t('landing.f4t'), text: t('landing.f4d') },
+    { n: '05', title: t('landing.f5t'), text: t('landing.f5d') },
+    { n: '06', title: t('landing.f6t'), text: t('landing.f6d') }
+  ]
+
   return (
     <div className="app-shell">
       <nav className="top-nav">
         <BrandLockup href="/" />
         <div className="flex items-center gap-5">
-          <Link href="/login" className="nav-link">Autentificare</Link>
+          <LocaleSwitch />
+          <Link href="/login" className="nav-link">{t('auth.login')}</Link>
           <Link href="/register" className="btn btn-primary">
-            Încearcă gratuit
+            {t('auth.tryFree')}
           </Link>
         </div>
       </nav>
 
       <section className="pt-24 pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="kicker mb-8">e-Factura · România</p>
-          <h1 className="text-5xl md:text-[4.4rem] leading-[1.05] text-[color:var(--color-foreground)] mb-6">
-            Facturare cu
-            <span className="block italic text-[color:var(--color-accent)]">prestanță.</span>
+          <p className="kicker mb-7">{t('landing.kicker')}</p>
+          <h1 className="text-5xl md:text-[4.35rem] leading-[1.04] text-[color:var(--color-foreground)] mb-5">
+            {t('landing.hero1')}
+            <span className="block italic text-[color:var(--color-accent)]">{t('landing.hero2')}</span>
           </h1>
           <p className="text-lg md:text-xl text-[color:var(--color-muted-foreground)] max-w-xl mx-auto mb-10 leading-relaxed text-pretty">
-            Emite, trimite și urmărește facturi pentru firmele pe care le administrezi —
-            cu date din registrul public, PDF și XML, într-un spațiu construit pentru contabil.
+            {t('landing.lead')}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register" className="btn btn-primary px-8 py-3.5 text-base">
-              Începe gratuit
+              {t('auth.startFree')}
             </Link>
             <Link href="/login" className="btn btn-outline px-8 py-3.5 text-base">
-              Am deja cont
+              {t('auth.hasAccount')}
             </Link>
           </div>
           <p className="text-sm text-[color:var(--color-muted-foreground)] mt-5">
-            Fără card · Poți începe gratuit
+            {t('landing.noCard')}
           </p>
         </div>
       </section>
@@ -52,15 +56,15 @@ export default function Home() {
         <div className="max-w-4xl mx-auto card px-8 py-8 grid grid-cols-3 gap-6 text-center">
           <div>
             <p className="brand text-4xl text-[color:var(--color-foreground)]">2 min</p>
-            <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">Până la prima factură</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">{t('landing.statInvoice')}</p>
           </div>
           <div className="border-x border-[color:var(--color-border)]">
             <p className="brand text-4xl text-[color:var(--color-foreground)]">ANAF</p>
-            <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">Câmpuri e-Factura</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">{t('landing.statAnaf')}</p>
           </div>
           <div>
             <p className="brand text-4xl text-[color:var(--color-foreground)]">0.00 RON</p>
-            <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">Pentru început</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">{t('landing.statStart')}</p>
           </div>
         </div>
       </section>
@@ -68,8 +72,8 @@ export default function Home() {
       <section className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="kicker mb-4">Platformă</p>
-            <h2 className="text-4xl text-[color:var(--color-foreground)]">Tot ce trebuie. Nimic în plus.</h2>
+            <p className="kicker mb-4">{t('landing.platform')}</p>
+            <h2 className="text-4xl text-[color:var(--color-foreground)]">{t('landing.platformTitle')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {features.map(f => (
@@ -86,19 +90,19 @@ export default function Home() {
       <section className="px-6 pb-24">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-14">
-            <p className="kicker mb-4">Metodă</p>
-            <h2 className="text-4xl text-[color:var(--color-foreground)]">Patru gesturi. O factură.</h2>
+            <p className="kicker mb-4">{t('landing.method')}</p>
+            <h2 className="text-4xl text-[color:var(--color-foreground)]">{t('landing.methodTitle')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {[
-              ['01', 'Contul', 'Înregistrare în câteva secunde.'],
-              ['02', 'Firma', 'CUI → date preluate din registrul public.'],
-              ['03', 'Clientul', 'Același ritm, pentru fiecare partener.'],
-              ['04', 'Emiterea', 'PDF, email, XML — din aceeași pagină.']
-            ].map(([n, t, d]) => (
+              ['01', t('landing.s1t'), t('landing.s1d')],
+              ['02', t('landing.s2t'), t('landing.s2d')],
+              ['03', t('landing.s3t'), t('landing.s3d')],
+              ['04', t('landing.s4t'), t('landing.s4d')]
+            ].map(([n, title, d]) => (
               <div key={n}>
                 <p className="kicker mb-3">{n}</p>
-                <h3 className="brand text-2xl mb-2">{t}</h3>
+                <h3 className="brand text-2xl mb-2">{title}</h3>
                 <p className="text-sm text-[color:var(--color-muted-foreground)]">{d}</p>
               </div>
             ))}
@@ -108,12 +112,12 @@ export default function Home() {
 
       <section className="px-6 pb-24">
         <div className="max-w-3xl mx-auto card p-12 text-center bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] border-0">
-          <h2 className="text-4xl mb-4 text-[color:var(--color-primary-foreground)]">Un atelier pentru facturi.</h2>
+          <h2 className="text-4xl mb-4 text-[color:var(--color-primary-foreground)]">{t('landing.footerLead')}</h2>
           <p className="text-[color:var(--color-primary-foreground)]/70 mb-8">
-            Pentru contabilii care lucrează pe mai multe firme și vor un instrument pe măsură.
+            {t('landing.footerSub')}
           </p>
           <Link href="/register" className="btn bg-[color:var(--color-accent)] text-white hover:opacity-90 px-8 py-3.5 text-base">
-            Creează cont
+            {t('landing.createAccount')}
           </Link>
         </div>
       </section>
@@ -122,10 +126,10 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <BrandLockup href="/" size="sm" />
-            <span className="text-sm text-[color:var(--color-muted-foreground)]">Facturare pentru România</span>
+            <span className="text-sm text-[color:var(--color-muted-foreground)]">{t('landing.forRomania')}</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-[color:var(--color-muted-foreground)]">
-            <Link href="/gdpr" className="hover:text-[color:var(--color-foreground)] transition">Confidențialitate</Link>
+            <Link href="/gdpr" className="hover:text-[color:var(--color-foreground)] transition">{t('landing.privacy')}</Link>
             <span>© 2026</span>
           </div>
         </div>

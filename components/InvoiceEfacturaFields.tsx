@@ -1,5 +1,7 @@
 'use client'
 import { INVOICE_TYPE_CODES, PAYMENT_MEANS_CODES } from '@/lib/efactura'
+import { useLocale } from '@/components/LocaleProvider'
+import { invoiceTypeKey, paymentMeansKey } from '@/lib/uiLabels'
 
 export type InvoiceEfacturaValue = {
   invoice_type_code: string
@@ -24,19 +26,20 @@ export default function InvoiceEfacturaFields({
   buyerIsPublic?: boolean
   lockType?: boolean
 }) {
+  const { t } = useLocale()
   const types = lockType
     ? INVOICE_TYPE_CODES.filter(type => type.code === value.invoice_type_code)
     : INVOICE_TYPE_CODES.filter(type => type.code !== '381' || value.invoice_type_code === '381')
 
   return (
     <div className="card p-6">
-      <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">Date e-Factura (SPV)</h3>
+      <h3 className="font-bold text-[color:var(--color-foreground)] mb-1">{t('inv.efacturaFields')}</h3>
       <p className="text-xs text-[color:var(--color-muted-foreground)] mb-4">
-        Câmpuri necesare pentru XML RO_CIUS / UBL 2.1. Completarea lor permite trimiterea ulterioară în Spațiul Privat Virtual.
+        {t('inv.efacturaFieldsLead')}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tip document</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.docType')}</label>
           <select
             value={value.invoice_type_code}
             onChange={e => onChange({ ...value, invoice_type_code: e.target.value })}
@@ -44,28 +47,28 @@ export default function InvoiceEfacturaFields({
             disabled={lockType}
           >
             {types.map(type => (
-              <option key={type.code} value={type.code}>{type.code} — {type.label}</option>
+              <option key={type.code} value={type.code}>{type.code} — {t(invoiceTypeKey(type.code))}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Monedă</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.currency')}</label>
           <input type="text" value="RON" readOnly className="input bg-gray-50 text-gray-500" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Modalitate de plată</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.paymentMeans')}</label>
           <select
             value={value.payment_means_code}
             onChange={e => onChange({ ...value, payment_means_code: e.target.value })}
             className="input bg-white"
           >
             {PAYMENT_MEANS_CODES.map(method => (
-              <option key={method.code} value={method.code}>{method.label}</option>
+              <option key={method.code} value={method.code}>{paymentMeansKey(method.code) ? t(paymentMeansKey(method.code)!) : method.label}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Data exigibilității TVA</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.vatDate')}</label>
           <input
             type="date"
             value={value.tax_point_date}
@@ -74,7 +77,7 @@ export default function InvoiceEfacturaFields({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Data livrării</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.deliveryDate')}</label>
           <input
             type="date"
             value={value.delivery_date}
@@ -83,7 +86,7 @@ export default function InvoiceEfacturaFields({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Referință comandă</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.orderRef')}</label>
           <input
             type="text"
             value={value.order_reference}
@@ -94,21 +97,21 @@ export default function InvoiceEfacturaFields({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Referință cumpărător {buyerIsPublic ? '*' : ''}
+            {t('inv.buyerRef')} {buyerIsPublic ? '*' : ''}
           </label>
           <input
             type="text"
             value={value.buyer_reference}
             onChange={e => onChange({ ...value, buyer_reference: e.target.value })}
             className="input"
-            placeholder="Obligatoriu pentru autorități publice"
+            placeholder={t('inv.buyerRefPh')}
           />
           {buyerIsPublic && !value.buyer_reference && (
-            <p className="text-red-500 text-xs mt-1">Obligatorie pentru instituții publice (BT-10).</p>
+            <p className="text-red-500 text-xs mt-1">{t('inv.buyerRefRequired')}</p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Perioadă facturare — de la</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodFrom')}</label>
           <input
             type="date"
             value={value.period_start}
@@ -117,7 +120,7 @@ export default function InvoiceEfacturaFields({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Perioadă facturare — până la</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodTo')}</label>
           <input
             type="date"
             value={value.period_end}

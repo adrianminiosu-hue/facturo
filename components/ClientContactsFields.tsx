@@ -7,6 +7,8 @@ import {
   type ClientContactDraft
 } from '@/lib/clientDirectory'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
+import { useLocale } from '@/components/LocaleProvider'
+import { displayRole } from '@/lib/uiLabels'
 
 const PRESET_ROLES = CLIENT_CONTACT_ROLES.filter(role => role !== 'Altele')
 
@@ -17,6 +19,7 @@ export default function ClientContactsFields({
   contacts: ClientContactDraft[]
   onChange: (next: ClientContactDraft[]) => void
 }) {
+  const { t } = useLocale()
   const rows = contacts
   const contactKeys = rows.map(row => row.key).join('|')
   const [editingKey, setEditingKey] = useState<string | null>(null)
@@ -44,7 +47,7 @@ export default function ClientContactsFields({
 
   const startNew = () => {
     if (editingKey) {
-      alert('Salvează sau anulează persoana curentă înainte de a adăuga alta.')
+      alert(t('ctc.saveFirst'))
       return
     }
     const created = emptyClientContact()
@@ -56,11 +59,11 @@ export default function ClientContactsFields({
   const saveContact = () => {
     if (!editing) return
     if (!isContactComplete(editing)) {
-      alert('Completează numele persoanei de contact înainte de a salva.')
+      alert(t('ctc.nameRequired'))
       return
     }
     if (editing.phone && !isValidRomanianMobile(editing.phone)) {
-      alert('Număr de mobil invalid. Format acceptat: 07xxxxxxxx sau +407xxxxxxxx.')
+      alert(t('common.mobileFormat'))
       return
     }
     setEditingKey(null)
@@ -97,11 +100,10 @@ export default function ClientContactsFields({
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">
-            Persoane de contact
+            {t('ctc.title')}
           </p>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-            Opțional. Completează numele, telefonul și funcția, apoi apasă Salvează persoana.
-            Persoanele salvate apar ca rânduri.
+            {t('ctc.lead')}
           </p>
         </div>
         <button
@@ -110,17 +112,17 @@ export default function ClientContactsFields({
           disabled={!!editingKey}
           className="btn btn-outline px-3 py-2 text-xs whitespace-nowrap disabled:opacity-50"
         >
-          + Adaugă persoană de contact
+          {t('ctc.add')}
         </button>
       </div>
 
       {savedRows.length > 0 && (
         <div className="border border-gray-100 rounded-xl overflow-hidden mb-3">
           <div className="hidden md:grid grid-cols-12 px-4 py-2 border-b border-gray-100 bg-gray-50">
-            <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Nume</span>
-            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Telefon</span>
-            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Funcție</span>
-            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">Acțiuni</span>
+            <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.name')}</span>
+            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.phone')}</span>
+            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.role')}</span>
+            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">{t('common.actions')}</span>
           </div>
           {savedRows.map((row, index) => (
             <div
@@ -134,7 +136,7 @@ export default function ClientContactsFields({
                 {row.phone || '—'}
               </p>
               <p className="md:col-span-3 text-sm text-[color:var(--color-muted-foreground)] truncate">
-                {row.contact_role || '—'}
+                {displayRole(t, row.contact_role) || '—'}
               </p>
               <div className="md:col-span-2 flex items-center justify-end gap-2">
                 <button
@@ -142,14 +144,14 @@ export default function ClientContactsFields({
                   onClick={() => startEdit(row)}
                   className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
                 >
-                  Editează
+                  {t('common.edit')}
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteContact(row)}
                   className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
                 >
-                  Șterge
+                  {t('common.delete')}
                 </button>
               </div>
             </div>
@@ -160,11 +162,11 @@ export default function ClientContactsFields({
       {editing && (
         <div className="border border-gray-100 rounded-xl p-4">
           <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] mb-4">
-            {savedRows.length === 0 ? 'Persoană de contact' : 'Persoană nouă / editare'}
+            {savedRows.length === 0 ? t('ctc.person') : t('ctc.newEdit')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Nume *</label>
+              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.name')} *</label>
               <input
                 type="text"
                 value={editing.name}
@@ -174,7 +176,7 @@ export default function ClientContactsFields({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Telefon</label>
+              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.phone')}</label>
               <input
                 type="text"
                 value={editing.phone}
@@ -183,11 +185,11 @@ export default function ClientContactsFields({
                 placeholder="ex: 0721 234 567"
               />
               {editing.phone && !editingPhoneValid && (
-                <p className="text-red-500 text-xs mt-1">Mobil invalid (ex: 0721234567 sau +40721234567)</p>
+                <p className="text-red-500 text-xs mt-1">{t('common.invalidMobile')}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Funcție</label>
+              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.role')}</label>
               <select
                 value={editingSelectValue}
                 onChange={e => {
@@ -197,11 +199,11 @@ export default function ClientContactsFields({
                 }}
                 className="input bg-white"
               >
-                <option value="">Selectează funcția...</option>
+                <option value="">{t('ctc.selectRole')}</option>
                 {PRESET_ROLES.map(role => (
-                  <option key={role} value={role}>{role}</option>
+                  <option key={role} value={role}>{displayRole(t, role)}</option>
                 ))}
-                <option value="__custom">Altele</option>
+                <option value="__custom">{t('role.other')}</option>
               </select>
               {editingSelectValue === '__custom' && (
                 <input
@@ -209,18 +211,18 @@ export default function ClientContactsFields({
                   value={editing.contact_role}
                   onChange={e => update(editing.key, { contact_role: e.target.value })}
                   className="input mt-2"
-                  placeholder="Funcție personalizată"
+                  placeholder={t('ctc.customRole')}
                 />
               )}
             </div>
           </div>
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={saveContact} className="btn btn-primary">
-              Salvează persoana
+              {t('ctc.save')}
             </button>
             {showCancel && (
               <button type="button" onClick={cancelEdit} className="btn btn-outline">
-                Anulează
+                {t('common.cancel')}
               </button>
             )}
           </div>
@@ -228,7 +230,7 @@ export default function ClientContactsFields({
       )}
 
       {!editing && savedRows.length === 0 && (
-        <p className="text-sm text-[color:var(--color-muted-foreground)]">Nicio persoană de contact adăugată.</p>
+        <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('ctc.empty')}</p>
       )}
     </div>
   )

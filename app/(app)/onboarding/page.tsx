@@ -6,9 +6,11 @@ import RoAddressFields from '@/components/RoAddressFields'
 import { countyNameFromCode } from '@/lib/romania'
 import { useCompany } from '@/components/CompanyProvider'
 import BrandLockup from '@/components/BrandLockup'
+import { useLocale } from '@/components/LocaleProvider'
 
 export default function Onboarding() {
   const router = useRouter()
+  const { t } = useLocale()
   const { company, createCompany, refreshCompanies, setActiveCompanyId } = useCompany()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -131,10 +133,10 @@ export default function Onboarding() {
           }))
         }
       } else {
-        alert('CUI negăsit în registrul public.')
+        alert(t('pro.cuiNotFound'))
       }
     } catch (e) {
-      alert('Eroare conexiune la registrul public.')
+      alert(t('pro.connError'))
     }
     type === 'profile' ? setCuiLoading(false) : setClientCuiLoading(false)
   }
@@ -155,7 +157,7 @@ export default function Onboarding() {
   }
 
   const saveProfile = async () => {
-    if (!profile.company_name) { alert('Introdu denumirea companiei!'); return }
+    if (!profile.company_name) { alert(t('onb.companyNameRequired')); return }
     setSaving(true)
     await persistProfileIfNeeded()
     setSaving(false)
@@ -163,10 +165,10 @@ export default function Onboarding() {
   }
 
   const saveClient = async () => {
-    if (!client.company_name) { alert('Introdu denumirea clientului!'); return }
+    if (!client.company_name) { alert(t('onb.clientNameRequired')); return }
     const { data: { user } } = await supabase.auth.getUser()
     const companyId = company?.id
-    if (!companyId) { alert('Salvează mai întâi firma.'); return }
+    if (!companyId) { alert(t('onb.saveCompanyFirst')); return }
     setSaving(true)
     const payload = {
       ...client,
@@ -211,7 +213,7 @@ export default function Onboarding() {
         <div className="max-w-2xl mx-auto w-full flex items-center justify-between">
           <BrandLockup href="/dashboard" />
           <button onClick={skipToApp} className="nav-link">
-            Sari peste →
+            {t('common.skipArrow')}
           </button>
         </div>
       </div>
@@ -231,7 +233,7 @@ export default function Onboarding() {
               </div>
               <div className="flex-1">
                 <p className={`text-xs font-medium ${s === step ? 'text-gray-900' : 'text-gray-400'}`}>
-                  {s === 1 ? 'Compania ta' : s === 2 ? 'Primul client' : 'Prima factură'}
+                  {s === 1 ? t('onb.stepCompany') : s === 2 ? t('onb.stepClient') : t('onb.stepInvoice')}
                 </p>
               </div>
               {s < 3 && <div className={`h-0.5 w-8 flex-shrink-0 ${s < step ? 'bg-green-500' : 'bg-gray-200'}`} />}
@@ -242,12 +244,12 @@ export default function Onboarding() {
         {/* Step 1 — Company profile */}
         {step === 1 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
-            <h2 className="text-3xl text-gray-900 mb-1">Configurează compania ta</h2>
-            <p className="text-gray-500 mb-8">Aceste date vor apărea pe toate facturile tale.</p>
+            <h2 className="text-3xl text-gray-900 mb-1">{t('onb.companyTitle')}</h2>
+            <p className="text-gray-500 mb-8">{t('onb.companyLead')}</p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CUI / CIF</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('cli.cuiCif')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -261,13 +263,13 @@ export default function Onboarding() {
                     disabled={cuiLoading}
                     className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                   >
-                    {cuiLoading ? 'Se caută...' : 'Caută CUI'}
+                    {cuiLoading ? t('common.searching') : t('cli.lookupCui')}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Denumire companie *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('pro.companyName')}</label>
                 <input
                   type="text"
                   value={profile.company_name}
@@ -278,7 +280,7 @@ export default function Onboarding() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('cli.regCom')}</label>
                 <input
                   type="text"
                   value={profile.reg_com}
@@ -289,7 +291,7 @@ export default function Onboarding() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('pro.address')}</label>
                 <input
                   type="text"
                   value={profile.address}
@@ -316,12 +318,12 @@ export default function Onboarding() {
                   checked={profile.vat_registered}
                   onChange={e => setProfile(f => ({ ...f, vat_registered: e.target.checked }))}
                 />
-                Plătitor de TVA
+                {t('pro.vatPayer')}
               </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bancă</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.bank')}</label>
                   <input
                     type="text"
                     value={profile.bank_name}
@@ -331,7 +333,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.iban')}</label>
                   <input
                     type="text"
                     value={profile.iban}
@@ -345,7 +347,7 @@ export default function Onboarding() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email companie</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('onb.emailCompany')}</label>
                   <input
                     type="email"
                     value={profile.email}
@@ -355,7 +357,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Serie factură</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('pro.series')}</label>
                   <input
                     type="text"
                     value={profile.invoice_series}
@@ -370,14 +372,14 @@ export default function Onboarding() {
 
             <div className="flex items-center justify-between mt-8">
               <button onClick={skipToApp} className="text-sm text-gray-400 hover:text-gray-600 transition">
-                Completează mai târziu
+                {t('common.later')}
               </button>
               <button
                 onClick={saveProfile}
                 disabled={saving || !profile.company_name}
                 className="btn btn-primary disabled:opacity-50"
               >
-                {saving ? 'Se salvează...' : 'Continuă →'}
+                {saving ? t('common.saving') : t('common.continue')}
               </button>
             </div>
           </div>
@@ -386,12 +388,12 @@ export default function Onboarding() {
         {/* Step 2 — First client */}
         {step === 2 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
-            <h2 className="text-3xl text-gray-900 mb-1">Adaugă primul client</h2>
-            <p className="text-gray-500 mb-8">Introdu CUI-ul și datele se completează automat din registrul public.</p>
+            <h2 className="text-3xl text-gray-900 mb-1">{t('onb.clientTitle')}</h2>
+            <p className="text-gray-500 mb-8">{t('onb.clientLead')}</p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CUI / CIF client</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('onb.cuiClient')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -405,13 +407,13 @@ export default function Onboarding() {
                     disabled={clientCuiLoading}
                     className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                   >
-                    {clientCuiLoading ? 'Se caută...' : 'Caută CUI'}
+                    {clientCuiLoading ? t('common.searching') : t('cli.lookupCui')}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Denumire companie *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('pro.companyName')}</label>
                 <input
                   type="text"
                   value={client.company_name}
@@ -422,7 +424,7 @@ export default function Onboarding() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nr. Reg. Comerț</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('cli.regCom')}</label>
                 <input
                   type="text"
                   value={client.reg_com}
@@ -433,7 +435,7 @@ export default function Onboarding() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresă *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('pro.address')}</label>
                 <input
                   type="text"
                   value={client.address}
@@ -460,12 +462,12 @@ export default function Onboarding() {
                   checked={client.vat_registered}
                   onChange={e => setClient(f => ({ ...f, vat_registered: e.target.checked }))}
                 />
-                Client plătitor de TVA
+                {t('cli.vatPayer')}
               </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email client</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('onb.emailClient')}</label>
                   <input
                     type="email"
                     value={client.email}
@@ -475,7 +477,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.phone')}</label>
                   <input
                     type="text"
                     value={client.phone}
@@ -489,18 +491,18 @@ export default function Onboarding() {
 
             <div className="flex items-center justify-between mt-8">
               <button onClick={() => setStep(1)} className="text-sm text-gray-400 hover:text-gray-600 transition">
-                ← Înapoi
+                {t('common.backArrow')}
               </button>
               <div className="flex gap-3">
                 <button onClick={skipToApp} className="text-sm text-gray-400 hover:text-gray-600 transition px-4 py-3">
-                  Sari peste
+                  {t('common.skip')}
                 </button>
                 <button
                   onClick={saveClient}
                   disabled={saving || !client.company_name}
                   className="btn btn-primary disabled:opacity-50"
                 >
-                  {saving ? 'Se salvează...' : 'Continuă →'}
+                  {saving ? t('common.saving') : t('common.continue')}
                 </button>
               </div>
             </div>
@@ -513,29 +515,29 @@ export default function Onboarding() {
             <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">🎉</span>
             </div>
-            <h2 className="text-3xl text-gray-900 mb-3">Ești gata</h2>
+            <h2 className="text-3xl text-gray-900 mb-3">{t('onb.readyTitle')}</h2>
             <p className="text-gray-500 mb-8 max-w-sm mx-auto">
-              Compania și primul client sunt configurate. Acum poți emite prima ta factură profesională.
+              {t('onb.readyLead')}
             </p>
 
             <div className="bg-gray-50 rounded-2xl p-6 mb-8 text-left">
-              <p className="text-sm font-medium text-gray-700 mb-3">Ce se întâmplă când creezi o factură:</p>
+              <p className="text-sm font-medium text-gray-700 mb-3">{t('onb.whatHappens')}</p>
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">1</span>
-                  <p className="text-sm text-gray-600">Selectezi clientul din lista ta</p>
+                  <p className="text-sm text-gray-600">{t('onb.tip0')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">2</span>
-                  <p className="text-sm text-gray-600">Adaugi produsele/serviciile cu prețuri</p>
+                  <p className="text-sm text-gray-600">{t('onb.tip1')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">3</span>
-                  <p className="text-sm text-gray-600">TVA se calculează automat</p>
+                  <p className="text-sm text-gray-600">{t('onb.tip2')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="w-6 h-6 bg-[color:var(--color-accent)] text-[color:var(--color-accent-foreground)] rounded-full flex items-center justify-center text-xs">4</span>
-                  <p className="text-sm text-gray-600">Descarci PDF-ul sau trimiți pe email</p>
+                  <p className="text-sm text-gray-600">{t('onb.tip3')}</p>
                 </div>
               </div>
             </div>
@@ -545,13 +547,13 @@ export default function Onboarding() {
                 onClick={goToInvoice}
                 className="btn btn-primary w-full"
               >
-                Creează prima factură →
+                {t('onb.createFirst')}
               </button>
               <button
                 onClick={skipToApp}
                 className="w-full border border-gray-200 text-gray-500 py-3 rounded-2xl text-sm hover:bg-gray-50 transition"
               >
-                Du-mă la dashboard
+                {t('onb.goDash')}
               </button>
             </div>
           </div>

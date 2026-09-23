@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import { agingKey, calendarDateInBucharest, daysUntilDue, formatRoDate, type AgingKey } from '@/lib/dates'
 import PaymentModal from '@/components/PaymentModal'
@@ -11,6 +12,7 @@ import StatementImportModal from '@/components/StatementImportModal'
 import { RECEIVABLE_LIST_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
+import type { MessageKey } from '@/lib/messages'
 
 type Row = {
   id: string
@@ -40,14 +42,14 @@ type Unallocated = {
   company_id?: string | null
 }
 
-const buckets: { id: '' | AgingKey | 'week_risk' | 'paid'; label: string }[] = [
-  { id: '', label: 'Toate' },
-  { id: 'due_0_2', label: '0–2 zile' },
-  { id: 'due_week', label: 'Săptămâna aceasta' },
-  { id: 'overdue_1_30', label: 'Restanță 1–30' },
-  { id: 'overdue_30', label: 'Restanță 30+' },
-  { id: 'week_risk', label: 'La risc (7 zile)' },
-  { id: 'paid', label: 'Plătite' }
+const buckets: { id: '' | AgingKey | 'week_risk' | 'paid'; key: MessageKey }[] = [
+  { id: '', key: 'rec.all' },
+  { id: 'due_0_2', key: 'rec.due02' },
+  { id: 'due_week', key: 'rec.thisWeek' },
+  { id: 'overdue_1_30', key: 'rec.overdue130' },
+  { id: 'overdue_30', key: 'rec.overdue30' },
+  { id: 'week_risk', key: 'rec.weekRisk' },
+  { id: 'paid', key: 'rec.paid' }
 ]
 
 const PAGE_SIZE = 20
@@ -61,6 +63,7 @@ function ron(n: number) {
 }
 
 export default function IncasariPage() {
+  const { t } = useLocale()
   const router = useRouter()
   const { userId, companies, company, ownerUserId, accessibleOwnerIds, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<Row[]>([])
@@ -77,7 +80,7 @@ export default function IncasariPage() {
 
   const today = calendarDateInBucharest(0)
   const companyName = (id?: string | null) =>
-    companies.find(c => c.id === id)?.company_name || 'Firmă'
+    companies.find(c => c.id === id)?.company_name || t('rec.firm')
 
   const load = async () => {
     let query = supabase
@@ -171,7 +174,7 @@ export default function IncasariPage() {
   ).sort((a, b) => a[1].localeCompare(b[1], 'ro'))
 
   const sendReminder = async (row: Row) => {
-    if (!confirm(`Trimiți reminder de plată pentru ${row.series}${row.invoice_number}?`)) return
+    if (!confirm(t('rec.confirmReminder', { ref: `${row.series}${row.invoice_number}` }))) return
     setBusyId(row.id)
     try {
       const res = await fetch('/api/receivables/reminder', {
@@ -180,7 +183,7 @@ export default function IncasariPage() {
         body: JSON.stringify({ invoiceId: row.id, userId })
       })
       const data = await res.json()
-      if (!res.ok) { alert(data.error || 'Reminderul nu a plecat'); return }
+      if (!res.ok) { alert(data.error || t('rec.reminderFail')); return }
       await load()
     } finally {
       setBusyId('')
@@ -189,15 +192,15 @@ export default function IncasariPage() {
 
   const savePromise = async (id: string, date: string) => {
     const { error } = await supabase.from('invoices').update({ promised_pay_date: date || null }).eq('id', id)
-    if (error) alert('Rulează migrarea receivables în Supabase pentru data promisă.')
+    if (error) alert(t('rec.promiseMigrate'))
     else load()
   }
 
   const daysLabel = (days: number, settled?: boolean) => {
-    if (settled) return 'plătită'
-    if (days < 0) return `${Math.abs(days)} z restant`
-    if (days === 0) return 'astăzi'
-    return `${days} z`
+    if (settled) return t('rec.paidLabel')
+    if (days < 0) return t('rec.overdueDays', { count: Math.abs(days) })
+    if (days === 0) return t('rec.today')
+    return t('rec.daysLeft', { count: days })
   }
 
   return (
@@ -206,11 +209,11 @@ export default function IncasariPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="kicker mb-2">Portofoliu</p>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Încasări</h2>
+            <p className="kicker mb-2">{t('rec.portfolio')}</p>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('rec.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {company?.company_name ? `${company.company_name} · ` : ''}
-              facturi emise, deschise și încasate · sortate după scadență
+              {t('rec.lead')}
             </p>
           </div>
           <button
@@ -219,25 +222,25 @@ export default function IncasariPage() {
             disabled={!company?.id}
             className="btn btn-primary disabled:opacity-40"
           >
-            Importă extras
+            {t('rec.importStatement')}
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           <div className="card p-6">
-            <p className="kicker mb-3">La risc săptămâna asta</p>
+            <p className="kicker mb-3">{t('rec.weekRiskCard')}</p>
             <p className="text-3xl brand">{ron(weekRisk)}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">scadente în 7 zile + restante</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('rec.weekRiskSub')}</p>
           </div>
           <div className="card p-6">
-            <p className="kicker mb-3">Restant acum</p>
+            <p className="kicker mb-3">{t('rec.overdueNow')}</p>
             <p className={`text-3xl brand ${overdueAmt > 0 ? 'text-amber-800' : ''}`}>{ron(overdueAmt)}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">după scadență</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('rec.overdueSub')}</p>
           </div>
           <div className="card p-6">
-            <p className="kicker mb-3">De încasat</p>
+            <p className="kicker mb-3">{t('rec.toCollect')}</p>
             <p className="text-3xl brand">{ron(totalOpen)}</p>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{openRows.length} facturi deschise</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('rec.openCount', { count: openRows.length })}</p>
           </div>
         </div>
 
@@ -252,7 +255,7 @@ export default function IncasariPage() {
                   : 'border-[color:var(--color-border)] text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)]'
               }`}
             >
-              {b.label}
+              {t(b.key)}
             </button>
           ))}
         </div>
@@ -260,15 +263,15 @@ export default function IncasariPage() {
         <div className="card p-4 mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <select value={clientId} onChange={e => setClientId(e.target.value)} className="input bg-white py-2.5">
-              <option value="">Toți clienții</option>
+              <option value="">{t('rec.allClients')}</option>
               {clientOptions.map(([id, name]) => (
                 <option key={id} value={id}>{name}</option>
               ))}
             </select>
             <select value={reminderFilter} onChange={e => setReminderFilter(e.target.value as typeof reminderFilter)} className="input bg-white py-2.5">
-              <option value="all">Reminder: toate</option>
-              <option value="never">Niciodată trimis</option>
-              <option value="sent">Deja trimis</option>
+              <option value="all">{t('rec.reminderAll')}</option>
+              <option value="never">{t('rec.reminderNever')}</option>
+              <option value="sent">{t('rec.reminderSent')}</option>
             </select>
             <input
               type="number"
@@ -276,30 +279,30 @@ export default function IncasariPage() {
               value={minAmount}
               onChange={e => setMinAmount(e.target.value)}
               className="input py-2.5"
-              placeholder="Sumă min. (RON)"
+              placeholder={t('rec.minAmount')}
             />
           </div>
         </div>
 
         {loading ? (
-          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">Se încarcă...</p>
+          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">{t('common.loading')}</p>
         ) : filtered.length === 0 ? (
           <div className="card p-12 text-center">
-            <p className="text-[color:var(--color-muted-foreground)]">Nicio factură deschisă pe filtrul curent.</p>
-            <Link href="/invoices" className="text-sm mt-3 inline-block hover:underline">Mergi la facturi emise →</Link>
+            <p className="text-[color:var(--color-muted-foreground)]">{t('rec.empty')}</p>
+            <Link href="/invoices" className="text-sm mt-3 inline-block hover:underline">{t('rec.goIssued')}</Link>
           </div>
         ) : (
           <>
           <div className="card overflow-x-auto">
             <div className="min-w-[900px]">
               <div className="grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
-                <span>Client</span>
-                <span>Factură</span>
-                <span>Scadență</span>
-                <span>Zile</span>
-                <span className="whitespace-nowrap">Rest de plată</span>
-                <span>Promisiune</span>
-                <span className="text-right">Acțiuni</span>
+                <span>{t('common.client')}</span>
+                <span>{t('rec.invoice')}</span>
+                <span>{t('rec.due')}</span>
+                <span>{t('rec.days')}</span>
+                <span className="whitespace-nowrap">{t('rec.rest')}</span>
+                <span>{t('rec.promise')}</span>
+                <span className="text-right">{t('common.actions')}</span>
               </div>
               {paged.map((row, i) => (
                 <div key={row.id} className={`grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
@@ -313,7 +316,7 @@ export default function IncasariPage() {
                     {ron(row.rest)}
                     {Number(row.amount_paid) > 0 && (
                       <span className="block text-[11px] font-normal text-[color:var(--color-muted-foreground)]">
-                        din {ron(Number(row.total))}
+                        {t('rec.fromTotal', { amount: ron(Number(row.total)) })}
                       </span>
                     )}
                   </span>
@@ -322,7 +325,7 @@ export default function IncasariPage() {
                     value={row.promised_pay_date || ''}
                     onChange={e => savePromise(row.id, e.target.value)}
                     className="input py-0.5 px-2 text-xs"
-                    title="Data promisă de client"
+                    title={t('rec.promisedTitle')}
                   />
                   <div className="flex justify-end gap-1.5 flex-wrap">
                     {!row.settled && (
@@ -331,20 +334,20 @@ export default function IncasariPage() {
                       onClick={() => sendReminder(row)}
                       disabled={busyId === row.id || !row.clients?.email}
                       className="text-xs border border-gray-200 px-2.5 py-0.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 leading-tight"
-                      title={row.reminder_sent_at ? `Ultimul reminder: ${row.reminder_sent_at.slice(0, 10)}` : 'Niciun reminder'}
+                      title={row.reminder_sent_at ? t('rec.lastReminder', { date: row.reminder_sent_at.slice(0, 10) }) : t('rec.noReminder')}
                     >
-                      {busyId === row.id ? '...' : row.reminder_sent_at ? 'Reminder din nou' : 'Reminder'}
+                      {busyId === row.id ? '...' : row.reminder_sent_at ? t('rec.reminderAgain') : t('rec.reminder')}
                     </button>
                     <button
                       onClick={() => setPayRow(row)}
                       className="text-xs border border-gray-200 px-2.5 py-0.5 rounded-lg hover:bg-gray-50 leading-tight"
                     >
-                      Încasare
+                      {t('inv.collection')}
                     </button>
                       </>
                     )}
                     <Link href={`/invoices/${row.id}`} className="text-xs border border-gray-200 px-2.5 py-0.5 rounded-lg hover:bg-gray-50 leading-tight">
-                      Deschide
+                      {t('common.open')}
                     </Link>
                   </div>
                 </div>
@@ -354,26 +357,30 @@ export default function IncasariPage() {
           {filtered.length > PAGE_SIZE && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
               <p className="text-xs text-[color:var(--color-muted-foreground)]">
-                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} din {filtered.length} încasări
+                {t('rec.range', {
+                  from: (currentPage - 1) * PAGE_SIZE + 1,
+                  to: Math.min(currentPage * PAGE_SIZE, filtered.length),
+                  total: filtered.length
+                })}
               </p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={currentPage <= 1}
-                  aria-label="Înapoi"
+                  aria-label={t('common.prev')}
                   className="btn btn-outline text-sm px-3 py-1.5 disabled:opacity-40"
                 >
                   ←
                 </button>
                 <span className="text-sm text-[color:var(--color-foreground)] tabular-nums">
-                  Pagina {currentPage} din {pageCount}
+                  {t('common.pageOf', { page: currentPage, pages: pageCount })}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPage(p => Math.min(pageCount, p + 1))}
                   disabled={currentPage >= pageCount}
-                  aria-label="Înainte"
+                  aria-label={t('common.next')}
                   className="btn btn-outline text-sm px-3 py-1.5 disabled:opacity-40"
                 >
                   →
@@ -385,17 +392,17 @@ export default function IncasariPage() {
         )}
         {unallocated.length > 0 && (
           <div className="card p-5 mt-6">
-            <p className="kicker mb-3">Încasări nealocate</p>
+            <p className="kicker mb-3">{t('rec.unallocated')}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mb-3">
-              Din extras, fără factură — nu modifică restul unei facturi până le înregistrezi manual pe document.
+              {t('rec.unallocatedLead')}
             </p>
             <div className="space-y-2">
               {unallocated.map(p => (
                 <div key={p.id} className="flex justify-between gap-3 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate">{p.counterpart_name || 'Plătitor necunoscut'}</p>
+                    <p className="truncate">{p.counterpart_name || t('rec.unknownPayer')}</p>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] truncate">
-                      {p.paid_on} · {p.counterpart_iban || p.reference || p.notes || 'extras XML 940'}
+                      {p.paid_on} · {p.counterpart_iban || p.reference || p.notes || t('rec.xml940')}
                     </p>
                   </div>
                   <p className="font-medium shrink-0">{ron(Number(p.amount))}</p>

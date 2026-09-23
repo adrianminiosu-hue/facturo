@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import { formatRoDate } from '@/lib/dates'
 import { formatAmount, formatRon } from '@/lib/money'
+import { useLocale } from '@/components/LocaleProvider'
 
 export type DailyAmount = {
   date: string
@@ -9,9 +10,9 @@ export type DailyAmount = {
   collected: number
 }
 
-function weekdayLetter(isoDate: string) {
+function weekdayLetter(isoDate: string, locale: string) {
   const day = new Date(`${isoDate}T12:00:00Z`).getUTCDay()
-  return ['D', 'L', 'Ma', 'Mi', 'J', 'V', 'S'][day]
+  return (locale === 'en' ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : ['D', 'L', 'Ma', 'Mi', 'J', 'V', 'S'])[day]
 }
 
 function axisLabel(value: number) {
@@ -21,6 +22,7 @@ function axisLabel(value: number) {
 }
 
 export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
+  const { t, locale } = useLocale()
   const [active, setActive] = useState<number | null>(null)
   const max = Math.max(...days.flatMap(d => [d.invoiced, d.collected]), 0)
   const peak = max > 0 ? max * 1.12 : 1
@@ -41,20 +43,20 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <p className="kicker mb-2">Volum zilnic</p>
-          <h3 className="brand text-xl text-[color:var(--color-foreground)]">Ultimele 15 zile</h3>
+          <p className="kicker mb-2">{t('dash.dailyVolume')}</p>
+          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.last15')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-            Facturat {formatRon(invoicedTotal)} · Încasat {formatRon(collectedTotal)}
+            {t('dash.invoicedCollected', { invoiced: formatRon(invoicedTotal), collected: formatRon(collectedTotal) })}
           </p>
         </div>
         <div className="flex items-center gap-4 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm bg-[#0e7490]" />
-            Facturat
+            {t('chart.invoiced')}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm bg-[#c2410c]" />
-            Încasări
+            {t('chart.collections')}
           </span>
         </div>
       </div>
@@ -64,7 +66,7 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-[260px]"
           role="img"
-          aria-label="Sumă facturată și încasată pe zi, ultimele 15 zile"
+          aria-label={t('chart.ariaDaily')}
         >
           <defs>
             <linearGradient id="facturoBarInvoiced" x1="0" y1="1" x2="0" y2="0">
@@ -121,7 +123,7 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
                   onMouseEnter={() => setActive(i)}
                   onMouseLeave={() => setActive(null)}
                 >
-                  <title>{`${formatRoDate(day.date)} · facturat ${formatRon(day.invoiced)} · încasat ${formatRon(day.collected)}`}</title>
+                  <title>{t('chart.tooltip', { date: formatRoDate(day.date), invoiced: formatRon(day.invoiced), collected: formatRon(day.collected) })}</title>
                 </rect>
                 {day.invoiced === 0 && (
                   <rect x={groupX} y={pad.top + innerH - 3} width={barW} height={3} rx={1.5} className="fill-[color:var(--muted)]" />
@@ -167,7 +169,7 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
                   fontSize="9"
                   className="fill-[color:var(--color-muted-foreground)]"
                 >
-                  {weekdayLetter(day.date)}
+                  {weekdayLetter(day.date, locale)}
                 </text>
               </g>
             )
@@ -176,15 +178,15 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
 
         {invoicedTotal === 0 && collectedTotal === 0 && (
           <p className="absolute inset-x-0 top-1/3 text-center text-sm text-[color:var(--color-muted-foreground)]">
-            Nicio factură emisă și nicio încasare în ultimele 15 zile
+            {t('dash.noVolume15')}
           </p>
         )}
 
         {active !== null && days[active] && (
           <div className="pointer-events-none absolute right-0 top-0 rounded-xl bg-[color:var(--foreground)] text-[color:var(--primary-foreground)] px-3 py-2 text-xs shadow-elevated">
             <p className="uppercase tracking-wider opacity-70">{formatRoDate(days[active].date)}</p>
-            <p className="mt-1">Facturat {formatRon(days[active].invoiced)}</p>
-            <p>Încasat {formatRon(days[active].collected)}</p>
+            <p className="mt-1">{t('chart.invoiced')} {formatRon(days[active].invoiced)}</p>
+            <p>{t('chart.collected')} {formatRon(days[active].collected)}</p>
           </div>
         )}
       </div>

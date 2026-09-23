@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
 import AppNav from '@/components/AppNav'
+import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import ClientContactsFields from '@/components/ClientContactsFields'
 import ClientAddressesFields from '@/components/ClientAddressesFields'
@@ -31,7 +32,6 @@ import {
 } from '@/lib/legalForms'
 import {
   addressInsertRows,
-  addressTypeLabel,
   addressesFromClient,
   applyCuiToFirstAddress,
   contactInsertRows,
@@ -45,6 +45,7 @@ import {
   type ClientContactDraft,
   type ClientContactRow
 } from '@/lib/clientDirectory'
+import { addressTypeKey, displayRole, legalFormKey } from '@/lib/uiLabels'
 import {
   bankAccountInsertRows,
   banksFromClient,
@@ -101,6 +102,7 @@ const emptyForm = {
 
 export default function Clients() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -179,10 +181,10 @@ export default function Clients() {
           country: data.country || 'RO'
         }))
       } else {
-        alert('CUI negăsit în registrul public. Verifică numărul și încearcă din nou.')
+        alert(t('cli.cuiNotFound'))
       }
     } catch (e) {
-      alert('Eroare de conexiune. Încearcă din nou.')
+      alert(t('cli.connError'))
     }
     setCuiLoading(false)
   }
@@ -257,47 +259,47 @@ export default function Clients() {
 
   const saveClient = async () => {
     if (!form.company_name.trim()) {
-      alert('Denumirea companiei este obligatorie.')
+      alert(t('cli.nameRequired'))
       return
     }
     const email = form.email.trim()
     if (!email) {
-      alert('Email-ul este obligatoriu.')
+      alert(t('cli.emailRequired'))
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert('Introdu un email valid.')
+      alert(t('cli.emailInvalid'))
       return
     }
     if (!form.phone.trim()) {
-      alert('Telefonul este obligatoriu.')
+      alert(t('cli.phoneRequired'))
       return
     }
     if (!isValidRomanianMobile(form.phone)) {
-      alert('Număr de mobil invalid. Format acceptat: 07xxxxxxxx sau +407xxxxxxxx.')
+      alert(t('common.mobileFormat'))
       return
     }
     const completeBanks = banks.filter(isBankAccountComplete)
     if (!completeBanks.length) {
-      alert('Completează și salvează cel puțin un cont bancar (bancă, monedă, IBAN).')
+      alert(t('cli.bankRequired'))
       return
     }
     for (const account of completeBanks) {
       const check = isBankAccountValid(account)
       if (!check.ok) {
-        alert(check.error || 'Datele bancare sunt invalide.')
+        alert(check.error || t('bnk.invalid'))
         return
       }
     }
     for (const contact of contacts) {
       if (contact.phone && !isValidRomanianMobile(contact.phone)) {
-        alert(`Telefon invalid pentru ${contact.name || 'persoana de contact'}. Folosește 07xxxxxxxx sau +407xxxxxxxx.`)
+        alert(t('cli.contactPhoneInvalid', { name: contact.name || t('cli.contactPerson') }))
         return
       }
     }
     const savedAddresses = addresses.filter(isAddressComplete)
     if (!savedAddresses.length) {
-      alert('Completează și salvează cel puțin o adresă (strada, județul și orașul).')
+      alert(t('cli.addressRequired'))
       return
     }
     setSaving(true)
@@ -354,7 +356,7 @@ export default function Clients() {
       }
       const relError = await saveRelations(editClient.id)
       if (relError) {
-        alert(`Clientul a fost salvat, dar adresele/contactele/conturile nu: ${relError}`)
+        alert(t('cli.savedButRelations', { error: relError }))
         return
       }
       setShowForm(false)
@@ -386,12 +388,12 @@ export default function Clients() {
         error = retry.error
       }
       if (error || !data) {
-        alert(error?.message || 'Clientul nu a putut fi salvat.')
+        alert(error?.message || t('cli.saveFail'))
         return
       }
       const relError = await saveRelations(data.id)
       if (relError) {
-        alert(`Clientul a fost salvat, dar adresele/contactele/conturile nu: ${relError}`)
+        alert(t('cli.savedButRelations', { error: relError }))
         setEditClient(data)
         return
       }
@@ -400,14 +402,14 @@ export default function Clients() {
       loadClients()
     }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Clientul nu a putut fi salvat.')
+      alert(err instanceof Error ? err.message : t('cli.saveFail'))
     } finally {
       setSaving(false)
     }
   }
 
   const deleteClient = async (id: string) => {
-    if (!confirm('Ești sigur că vrei să ștergi acest client?')) return
+    if (!confirm(t('cli.confirmDelete'))) return
     await supabase.from('clients').delete().eq('id', id)
     loadClients()
   }
@@ -421,14 +423,16 @@ export default function Clients() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">Clienți</h2>
+            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cli.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {company?.company_name ? `${company.company_name} · ` : ''}
-              {filteredClients.length} {search ? `din ${clients.length} clienți` : 'clienți înregistrați'}
+              {search
+                ? t('cli.countFiltered', { count: filteredClients.length, total: clients.length })
+                : t('cli.count', { count: filteredClients.length })}
             </p>
           </div>
           <button onClick={openNew} className="btn btn-primary">
-            + Client nou
+            {t('cli.new')}
           </button>
         </div>
 
@@ -438,19 +442,19 @@ export default function Clients() {
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">
-                  Caută client
+                  {t('cli.search')}
                 </label>
                 <input
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="input"
-                  placeholder="Caută după nume sau CUI..."
+                  placeholder={t('cli.searchPlaceholder')}
                 />
               </div>
               {search && (
                 <button onClick={() => setSearch('')} className="btn btn-outline">
-                  Resetează
+                  {t('inv.resetFilters')}
                 </button>
               )}
             </div>
@@ -463,11 +467,11 @@ export default function Clients() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="font-bold text-[color:var(--color-foreground)] text-lg">
-                  {editClient ? 'Editează client' : 'Client nou'}
+                  {editClient ? t('cli.editTitle') : t('cli.newTitle')}
                 </h3>
                 {editClient && (
                   <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-                    CUI, denumirea și nr. de înregistrare sunt preluate din registrul public și nu pot fi modificate.
+                    {t('cli.lockedHint')}
                   </p>
                 )}
               </div>
@@ -481,14 +485,14 @@ export default function Clients() {
             <div className="mb-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">
-                  Date fiscale {editClient && '· preluate din registru'}
+                  {editClient ? t('cli.fiscalFromRegistry') : t('cli.fiscal')}
                 </p>
                 {!editClient && (
                   <button
                     onClick={() => setManualEdit(!manualEdit)}
                     className="text-xs text-blue-500 hover:text-blue-700 transition underline"
                   >
-                    {manualEdit ? '← Folosește ANAF' : 'Completează manual'}
+                    {manualEdit ? t('cli.useAnaf') : t('cli.manual')}
                   </button>
                 )}
               </div>
@@ -496,12 +500,12 @@ export default function Clients() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {editClient ? (
                   <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">CUI / CIF</label>
+                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.cuiCif')}</label>
                     <input type="text" className="input bg-gray-50 text-gray-400 cursor-not-allowed" value={form.cui} readOnly />
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">CUI / CIF</label>
+                    <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.cuiCif')}</label>
                     {manualEdit ? (
                       <input
                         type="text"
@@ -524,13 +528,13 @@ export default function Clients() {
                           disabled={cuiLoading}
                           className="btn btn-primary disabled:opacity-50 whitespace-nowrap"
                         >
-                          {cuiLoading ? 'Se caută...' : 'Caută CUI'}
+                          {cuiLoading ? t('common.searching') : t('cli.lookupCui')}
                         </button>
                       </div>
                     )}
                     {!manualEdit && (
                       <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-                        Nu găsești compania? <button onClick={() => setManualEdit(true)} className="text-blue-500 underline">Completează manual</button>
+                        {t('cli.notFoundManual')} <button onClick={() => setManualEdit(true)} className="text-blue-500 underline">{t('cli.manual')}</button>
                       </p>
                     )}
                   </div>
@@ -538,7 +542,7 @@ export default function Clients() {
 
                 <div>
                   <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">
-                    Denumire companie *
+                    {t('cli.companyName')} *
                   </label>
                   <input
                     type="text"
@@ -552,7 +556,7 @@ export default function Clients() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Nr. Reg. Comerț</label>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.regCom')}</label>
                   <input
                     type="text"
                     value={form.reg_com}
@@ -564,7 +568,7 @@ export default function Clients() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Formă legală</label>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.legalForm')}</label>
                   <select
                     value={form.legal_form}
                     onChange={e => setForm(f => ({
@@ -573,10 +577,10 @@ export default function Clients() {
                     }))}
                     className="input bg-white"
                   >
-                    <option value="">Selectează forma legală...</option>
+                    <option value="">{t('cli.selectLegal')}</option>
                     {LEGAL_FORMS.map(formType => (
                       <option key={formType.code} value={formType.code}>
-                        {formType.code} — {formType.name}
+                        {formType.code} — {t(legalFormKey(formType.code)!) || formType.name}
                       </option>
                     ))}
                   </select>
@@ -587,7 +591,7 @@ export default function Clients() {
                     checked={form.vat_registered}
                     onChange={e => setForm(f => ({ ...f, vat_registered: e.target.checked }))}
                   />
-                  Client plătitor de TVA
+                  {t('cli.vatPayer')}
                 </label>
                 <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)] min-h-[2.5rem]">
                   <input
@@ -595,7 +599,7 @@ export default function Clients() {
                     checked={form.is_public_institution}
                     onChange={e => setForm(f => ({ ...f, is_public_institution: e.target.checked }))}
                   />
-                  Instituție publică
+                  {t('cli.publicInst')}
                 </label>
               </div>
             </div>
@@ -608,11 +612,11 @@ export default function Clients() {
 
             <div className="border-t border-gray-100 pt-4 mb-4">
               <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider mb-3">
-                Date de contact
+                {t('cli.contactData')}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')} *</label>
                   <input
                     type="email"
                     value={form.email}
@@ -623,7 +627,7 @@ export default function Clients() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Telefon *</label>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.phone')} *</label>
                   <input
                     type="text"
                     value={form.phone}
@@ -633,7 +637,7 @@ export default function Clients() {
                     required
                   />
                   {form.phone && !phoneValid && (
-                    <p className="text-red-500 text-xs mt-1">Mobil invalid (ex: 0721234567 sau +40721234567)</p>
+                    <p className="text-red-500 text-xs mt-1">{t('common.invalidMobile')}</p>
                   )}
                 </div>
               </div>
@@ -660,13 +664,13 @@ export default function Clients() {
                 disabled={saving}
                 className="btn btn-primary disabled:opacity-50"
               >
-                {saving ? 'Se salvează...' : editClient ? 'Salvează modificările' : 'Salvează client'}
+                {saving ? t('common.saving') : editClient ? t('cli.saveChanges') : t('cli.saveClient')}
               </button>
               <button
                 onClick={() => { setShowForm(false); setEditClient(null) }}
                 className="btn btn-outline"
               >
-                Anulează
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -674,32 +678,32 @@ export default function Clients() {
 
         {/* Client list */}
         {!showForm && (loading ? (
-          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">Se încarcă...</p>
+          <p className="text-[color:var(--color-muted-foreground)] text-center py-12">{t('common.loading')}</p>
         ) : clients.length === 0 ? (
           <div className="card p-12 text-center">
             <p className="text-3xl mb-3">👥</p>
-            <p className="font-medium text-[color:var(--color-foreground)]">Nu ai niciun client încă</p>
+            <p className="font-medium text-[color:var(--color-foreground)]">{t('cli.empty')}</p>
             <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">
-              Adaugă primul tău client cu completare automată din registrul public
+              {t('cli.emptyLead')}
             </p>
             <button onClick={openNew} className="btn btn-primary">
-              + Adaugă primul client
+              {t('cli.addFirst')}
             </button>
           </div>
         ) : filteredClients.length === 0 ? (
           <div className="card p-12 text-center">
             <p className="text-3xl mb-3">🔍</p>
-            <p className="font-medium text-[color:var(--color-foreground)]">Niciun client găsit</p>
-            <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">Încearcă alt termen de căutare</p>
-            <button onClick={() => setSearch('')} className="btn btn-outline">Resetează căutarea</button>
+            <p className="font-medium text-[color:var(--color-foreground)]">{t('cli.noneFound')}</p>
+            <p className="text-[color:var(--color-muted-foreground)] text-sm mt-1 mb-4">{t('cli.tryOther')}</p>
+            <button onClick={() => setSearch('')} className="btn btn-outline">{t('cli.resetSearch')}</button>
           </div>
         ) : (
           <div className="card overflow-hidden">
             <div className="grid grid-cols-12 px-6 py-3 border-b border-gray-100 bg-gray-50">
-              <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Companie</span>
-              <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Contact</span>
-              <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Bancă</span>
-              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">Acțiuni</span>
+              <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.company')}</span>
+              <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('cli.contact')}</span>
+              <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('cli.bank')}</span>
+              <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">{t('common.actions')}</span>
             </div>
             {filteredClients.map((client, i) => {
               const defaultAddress = defaultAddressFromList(client.client_addresses || [])
@@ -715,11 +719,11 @@ export default function Clients() {
                   <div className="col-span-4">
                     <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                      CUI: {client.cui || '—'}{city ? ` · ${city}` : ''}
+                      {t('cli.cui')}: {client.cui || '—'}{city ? ` · ${city}` : ''}
                     </p>
                     {street && (
                       <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5 truncate" title={street}>
-                        {defaultAddress?.address_type ? `${addressTypeLabel(defaultAddress.address_type)} · ` : ''}{street}
+                        {defaultAddress?.address_type ? `${t(addressTypeKey(defaultAddress.address_type))} · ` : ''}{street}
                       </p>
                     )}
                   </div>
@@ -728,8 +732,8 @@ export default function Clients() {
                     <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5">{client.phone || '—'}</p>
                     {contactCount > 0 && (
                       <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
-                        {primaryContact?.name || 'Contact'}{primaryContact?.contact_role ? ` · ${primaryContact.contact_role}` : ''}
-                        {contactCount > 1 ? ` · ${contactCount} persoane` : ''}
+                        {primaryContact?.name || t('cli.contact')}{primaryContact?.contact_role ? ` · ${displayRole(t, primaryContact.contact_role)}` : ''}
+                        {contactCount > 1 ? ` · ${t('cli.peopleCount', { count: contactCount })}` : ''}
                       </p>
                     )}
                   </div>
@@ -759,13 +763,13 @@ export default function Clients() {
                       onClick={() => openEdit(client)}
                       className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
                     >
-                      Editează
+                      {t('common.edit')}
                     </button>
                     <button
                       onClick={() => deleteClient(client.id)}
                       className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
                     >
-                      Șterge
+                      {t('common.delete')}
                     </button>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ import {
   type ClientBankAccountDraft
 } from '@/lib/clientBanks'
 import { normalizeIbanCurrency } from '@/lib/roBanks'
+import { useLocale } from '@/components/LocaleProvider'
 
 export default function ClientBankAccountsFields({
   accounts,
@@ -21,6 +22,7 @@ export default function ClientBankAccountsFields({
   accounts: ClientBankAccountDraft[]
   onChange: (next: ClientBankAccountDraft[]) => void
 }) {
+  const { t } = useLocale()
   const rows = accounts.length ? accounts : [firstClientBankAccount()]
   const accountKeys = rows.map(row => row.key).join('|')
   const [editingKey, setEditingKey] = useState<string | null>(
@@ -62,7 +64,7 @@ export default function ClientBankAccountsFields({
 
   const startNew = () => {
     if (editingKey) {
-      alert('Salvează sau anulează contul curent înainte de a adăuga altul.')
+      alert(t('bnk.saveFirst'))
       return
     }
     const next = addClientBankAccount(rows)
@@ -75,12 +77,12 @@ export default function ClientBankAccountsFields({
   const saveAccount = () => {
     if (!editing) return
     if (!isBankAccountComplete(editing)) {
-      alert('Completează banca emitentă și IBAN-ul înainte de a salva contul.')
+      alert(t('bnk.completeFirst'))
       return
     }
     const check = isBankAccountValid(editing)
     if (!check.ok) {
-      alert(check.error || 'Datele bancare sunt invalide.')
+      alert(check.error || t('bnk.invalid'))
       return
     }
     onChange(ensureBankDefaults(rows))
@@ -90,7 +92,7 @@ export default function ClientBankAccountsFields({
 
   const deleteAccount = (row: ClientBankAccountDraft) => {
     if (!canRemoveBankAccount(rows, row.key)) {
-      alert('Contul implicit nu poate fi șters. Marchează mai întâi un alt cont în aceeași monedă ca implicit, sau păstrează cel puțin un cont.')
+      alert(t('bnk.cannotDeleteDefault'))
       return
     }
     onChange(removeClientBankAccount(rows, row.key))
@@ -118,7 +120,7 @@ export default function ClientBankAccountsFields({
       a => a.key !== row.key && normalizeIbanCurrency(a.iban_currency) === normalizeIbanCurrency(row.iban_currency)
     )
     if (!sameCurrency.length) return
-    alert('Marchează un alt cont în aceeași monedă ca implicit înainte de a debifa acesta.')
+    alert(t('bnk.uncheckDefault'))
   }
 
   return (
@@ -126,11 +128,10 @@ export default function ClientBankAccountsFields({
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">
-            Date bancare
+            {t('bnk.title')}
           </p>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-            Completează banca, moneda, IBAN-ul și BIC-ul, apoi apasă Salvează contul.
-            Poți avea un cont implicit pentru LEI și unul pentru EUR.
+            {t('bnk.lead')}
           </p>
         </div>
         <button
@@ -139,18 +140,18 @@ export default function ClientBankAccountsFields({
           disabled={!!editingKey}
           className="btn btn-outline px-3 py-2 text-xs whitespace-nowrap disabled:opacity-50"
         >
-          + Adaugă cont
+          {t('bnk.add')}
         </button>
       </div>
 
       {savedRows.length > 0 && (
         <div className="border border-gray-100 rounded-xl overflow-hidden mb-3">
           <div className="hidden md:grid grid-cols-12 px-4 py-2 border-b border-gray-100 bg-gray-50">
-            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Bancă</span>
-            <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">IBAN</span>
-            <span className="col-span-1 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Monedă</span>
-            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Implicit</span>
-            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">Acțiuni</span>
+            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.bank')}</span>
+            <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.iban')}</span>
+            <span className="col-span-1 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.currency')}</span>
+            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.default')}</span>
+            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">{t('common.actions')}</span>
           </div>
           {savedRows.map((row, index) => (
             <div
@@ -175,7 +176,7 @@ export default function ClientBankAccountsFields({
                   checked={row.is_default}
                   onChange={e => toggleDefault(row, e.target.checked)}
                 />
-                Implicit {normalizeIbanCurrency(row.iban_currency)}
+                {t('bnk.defaultCur', { currency: normalizeIbanCurrency(row.iban_currency) })}
               </label>
               <div className="md:col-span-2 flex items-center justify-end gap-2">
                 <button
@@ -183,18 +184,18 @@ export default function ClientBankAccountsFields({
                   onClick={() => startEdit(row)}
                   className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
                 >
-                  Editează
+                  {t('common.edit')}
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteAccount(row)}
                   disabled={!canRemoveBankAccount(rows, row.key)}
                   title={!canRemoveBankAccount(rows, row.key)
-                    ? 'Contul implicit nu poate fi șters până marchezi altul în aceeași monedă.'
-                    : 'Șterge contul'}
+                    ? t('bnk.markOther')
+                    : t('bnk.deleteTitle')}
                   className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                 >
-                  Șterge
+                  {t('common.delete')}
                 </button>
               </div>
             </div>
@@ -206,7 +207,7 @@ export default function ClientBankAccountsFields({
         <div className="border border-gray-100 rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <p className="text-xs font-medium text-[color:var(--color-muted-foreground)]">
-              {savedRows.length === 0 ? 'Cont bancar' : 'Cont nou / editare'}
+              {savedRows.length === 0 ? t('bnk.account') : t('bnk.newEdit')}
             </p>
             <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
               <input
@@ -214,7 +215,7 @@ export default function ClientBankAccountsFields({
                 checked={editing.is_default}
                 onChange={e => toggleDefault(editing, e.target.checked)}
               />
-              Cont implicit {normalizeIbanCurrency(editing.iban_currency)}
+              {t('bnk.defaultAccount', { currency: normalizeIbanCurrency(editing.iban_currency) })}
             </label>
           </div>
           <BankDetailsFields
@@ -229,11 +230,11 @@ export default function ClientBankAccountsFields({
           />
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={saveAccount} className="btn btn-primary">
-              Salvează contul
+              {t('bnk.save')}
             </button>
             {showCancel && (
               <button type="button" onClick={cancelEdit} className="btn btn-outline">
-                Anulează
+                {t('common.cancel')}
               </button>
             )}
           </div>
@@ -241,7 +242,7 @@ export default function ClientBankAccountsFields({
       )}
 
       {!editing && savedRows.length === 0 && (
-        <p className="text-sm text-[color:var(--color-muted-foreground)]">Niciun cont bancar salvat.</p>
+        <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('bnk.empty')}</p>
       )}
     </div>
   )

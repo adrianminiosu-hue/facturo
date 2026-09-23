@@ -5,7 +5,6 @@ import { countyNameFromCode } from '@/lib/romania'
 import {
   CLIENT_ADDRESS_TYPES,
   addClientAddress,
-  addressTypeLabel,
   canRemoveClientAddress,
   formatAddressLine,
   isAddressComplete,
@@ -13,6 +12,8 @@ import {
   setDefaultAddress,
   type ClientAddressDraft
 } from '@/lib/clientDirectory'
+import { useLocale } from '@/components/LocaleProvider'
+import { addressTypeKey } from '@/lib/uiLabels'
 
 export default function ClientAddressesFields({
   addresses,
@@ -21,6 +22,7 @@ export default function ClientAddressesFields({
   addresses: ClientAddressDraft[]
   onChange: (next: ClientAddressDraft[]) => void
 }) {
+  const { t } = useLocale()
   const rows = addresses
   const addressKeys = rows.map(row => row.key).join('|')
   const [editingKey, setEditingKey] = useState<string | null>(
@@ -59,7 +61,7 @@ export default function ClientAddressesFields({
 
   const startNew = () => {
     if (editingKey) {
-      alert('Salvează sau anulează adresa curentă înainte de a adăuga alta.')
+      alert(t('addr.saveFirst'))
       return
     }
     const next = addClientAddress(rows)
@@ -72,7 +74,7 @@ export default function ClientAddressesFields({
   const saveAddress = () => {
     if (!editing) return
     if (!isAddressComplete(editing)) {
-      alert('Completează strada, județul și orașul înainte de a salva adresa.')
+      alert(t('addr.completeFirst'))
       return
     }
     setEditingKey(null)
@@ -81,7 +83,7 @@ export default function ClientAddressesFields({
 
   const deleteAddress = (row: ClientAddressDraft) => {
     if (!canRemoveClientAddress(rows, row.key)) {
-      alert('Adresa implicită nu poate fi ștearsă. Marchează mai întâi o altă adresă salvată ca implicită.')
+      alert(t('addr.cannotDeleteDefault'))
       return
     }
     onChange(removeClientAddress(rows, row.key))
@@ -105,12 +107,10 @@ export default function ClientAddressesFields({
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <p className="text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">
-            Adrese
+            {t('addr.title')}
           </p>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-            Completează adresa, apoi apasă Salvează adresa. Adresele salvate apar ca rânduri.
-            O singură adresă este implicită — folosită pe factură și în e-Factura.
-            Adresa implicită nu poate fi ștearsă decât după ce o altă adresă salvată este marcată ca implicită.
+            {t('addr.lead')}
           </p>
         </div>
         <button
@@ -119,17 +119,17 @@ export default function ClientAddressesFields({
           disabled={!!editingKey}
           className="btn btn-outline px-3 py-2 text-xs whitespace-nowrap disabled:opacity-50"
         >
-          + Adaugă adresă
+          {t('addr.add')}
         </button>
       </div>
 
       {savedRows.length > 0 && (
         <div className="border border-gray-100 rounded-xl overflow-hidden mb-3">
           <div className="hidden md:grid grid-cols-12 px-4 py-2 border-b border-gray-100 bg-gray-50">
-            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Tip</span>
-            <span className="col-span-5 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Adresă</span>
-            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">Implicită</span>
-            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">Acțiuni</span>
+            <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.type')}</span>
+            <span className="col-span-5 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.street')}</span>
+            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('addr.default')}</span>
+            <span className="col-span-2 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider text-right">{t('common.actions')}</span>
           </div>
           {savedRows.map((row, index) => {
             const county = countyNameFromCode(row.county_code) || row.county
@@ -140,7 +140,7 @@ export default function ClientAddressesFields({
               >
                 <div className="md:col-span-3 min-w-0">
                   <p className="text-sm font-medium text-[color:var(--color-foreground)] truncate">
-                    {addressTypeLabel(row.address_type)}
+                    {t(addressTypeKey(row.address_type))}
                   </p>
                 </div>
                 <div className="md:col-span-5 min-w-0">
@@ -158,7 +158,7 @@ export default function ClientAddressesFields({
                     checked={row.is_default}
                     onChange={() => onChange(setDefaultAddress(rows, row.key))}
                   />
-                  Implicită
+                  {t('addr.default')}
                 </label>
                 <div className="md:col-span-2 flex items-center justify-end gap-2">
                   <button
@@ -166,16 +166,16 @@ export default function ClientAddressesFields({
                     onClick={() => startEdit(row)}
                     className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"
                   >
-                    Editează
+                    {t('common.edit')}
                   </button>
                   <button
                     type="button"
                     onClick={() => deleteAddress(row)}
                     disabled={row.is_default}
-                    title={row.is_default ? 'Marchează o altă adresă ca implicită pentru a putea șterge aceasta.' : 'Șterge adresa'}
+                    title={row.is_default ? t('addr.markOther') : t('addr.deleteTitle')}
                     className="text-xs border border-red-100 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                   >
-                    Șterge
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>
@@ -188,7 +188,7 @@ export default function ClientAddressesFields({
         <div className="border border-gray-100 rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <p className="text-xs font-medium text-[color:var(--color-muted-foreground)]">
-              {savedRows.length === 0 && rows[0]?.key === editing.key ? 'Sediu social (ANAF)' : 'Adresă nouă / editare'}
+              {savedRows.length === 0 && rows[0]?.key === editing.key ? t('addr.hqAnaf') : t('addr.newEdit')}
             </p>
             <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
               <input
@@ -197,25 +197,25 @@ export default function ClientAddressesFields({
                 checked={editing.is_default}
                 onChange={() => onChange(setDefaultAddress(rows, editing.key))}
               />
-              Implicită (e-Factura)
+              {t('addr.defaultEfactura')}
             </label>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Tip adresă</label>
+              <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('addr.type')}</label>
               <select
                 value={editing.address_type}
                 onChange={e => update(editing.key, { address_type: e.target.value })}
                 className="input bg-white"
               >
                 {CLIENT_ADDRESS_TYPES.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
+                  <option key={type.value} value={type.value}>{t(addressTypeKey(type.value))}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">
-                Stradă / adresă *
+                {t('addr.street')}
               </label>
               <input
                 type="text"
@@ -237,11 +237,11 @@ export default function ClientAddressesFields({
           </div>
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={saveAddress} className="btn btn-primary">
-              Salvează adresa
+              {t('addr.save')}
             </button>
             {showCancel && (
               <button type="button" onClick={cancelEdit} className="btn btn-outline">
-                Anulează
+                {t('common.cancel')}
               </button>
             )}
           </div>
@@ -249,7 +249,7 @@ export default function ClientAddressesFields({
       )}
 
       {!editing && savedRows.length === 0 && (
-        <p className="text-sm text-[color:var(--color-muted-foreground)]">Nicio adresă salvată.</p>
+        <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('addr.empty')}</p>
       )}
     </div>
   )

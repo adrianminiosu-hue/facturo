@@ -10,6 +10,7 @@ import {
   loadEfacturaConnection,
   type EfacturaConnection
 } from '@/lib/invoiceClient'
+import { useLocale } from '@/components/LocaleProvider'
 
 function formatExpiry(value?: string | null) {
   if (!value) return '—'
@@ -20,6 +21,7 @@ function formatExpiry(value?: string | null) {
 
 export default function EfacturaSettingsPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const { userId, ownerUserId, isOwner, loading: companyLoading } = useCompany()
   const [connection, setConnection] = useState<EfacturaConnection | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,14 +36,14 @@ export default function EfacturaSettingsPage() {
       const data = await loadEfacturaConnection(userId, ownerUserId || userId)
       setConnection(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nu s-a putut citi conexiunea ANAF.')
+      setError(err instanceof Error ? err.message : t('set.readFail'))
     }
     setLoading(false)
   }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('connected') === '1') setMessage('e-Factura TEST este conectat.')
+    if (params.get('connected') === '1') setMessage(t('set.connectedMsg'))
     if (params.get('error')) setError(params.get('error') || '')
   }, [])
 
@@ -60,15 +62,15 @@ export default function EfacturaSettingsPage() {
   }
 
   const disconnect = async () => {
-    if (!confirm('Deconectezi e-Factura TEST? Facturile nu se vor mai putea trimite până la o nouă autorizare.')) return
+    if (!confirm(t('set.connectConfirm'))) return
     setBusy(true)
     setError('')
     try {
       await disconnectEfactura(userId, ownerUserId || userId)
-      setMessage('Conexiunea ANAF a fost ștearsă.')
+      setMessage(t('set.disconnectedMsg'))
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nu s-a putut deconecta.')
+      setError(err instanceof Error ? err.message : t('set.disconnectFail'))
     }
     setBusy(false)
   }
@@ -76,7 +78,7 @@ export default function EfacturaSettingsPage() {
   if (loading || companyLoading) {
     return (
       <div className="app-shell flex items-center justify-center">
-        <p className="text-gray-500">Se încarcă...</p>
+        <p className="text-gray-500">{t('common.loading')}</p>
       </div>
     )
   }
@@ -85,9 +87,9 @@ export default function EfacturaSettingsPage() {
     <div className="app-shell">
       <AppNav active="efactura" />
       <div className="max-w-3xl mx-auto px-8 py-8">
-        <h2 className="text-3xl text-[color:var(--color-foreground)]">e-Factura TEST</h2>
+        <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('set.efacturaTitle')}</h2>
         <p className="mt-1 text-[color:var(--color-muted-foreground)] mb-8">
-          Conectează Facturo la ANAF Test cu certificatul calificat (cloud / vToken) în browser. Cheia privată nu se încarcă în aplicație.
+          {t('set.efacturaLead')}
         </p>
 
         {message && (
@@ -100,41 +102,39 @@ export default function EfacturaSettingsPage() {
         <div className="card p-8">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <h3 className="font-bold text-[color:var(--color-foreground)]">Conexiune ANAF</h3>
+              <h3 className="font-bold text-[color:var(--color-foreground)]">{t('set.anafConnection')}</h3>
               <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
-                {connection?.connected
-                  ? 'Token JWT salvat pentru profil. Operatorii folosesc aceeași conexiune.'
-                  : 'După conectare, facturile emise se trimit în e-Factura TEST.'}
+                {connection?.connected ? t('set.connectedHint') : t('set.disconnectedHint')}
               </p>
             </div>
             <span className={`text-xs px-2 py-1 rounded-lg font-medium ${connection?.connected ? 'bg-teal-50 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
-              {connection?.connected ? 'Conectat TEST' : 'Neconectat'}
+              {connection?.connected ? t('set.connected') : t('set.disconnected')}
             </span>
           </div>
 
           {connection?.missingTable && (
             <p className="text-sm text-[color:var(--color-muted-foreground)] mb-4">
-              Rulează migrația <span className="font-mono">20260921_anaf_oauth.sql</span> în Supabase, apoi reîncarcă pagina.
+              {t('set.missingTable')}
             </p>
           )}
 
           {!connection?.configured && (
             <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
-              Completează ANAF_OAUTH_CLIENT_ID, ANAF_OAUTH_CLIENT_SECRET și ANAF_OAUTH_REDIRECT_URI. URI-ul trebuie să coincidă exact cu aplicația din portalul ANAF OAuth.
+              {t('set.envMissing')}
             </p>
           )}
 
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
             <div>
-              <dt className="text-[color:var(--color-muted-foreground)]">Mediu</dt>
+              <dt className="text-[color:var(--color-muted-foreground)]">{t('set.environment')}</dt>
               <dd className="font-medium">{connection?.environment || 'test'}</dd>
             </div>
             <div>
-              <dt className="text-[color:var(--color-muted-foreground)]">Expiră</dt>
+              <dt className="text-[color:var(--color-muted-foreground)]">{t('set.expires')}</dt>
               <dd className="font-medium">{formatExpiry(connection?.expiresAt)}</dd>
             </div>
             <div className="md:col-span-2">
-              <dt className="text-[color:var(--color-muted-foreground)]">Serial certificat (JWT)</dt>
+              <dt className="text-[color:var(--color-muted-foreground)]">{t('set.certSerial')}</dt>
               <dd className="font-mono text-xs break-all">{connection?.certSerial || '—'}</dd>
             </div>
           </dl>
@@ -146,20 +146,20 @@ export default function EfacturaSettingsPage() {
               disabled={!connection?.configured || busy}
               className="btn btn-primary disabled:opacity-50"
             >
-              {connection?.connected ? 'Reconectează e-Factura TEST' : 'Conectează e-Factura TEST'}
+              {connection?.connected ? t('set.reconnect') : t('set.connect')}
             </button>
             {connection?.connected && isOwner && (
               <button type="button" onClick={disconnect} disabled={busy} className="btn btn-outline disabled:opacity-50">
-                Deconectează
+                {t('set.disconnect')}
               </button>
             )}
           </div>
 
           <ol className="mt-6 text-sm text-[color:var(--color-muted-foreground)] space-y-1 list-decimal pl-5">
-            <li>Pornește paperLESS vToken și aplicația de autorizare.</li>
-            <li>Înregistrează certificatul în SPV și obține documentul de confirmare.</li>
-            <li>Înregistrează Facturo la anaf.ro/InregOauth cu acest redirect: <span className="font-mono break-all">/api/efactura/oauth/callback</span></li>
-            <li>Apasă Conectează, autentifică-te cu certificatul, apoi trimite facturi din Facturi emise.</li>
+            <li>{t('set.step1')}</li>
+            <li>{t('set.step2')}</li>
+            <li>{t('set.step3')}</li>
+            <li>{t('set.step4')}</li>
           </ol>
         </div>
       </div>

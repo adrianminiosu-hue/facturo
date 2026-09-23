@@ -78,6 +78,8 @@ export type ValidationResult = {
 export type FieldHint = {
   tone: 'none' | 'error' | 'warn' | 'ok'
   message: string
+  key?: string
+  vars?: Record<string, string | number>
 }
 
 export function normalizeBic(value?: string | null) {
@@ -306,28 +308,37 @@ export function ibanLiveHint(iban: string, bankName: string): FieldHint {
   if (!compact) return { tone: 'none', message: '' }
 
   if (!IBAN_CHARSET_RE.test(compact)) {
-    return { tone: 'error', message: 'IBAN-ul poate conține doar litere și cifre (A–Z, 0–9).' }
+    return { tone: 'error', message: 'IBAN-ul poate conține doar litere și cifre (A–Z, 0–9).', key: 'bnk.ibanChars' }
   }
   if (!compact.startsWith('RO')) {
-    return { tone: 'error', message: 'IBAN-ul trebuie să înceapă cu RO.' }
+    return { tone: 'error', message: 'IBAN-ul trebuie să înceapă cu RO.', key: 'bnk.ibanRo' }
   }
   if (compact.length < RO_IBAN_LENGTH) {
-    return { tone: 'warn', message: `${RO_IBAN_LENGTH - compact.length} caractere rămase` }
+    return {
+      tone: 'warn',
+      message: `${RO_IBAN_LENGTH - compact.length} caractere rămase`,
+      key: 'bnk.ibanLeft',
+      vars: { count: RO_IBAN_LENGTH - compact.length }
+    }
   }
 
   const ibanOnly = validateRoIban(compact)
-  if (!ibanOnly.ok) return { tone: 'error', message: ibanOnly.error || 'IBAN invalid.' }
+  if (!ibanOnly.ok) return { tone: 'error', message: ibanOnly.error || 'IBAN invalid.', key: 'bnk.ibanInvalid' }
 
   if (bankName && ibanOnly.bankName !== bankName) {
     return {
       tone: 'error',
-      message: `Codul bancar din IBAN (${ibanOnly.bankCode}) nu corespunde băncii selectate (${bankName}). Pentru ${ibanOnly.bankName}, IBAN-ul conține ${ibanOnly.bankCode}.`
+      message: `Codul bancar din IBAN (${ibanOnly.bankCode}) nu corespunde băncii selectate (${bankName}). Pentru ${ibanOnly.bankName}, IBAN-ul conține ${ibanOnly.bankCode}.`,
+      key: 'bnk.ibanMismatch',
+      vars: { code: ibanOnly.bankCode || '', bank: bankName, found: ibanOnly.bankName }
     }
   }
 
   return {
     tone: 'ok',
-    message: `✓ IBAN valid · ${ibanOnly.bankName} (${ibanOnly.bankCode})`
+    message: `✓ IBAN valid · ${ibanOnly.bankName} (${ibanOnly.bankCode})`,
+    key: 'bnk.ibanOk',
+    vars: { bank: ibanOnly.bankName, code: ibanOnly.bankCode || '' }
   }
 }
 
@@ -337,15 +348,15 @@ export function bicLiveHint(bic: string, bankName: string, iban: string): FieldH
 
   if (!compact) {
     if (ibanCompact) {
-      return { tone: 'error', message: 'Completează SWIFT/BIC. Se completează automat din banca selectată.' }
+      return { tone: 'error', message: 'Completează SWIFT/BIC. Se completează automat din banca selectată.', key: 'bnk.bicRequired' }
     }
     return { tone: 'none', message: '' }
   }
 
   const result = validateSwift(compact, bankName)
-  if (!result.ok) return { tone: 'error', message: result.error || 'SWIFT/BIC invalid.' }
+  if (!result.ok) return { tone: 'error', message: result.error || 'SWIFT/BIC invalid.', key: 'bnk.bicInvalid' }
   if (bankName) {
-    return { tone: 'ok', message: `✓ SWIFT valid · ${bicPrefix(compact)}` }
+    return { tone: 'ok', message: `✓ SWIFT valid · ${bicPrefix(compact)}`, key: 'bnk.bicOk', vars: { prefix: bicPrefix(compact) } }
   }
   return { tone: 'none', message: '' }
 }

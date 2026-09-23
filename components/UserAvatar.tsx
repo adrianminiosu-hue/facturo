@@ -24,14 +24,14 @@ export default function UserAvatar({
         src={url}
         alt={name || email || 'Fotografie de profil'}
         onError={() => setBroken(true)}
-        className={`${dim} rounded-full object-cover bg-[color:var(--color-muted)] shrink-0`}
+        className={`${dim} rounded-full object-cover bg-[color:var(--color-muted)] shrink-0 ring-1 ring-[color:var(--color-border)]`}
       />
     )
   }
   return (
     <span
       aria-hidden="true"
-      className={`${dim} rounded-full bg-[color:var(--color-muted)] text-[color:var(--color-foreground)] inline-flex items-center justify-center font-medium shrink-0`}
+      className={`${dim} rounded-full bg-[color:var(--color-muted)] text-[color:var(--color-foreground)] inline-flex items-center justify-center font-medium shrink-0 ring-1 ring-[color:var(--color-border)]`}
     >
       {initials}
     </span>

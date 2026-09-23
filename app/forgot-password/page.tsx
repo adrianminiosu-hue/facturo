@@ -3,8 +3,11 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import BrandLockup from '@/components/BrandLockup'
+import LocaleSwitch from '@/components/LocaleSwitch'
+import { useLocale } from '@/components/LocaleProvider'
 
 export default function ForgotPassword() {
+  const { t } = useLocale()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -26,22 +29,23 @@ export default function ForgotPassword() {
     <div className="app-shell flex flex-col">
       <nav className="top-nav">
         <BrandLockup href="/" />
+        <LocaleSwitch />
       </nav>
       <div className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="card p-10 w-full max-w-md">
-          <p className="kicker mb-4">Cont</p>
-          <h1 className="text-4xl text-[color:var(--color-foreground)] mb-2">Parolă uitată.</h1>
+          <p className="kicker mb-4">{t('auth.kicker')}</p>
+          <h1 className="text-4xl text-[color:var(--color-foreground)] mb-2">{t('auth.forgotTitle')}</h1>
           <p className="text-sm text-[color:var(--color-muted-foreground)] mb-8">
-            Îți trimitem un link de resetare pe email.
+            {t('auth.forgotLead')}
           </p>
           {sent ? (
             <p className="text-sm text-[color:var(--color-foreground)]">
-              Dacă există un cont pentru această adresă, vei primi un email în câteva minute.
+              {t('auth.forgotSent')}
             </p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">Email</label>
+                <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')}</label>
                 <input
                   type="email"
                   value={email}
@@ -52,13 +56,13 @@ export default function ForgotPassword() {
               </div>
               {error && <p className="text-red-500 text-sm">{error}</p>}
               <button type="submit" disabled={loading} className="btn btn-primary w-full disabled:opacity-50">
-                {loading ? 'Se trimite...' : 'Trimite linkul'}
+                {loading ? t('common.sending') : t('auth.sendLink')}
               </button>
             </form>
           )}
           <p className="text-center text-sm mt-6">
             <Link href="/login" className="text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)]">
-              ← Înapoi la autentificare
+              {t('auth.backLogin')}
             </Link>
           </p>
         </div>
