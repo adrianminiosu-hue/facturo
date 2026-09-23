@@ -82,9 +82,7 @@ export default function PurchaseInvoicesPage() {
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('pur.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              {company?.company_name
-                ? `${t('pur.receivedOn', { name: company.company_name })}${company.cui ? ` · ${company.cui}` : ''}`
-                : t('pur.receivedLead')}
+              {t('pur.receivedLead')}
             </p>
           </div>
           <button

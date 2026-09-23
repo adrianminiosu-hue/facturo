@@ -212,7 +212,6 @@ export default function IncasariPage() {
             <p className="kicker mb-2">{t('rec.portfolio')}</p>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('rec.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              {company?.company_name ? `${company.company_name} · ` : ''}
               {t('rec.lead')}
             </p>
           </div>

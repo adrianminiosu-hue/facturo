@@ -425,7 +425,6 @@ export default function Clients() {
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cli.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              {company?.company_name ? `${company.company_name} · ` : ''}
               {search
                 ? t('cli.countFiltered', { count: filteredClients.length, total: clients.length })
                 : t('cli.count', { count: filteredClients.length })}

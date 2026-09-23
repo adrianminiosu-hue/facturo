@@ -347,7 +347,6 @@ export default function Dashboard() {
             {displayUserName(userName) ? t('dash.helloName', { name: displayUserName(userName) }) : t('dash.hello')}
           </h2>
           <p className="text-[color:var(--color-muted-foreground)] mt-2">
-            {company?.company_name ? `${company.company_name} · ` : ''}
             {new Date().toLocaleDateString(localeTag(locale), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>

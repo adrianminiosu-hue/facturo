@@ -8,7 +8,8 @@ import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
 import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/lib/invoiceClient'
-import { calendarDateInBucharest } from '@/lib/dates'
+import { addDaysIso, calendarDateInBucharest, startOfIsoWeek } from '@/lib/dates'
+import type { MessageKey } from '@/lib/messages'
 import { formatRon } from '@/lib/money'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
 import { alreadySentToSpv, canSendToEfactura, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
@@ -38,6 +39,27 @@ const PAGE_SIZE = 20
 
 const STATUS_FILTER_IDS = ['', 'draft', 'sent', 'spv', 'paid', 'overdue'] as const
 
+type IssuePeriodId = 'issued_0_2' | 'this_week' | 'last_7' | 'last_14' | 'last_30'
+
+const ISSUE_PERIODS: { id: IssuePeriodId; key: MessageKey }[] = [
+  { id: 'issued_0_2', key: 'inv.issued02' },
+  { id: 'this_week', key: 'inv.issuedThisWeek' },
+  { id: 'last_7', key: 'inv.issuedLast7' },
+  { id: 'last_14', key: 'inv.issuedLast14' },
+  { id: 'last_30', key: 'inv.issuedLast30' }
+]
+
+function issuePeriodRange(id: IssuePeriodId, today = calendarDateInBucharest(0)) {
+  if (id === 'issued_0_2') return { from: calendarDateInBucharest(-2), to: today }
+  if (id === 'this_week') {
+    const from = startOfIsoWeek(today)
+    return { from, to: addDaysIso(from, 6) }
+  }
+  if (id === 'last_7') return { from: calendarDateInBucharest(-6), to: today }
+  if (id === 'last_14') return { from: calendarDateInBucharest(-13), to: today }
+  return { from: calendarDateInBucharest(-29), to: today }
+}
+
 function matchesStatusFilter(invoice: Invoice, filter: string) {
   if (!filter) return true
   if (filter === 'paid') return invoice.status === 'paid'
@@ -47,6 +69,17 @@ function matchesStatusFilter(invoice: Invoice, filter: string) {
 
 function invoiceRef(invoice: Invoice) {
   return `${invoice.series}${invoice.invoice_number}`
+}
+
+function InvoiceStatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="card flex h-full min-h-[8.5rem] flex-col justify-between p-6">
+      <p className="text-sm leading-5 text-[color:var(--color-muted-foreground)]">{label}</p>
+      <p className="mt-3 text-[clamp(1.25rem,1.1vw+0.9rem,1.75rem)] font-bold leading-none tabular-nums whitespace-nowrap text-[color:var(--color-foreground)]">
+        {value}
+      </p>
+    </div>
+  )
 }
 
 const OUTCOME_STYLE: Record<BulkSpvOutcome, string> = {
@@ -67,6 +100,7 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
+  const [issuePeriod, setIssuePeriod] = useState<IssuePeriodId | ''>('')
   const [spvBusyId, setSpvBusyId] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -210,6 +244,21 @@ export default function Invoices() {
   const parseDate = (value: string) => {
     const d = new Date(value)
     return Number.isNaN(d.getTime()) ? null : d
+  }
+
+  const resetFilters = () => {
+    setFilterClientId('')
+    setFilterStatus('')
+    setFilterFrom('')
+    setFilterTo('')
+    setIssuePeriod('')
+  }
+
+  const applyIssuePeriod = (id: IssuePeriodId) => {
+    const range = issuePeriodRange(id)
+    setIssuePeriod(id)
+    setFilterFrom(range.from)
+    setFilterTo(range.to)
   }
 
   const fromDate = filterFrom ? parseDate(filterFrom) : null
@@ -417,7 +466,6 @@ export default function Invoices() {
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
-              {company?.company_name ? `${company.company_name} · ` : ''}
               {filtersActive
                 ? t('inv.countFiltered', { count: filteredInvoices.length, total: invoices.length })
                 : t('inv.count', { count: filteredInvoices.length })}
@@ -430,19 +478,10 @@ export default function Invoices() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.totalInvoices')}</p>
-            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{filteredInvoices.length}</p>
-          </div>
-          <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.totalValue')}</p>
-            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{formatRon(totalValue)}</p>
-          </div>
-          <div className="card p-6">
-            <p className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.monthValue')}</p>
-            <p className="text-3xl font-bold text-[color:var(--color-foreground)] mt-1">{formatRon(billedThisMonth)}</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 items-stretch">
+          <InvoiceStatCard label={t('inv.totalInvoices')} value={filteredInvoices.length} />
+          <InvoiceStatCard label={t('inv.totalValue')} value={formatRon(totalValue)} />
+          <InvoiceStatCard label={t('inv.monthValue')} value={formatRon(billedThisMonth)} />
         </div>
 
         {loading ? (
@@ -490,7 +529,7 @@ export default function Invoices() {
                   <input
                     type="date"
                     value={filterFrom}
-                    onChange={e => setFilterFrom(e.target.value)}
+                    onChange={e => { setIssuePeriod(''); setFilterFrom(e.target.value) }}
                     className="input px-3 py-2.5"
                   />
                 </div>
@@ -499,13 +538,13 @@ export default function Invoices() {
                   <input
                     type="date"
                     value={filterTo}
-                    onChange={e => setFilterTo(e.target.value)}
+                    onChange={e => { setIssuePeriod(''); setFilterTo(e.target.value) }}
                     className="input px-3 py-2.5"
                   />
                 </div>
                 <div className="flex gap-2 lg:justify-end">
                   <button
-                    onClick={() => { setFilterClientId(''); setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}
+                    onClick={resetFilters}
                     disabled={!filtersActive}
                     className="btn btn-outline disabled:opacity-50"
                   >
@@ -513,13 +552,29 @@ export default function Invoices() {
                   </button>
                 </div>
               </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {ISSUE_PERIODS.map(period => (
+                  <button
+                    key={period.id}
+                    type="button"
+                    onClick={() => applyIssuePeriod(period.id)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition ${
+                      issuePeriod === period.id
+                        ? 'bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] border-transparent'
+                        : 'border-[color:var(--color-border)] text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)]'
+                    }`}
+                  >
+                    {t(period.key)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {filteredInvoices.length === 0 ? (
               <div className="card p-12 text-center">
                 <p className="text-[color:var(--color-muted-foreground)]">{t('inv.noFilterMatch')}</p>
                 <button
-                  onClick={() => { setFilterClientId(''); setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}
+                  onClick={resetFilters}
                   className="font-medium text-sm mt-2 inline-block hover:underline text-[color:var(--color-foreground)]"
                 >
                   {t('inv.resetFiltersArrow')}
