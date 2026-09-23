@@ -4,8 +4,6 @@ import Link from 'next/link'
 import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/lib/efactura'
 import { useLocale } from '@/components/LocaleProvider'
 import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
-import { useLocale } from '@/components/LocaleProvider'
-import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
 import { formatAmount } from '@/lib/money'
 import { computeInvoiceTotals, vatRateOptions } from '@/lib/invoiceMath'
 import { supabase } from '@/lib/supabase'
@@ -72,7 +70,6 @@ export default function InvoiceLineItems({
   items: InvoiceLineItem[]
   onChange: (items: InvoiceLineItem[]) => void
 }) {
-  const { t } = useLocale()
   const { t } = useLocale()
   const { userId, company, ownerUserId } = useCompany()
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
