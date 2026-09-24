@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <Stmt>
+      <Id>BATCH-1</Id>
+      <Acct><Id><IBAN>RO49AAAA1B31007593840000</IBAN></Id><Ccy>RON</Ccy></Acct>
+      <Ntry>
+        <Amt Ccy="RON">300.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-20</Dt></BookgDt>
+        <ValDt><Dt>2026-09-20</Dt></ValDt>
+        <AcctSvcrRef>BATCH-NTRY</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>TX-1</AcctSvcrRef></Refs>
+            <Amt Ccy="RON">100.00</Amt>
+            <RltdPties><Dbtr><Nm>Client Unu SRL</Nm></Dbtr><DbtrAcct><Id><IBAN>RO11UNU1B31007593840001</IBAN></Id></DbtrAcct></RltdPties>
+            <RmtInf><Ustrd>FCT0010</Ustrd></RmtInf>
+          </TxDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>TX-2</AcctSvcrRef></Refs>
+            <Amt Ccy="RON">200.00</Amt>
+            <RltdPties><Dbtr><Nm>Client Doi SRL</Nm></Dbtr><DbtrAcct><Id><IBAN>RO22DOI1B31007593840002</IBAN></Id></DbtrAcct></RltdPties>
+            <RmtInf><Ustrd>FCT0020</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

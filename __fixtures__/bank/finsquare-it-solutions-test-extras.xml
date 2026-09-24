@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>FINSQUARE-OPEN-EXTRAS-20260925</MsgId>
+      <CreDtTm>2026-09-25T12:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>EXTRAS-ING-FINSQUARE-OPEN-20260925</Id>
+      <CreDtTm>2026-09-25T12:00:00</CreDtTm>
+      <Acct>
+        <Id><IBAN>RO49INGB90901212233RON01</IBAN></Id>
+        <Ccy>RON</Ccy>
+      </Acct>
+      <Ntry>
+        <NtryRef>NTRY-001</NtryRef>
+        <Amt Ccy="RON">87330.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-25</Dt></BookgDt>
+        <ValDt><Dt>2026-09-25</Dt></ValDt>
+        <AcctSvcrRef>INGOPEN001</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>FCT0001</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Vodafone Romania S.A.</Nm>
+                <Id><OrgId><Othr><Id>RO8971726</Id></Othr></OrgId></Id>
+              </Dbtr>
+              <DbtrAcct><Id><IBAN>RO49UGBI0000000000012345</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Plata factura FCT0001</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>NTRY-002</NtryRef>
+        <Amt Ccy="RON">27830.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-25</Dt></BookgDt>
+        <ValDt><Dt>2026-09-25</Dt></ValDt>
+        <AcctSvcrRef>INGOPEN002</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>FCT0014</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Uipath S.R.L.</Nm>
+                <Id><OrgId><Othr><Id>RO34737997</Id></Othr></OrgId></Id>
+              </Dbtr>
+              <DbtrAcct><Id><IBAN>RO49BVBA21321321233RON02</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Plata factura FCT0014</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>NTRY-003</NtryRef>
+        <Amt Ccy="RON">27830.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-25</Dt></BookgDt>
+        <ValDt><Dt>2026-09-25</Dt></ValDt>
+        <AcctSvcrRef>INGOPEN003</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>FCT0023</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Siemens S.R.L.</Nm>
+                <Id><OrgId><Othr><Id>RO7614474</Id></Othr></OrgId></Id>
+              </Dbtr>
+              <DbtrAcct><Id><IBAN>RO49BVBA1312321233RON02</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Plata factura FCT0023</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>NTRY-004</NtryRef>
+        <Amt Ccy="RON">30250.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-25</Dt></BookgDt>
+        <ValDt><Dt>2026-09-25</Dt></ValDt>
+        <AcctSvcrRef>INGOPEN004</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>FCT0027</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Fotbal Club Fcsb S.A.</Nm>
+                <Id><OrgId><Othr><Id>RO15224430</Id></Othr></OrgId></Id>
+              </Dbtr>
+              <DbtrAcct><Id><IBAN>RO93OTP132132132233RON01</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Plata factura FCT0027</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>NTRY-005</NtryRef>
+        <Amt Ccy="RON">36300.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-09-25</Dt></BookgDt>
+        <ValDt><Dt>2026-09-25</Dt></ValDt>
+        <AcctSvcrRef>INGOPEN005</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>FCT0029</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Porsche Leasing Romania Ifn S.A.</Nm>
+                <Id><OrgId><Othr><Id>RO12064199</Id></Othr></OrgId></Id>
+              </Dbtr>
+              <DbtrAcct><Id><IBAN>RO51OTPV4829103756182049</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Plata factura FCT0029</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

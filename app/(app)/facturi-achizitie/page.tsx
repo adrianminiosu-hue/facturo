@@ -11,9 +11,11 @@ import { importPurchaseInvoicesFromEfactura, openPurchaseInvoicePdf } from '@/li
 import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { purchaseInvoiceFromRow } from '@/lib/purchaseInvoicePersist'
 import type { SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
+import { paymentStatusKey } from '@/lib/bank/labels'
 import { useLocale } from '@/components/LocaleProvider'
+import type { MessageKey } from '@/lib/messages'
 
-const LIST_GRID = 'grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_8.5rem_8rem_minmax(10rem,auto)] gap-x-4 px-6'
+const LIST_GRID = 'grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_8.5rem_7rem_8rem_minmax(10rem,auto)] gap-x-4 px-6'
 
 export default function PurchaseInvoicesPage() {
   const router = useRouter()
@@ -126,6 +128,7 @@ export default function PurchaseInvoicesPage() {
                 <span className="text-xs font-medium text-gray-400">{t('pur.supplier')}</span>
                 <span className="text-xs font-medium text-gray-400">{t('common.date')}</span>
                 <span className="text-xs font-medium text-gray-400">SPV</span>
+                <span className="text-xs font-medium text-gray-400">{t('bank.pay.status')}</span>
                 <span className="text-xs font-medium text-gray-400 text-right">{t('common.total')}</span>
                 <span className="text-xs font-medium text-gray-400 text-right">{t('common.actions')}</span>
               </div>
@@ -146,6 +149,9 @@ export default function PurchaseInvoicesPage() {
                   <span className="text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(invoice.issueDate)}</span>
                   <span className="inline-block text-xs px-2 py-1 rounded-lg font-medium bg-teal-50 text-teal-700 w-fit">
                     {t('pur.inEfactura')}
+                  </span>
+                  <span className="text-xs text-[color:var(--color-muted-foreground)]">
+                    {t(paymentStatusKey(invoice.paymentStatus) as MessageKey)}
                   </span>
                   <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
                     {formatRon(invoice.total)}

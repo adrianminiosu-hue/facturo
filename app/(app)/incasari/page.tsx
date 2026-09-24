@@ -34,9 +34,13 @@ type Row = {
 type Unallocated = {
   id: string
   amount: number
-  paid_on: string
+  booking_date?: string
+  paid_on?: string
+  counterparty_name?: string | null
   counterpart_name?: string | null
+  counterparty_iban?: string | null
   counterpart_iban?: string | null
+  description?: string | null
   notes?: string | null
   reference?: string | null
   company_id?: string | null
@@ -76,6 +80,8 @@ export default function IncasariPage() {
   const [payRow, setPayRow] = useState<Row | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [unallocated, setUnallocated] = useState<Unallocated[]>([])
+  const [inboxCount, setInboxCount] = useState(0)
+  const [bankPaid, setBankPaid] = useState<Record<string, string>>({})
   const [page, setPage] = useState(1)
 
   const today = calendarDateInBucharest(0)
@@ -103,15 +109,37 @@ export default function IncasariPage() {
       }))
     }
     let extrasQuery = supabase
-      .from('invoice_payments')
-      .select('id, amount, paid_on, counterpart_name, counterpart_iban, notes, reference, company_id')
+      .from('bank_transactions')
+      .select('id, amount, booking_date, counterparty_name, counterparty_iban, description, company_id')
       .in('user_id', accessibleOwnerIds.length ? accessibleOwnerIds : [ownerUserId || userId])
-      .is('invoice_id', null)
-      .order('paid_on', { ascending: false })
+      .eq('match_status', 'unmatched')
+      .gt('amount', 0)
+      .order('booking_date', { ascending: false })
     if (company?.id) extrasQuery = extrasQuery.eq('company_id', company.id)
     const extras = await extrasQuery
     if (!extras.error) setUnallocated((extras.data || []) as Unallocated[])
     else setUnallocated([])
+    const inbox = await supabase
+      .from('bank_transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', company?.id || '')
+      .in('match_status', ['suggested', 'unmatched'])
+    setInboxCount(inbox.count || 0)
+    const invoiceIds = ((data || []) as Array<{ id: string }>).map(row => row.id)
+    if (invoiceIds.length) {
+      const paid = await supabase
+        .from('invoice_payments')
+        .select('invoice_id, paid_on, bank_transaction_id, source')
+        .in('invoice_id', invoiceIds)
+        .not('bank_transaction_id', 'is', null)
+      const map: Record<string, string> = {}
+      for (const row of (paid.data || []) as Array<{ invoice_id: string; paid_on: string }>) {
+        map[row.invoice_id] = row.paid_on
+      }
+      setBankPaid(map)
+    } else {
+      setBankPaid({})
+    }
     setLoading(false)
   }
 
@@ -215,6 +243,11 @@ export default function IncasariPage() {
               {t('rec.lead')}
             </p>
           </div>
+          {inboxCount > 0 && (
+            <Link href="/banca" className="w-full rounded-xl bg-amber-50 text-amber-900 text-sm px-4 py-3">
+              {t('bank.banner.confirm', { count: inboxCount })}
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setImportOpen(true)}
@@ -316,6 +349,9 @@ export default function IncasariPage() {
                     {Number(row.amount_paid) > 0 && (
                       <span className="block text-[11px] font-normal text-[color:var(--color-muted-foreground)]">
                         {t('rec.fromTotal', { amount: ron(Number(row.total)) })}
+                        {bankPaid[row.id] && (
+                          <span title={t('bank.badge.auto', { date: formatRoDate(bankPaid[row.id]) })}> · 🏦</span>
+                        )}
                       </span>
                     )}
                   </span>
@@ -399,9 +435,9 @@ export default function IncasariPage() {
               {unallocated.map(p => (
                 <div key={p.id} className="flex justify-between gap-3 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate">{p.counterpart_name || t('rec.unknownPayer')}</p>
+                    <p className="truncate">{p.counterparty_name || p.counterpart_name || t('rec.unknownPayer')}</p>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] truncate">
-                      {p.paid_on} · {p.counterpart_iban || p.reference || p.notes || t('rec.xml940')}
+                      {p.booking_date || p.paid_on} · {p.counterparty_iban || p.counterpart_iban || p.description || p.notes || t('rec.xml940')}
                     </p>
                   </div>
                   <p className="font-medium shrink-0">{ron(Number(p.amount))}</p>
@@ -414,6 +450,7 @@ export default function IncasariPage() {
           <PaymentModal
             invoice={payRow}
             userId={ownerUserId || userId}
+            companyId={payRow.company_id}
             firmName={companyName(payRow.company_id)}
             onClose={() => setPayRow(null)}
             onSaved={() => { setPayRow(null); load() }}

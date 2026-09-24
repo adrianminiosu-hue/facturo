@@ -41,6 +41,8 @@ export type SimulatedPurchaseInvoice = {
   subtotal: number
   vat: number
   total: number
+  amountPaid?: number
+  paymentStatus?: string
   seal: PurchaseInvoiceSeal
 }
 

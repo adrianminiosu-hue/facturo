@@ -75,22 +75,12 @@ export async function applyImportedPayment(
   }
 
   if (line.action === 'unallocated' || !line.invoiceId) {
-    payload.invoice_id = null
-    const insert = await client.from('invoice_payments').insert(payload)
-    if (insert.error) {
-      if (insert.error.message?.toLowerCase().includes('fingerprint') || insert.error.code === '23505') {
-        return { fingerprint: line.fingerprint, outcome: 'duplicate', invoiceId: null }
-      }
-      return {
-        fingerprint: line.fingerprint,
-        outcome: 'error',
-        invoiceId: null,
-        error: insert.error.message.includes('column') || insert.error.message.includes('schema')
-          ? 'Rulează migrarea Multicash (coloane extras XML) în Supabase.'
-          : insert.error.message
-      }
+    return {
+      fingerprint: line.fingerprint,
+      outcome: 'error',
+      invoiceId: null,
+      error: 'Plățile nealocate se salvează ca bank_transactions, nu ca invoice_payments fără factură.'
     }
-    return { fingerprint: line.fingerprint, outcome: 'unallocated', invoiceId: null }
   }
 
   const invoiceId = line.invoiceId
@@ -130,14 +120,8 @@ export async function applyImportedPayment(
     }
   }
 
-  const paidSoFar = Number(meta.total) - rest + line.amount
-  const fullyPaid = paidSoFar >= Number(meta.total) - 0.009
-  const invoiceUpdate: Record<string, unknown> = { amount_paid: Math.round(paidSoFar * 100) / 100 }
-  if (fullyPaid) invoiceUpdate.status = 'paid'
-  await client.from('invoices').update(invoiceUpdate).eq('id', invoiceId).eq('user_id', userId)
-
   remainingByInvoice.set(invoiceId, Math.max(0, rest - line.amount))
-  invoiceMeta.set(invoiceId, { ...meta, status: fullyPaid ? 'paid' : meta.status })
+  invoiceMeta.set(invoiceId, { ...meta, status: rest - line.amount <= 0.009 ? 'paid' : meta.status })
   return { fingerprint: line.fingerprint, outcome: 'imported', invoiceId }
 }
 

@@ -11,10 +11,11 @@ import { useLocale } from '@/components/LocaleProvider'
 
 const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator', 'efactura'] as const
 
-export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
+export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
   const router = useRouter()
   const { t } = useLocale()
   const { userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
+  const [inboxCount, setInboxCount] = useState(0)
   const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
   const settingsActive = SETTINGS.includes(active as typeof SETTINGS[number])
   const [invoicesOpen, setInvoicesOpen] = useState(invoicesActive)
@@ -24,6 +25,21 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
     if (invoicesActive) setInvoicesOpen(true)
     if (settingsActive) setSettingsOpen(true)
   }, [invoicesActive, settingsActive])
+
+  useEffect(() => {
+    if (!company?.id) return
+    let cancelled = false
+    supabase
+      .from('bank_transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', company.id)
+      .in('match_status', ['suggested', 'unmatched'])
+      .then(({ count, error }) => {
+        if (cancelled) return
+        setInboxCount(error ? 0 : count || 0)
+      })
+    return () => { cancelled = true }
+  }, [company?.id, active])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -59,6 +75,16 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
           )}
 
           <Link href="/incasari" className={sideClass(active === 'receivables')}>{t('nav.receivables')}</Link>
+          <Link href="/banca" className={sideClass(active === 'banca')}>
+            <span className="flex items-center justify-between gap-2 w-full">
+              <span>{t('nav.bank')}</span>
+              {inboxCount > 0 && (
+                <span className="text-[10px] min-w-[1.25rem] text-center rounded-full bg-[color:var(--color-foreground)] text-[color:var(--color-background)] px-1">
+                  {inboxCount}
+                </span>
+              )}
+            </span>
+          </Link>
           <Link href="/clients" className={sideClass(active === 'clients')}>{t('nav.clients')}</Link>
 
           <button

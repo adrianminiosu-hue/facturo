@@ -63,6 +63,8 @@ export function purchaseInvoiceFromRow(input: {
     subtotal: Number(invoice.subtotal || 0),
     vat: Number(invoice.tva_amount || 0),
     total: Number(invoice.total || 0),
+    amountPaid: Number(invoice.amount_paid || 0),
+    paymentStatus: String(invoice.payment_status || 'unpaid'),
     seal: sealFor(String(invoice.id), signedAtFor(invoice))
   }
 }

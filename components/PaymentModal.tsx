@@ -31,6 +31,7 @@ type InvoiceRef = {
   total: number
   amount_paid?: number | null
   prepaid_amount?: number | null
+  client_id?: string | null
   clients?: { company_name?: string } | null
 }
 
@@ -46,12 +47,14 @@ function ron(n: number) {
 export default function PaymentModal({
   invoice,
   userId,
+  companyId,
   firmName,
   onClose,
   onSaved
 }: {
   invoice: InvoiceRef
   userId: string
+  companyId?: string | null
   firmName?: string
   onClose: () => void
   onSaved: () => void
@@ -66,6 +69,7 @@ export default function PaymentModal({
   const [history, setHistory] = useState<PaymentRow[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [offer, setOffer] = useState<{ id: string; amount: number; booking_date: string; counterparty_name?: string | null } | null>(null)
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -77,7 +81,35 @@ export default function PaymentModal({
       setHistory((data || []) as PaymentRow[])
     }
     loadHistory()
-  }, [invoice.id])
+    const loadOffer = async () => {
+      if (!companyId || rest <= 0.01) return
+      const { data: txs } = await supabase
+        .from('bank_transactions')
+        .select('id, amount, booking_date, counterparty_name, counterparty_iban')
+        .eq('company_id', companyId)
+        .eq('match_status', 'unmatched')
+        .gt('amount', 0)
+        .lte('amount', rest + 0.009)
+        .order('booking_date', { ascending: false })
+        .limit(20)
+      if (!txs?.length) return
+      let ibans: string[] = []
+      if (invoice.client_id) {
+        const [{ data: client }, { data: banks }] = await Promise.all([
+          supabase.from('clients').select('iban').eq('id', invoice.client_id).maybeSingle(),
+          supabase.from('client_bank_accounts').select('iban').eq('client_id', invoice.client_id)
+        ])
+        ibans = [client?.iban, ...(banks || []).map(row => row.iban)].filter(Boolean) as string[]
+      }
+      const hit = (txs as Array<{ id: string; amount: number; booking_date: string; counterparty_name?: string | null; counterparty_iban?: string | null }>).find(tx => {
+        if (!ibans.length) return Number(tx.amount) <= rest + 0.009
+        const compact = String(tx.counterparty_iban || '').replace(/\s/g, '').toUpperCase()
+        return ibans.some(iban => iban.replace(/\s/g, '').toUpperCase() === compact)
+      })
+      if (hit) setOffer(hit)
+    }
+    loadOffer()
+  }, [invoice.id, invoice.client_id, companyId, rest])
 
   const parsed = Number(String(amount).replace(',', '.'))
   const remainingAfter = useMemo(() => rest - (Number.isNaN(parsed) ? 0 : parsed), [rest, parsed])
@@ -100,31 +132,21 @@ export default function PaymentModal({
     const insert = await supabase.from('invoice_payments').insert({
       invoice_id: invoice.id,
       user_id: userId,
+      company_id: companyId || null,
+      created_by: userId,
       amount: parsed,
       paid_on: paidOn,
       method,
+      source: 'manual',
       reference: reference.trim() || null,
       notes: notes.trim() || null
     })
 
-    const paidSoFar = Number(invoice.amount_paid || 0) + parsed
-    const fullyPaid = paidSoFar >= Number(invoice.total) - 0.009
-    const invoiceUpdate: Record<string, unknown> = { amount_paid: paidSoFar }
-    if (fullyPaid) invoiceUpdate.status = 'paid'
-
+    setSaving(false)
     if (insert.error) {
-      const fallback = await supabase.from('invoices').update(invoiceUpdate).eq('id', invoice.id)
-      setSaving(false)
-      if (fallback.error) {
-        setError(t('pay.saveFail'))
-        return
-      }
-      onSaved()
+      setError(t('pay.saveFail'))
       return
     }
-
-    await supabase.from('invoices').update(invoiceUpdate).eq('id', invoice.id)
-    setSaving(false)
     onSaved()
   }
 
@@ -136,6 +158,40 @@ export default function PaymentModal({
         <p className="text-sm text-[color:var(--color-muted-foreground)] mb-5">
           {firmName ? `${firmName} · ` : ''}{invoice.clients?.company_name || t('common.client')}
         </p>
+
+        {offer && (
+          <div className="rounded-xl bg-amber-50 text-amber-900 text-sm p-3 mb-4">
+            <p>{t('bank.pay.offer', {
+              amount: ron(offer.amount),
+              name: offer.counterparty_name || t('common.client'),
+              date: offer.booking_date
+            })}</p>
+            <button
+              type="button"
+              className="btn btn-primary mt-2"
+              onClick={async () => {
+                const res = await fetch('/api/bank/match', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'confirm',
+                    transactionId: offer.id,
+                    actorUserId: userId,
+                    allocations: [{ invoiceId: invoice.id, amount: offer.amount }]
+                  })
+                })
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}))
+                  setError(data.error || t('pay.saveFail'))
+                  return
+                }
+                onSaved()
+              }}
+            >
+              {t('bank.pay.linkOffer')}
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-3 mb-6 text-sm">
           <div className="rounded-xl bg-[color:var(--color-muted)] p-3">

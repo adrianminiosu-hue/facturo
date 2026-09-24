@@ -1,0 +1,224 @@
+import { describe, expect, it } from 'vitest'
+import { AUTO_APPLY_THRESHOLD, RULE } from '@/lib/bank/matching/constants'
+import { extractInvoiceRefs } from '@/lib/bank/matching/extractRefs'
+import { matchBankTransaction } from '@/lib/bank/matching/engine'
+import type { EngineInput, MatchInvoice } from '@/lib/bank/matching/types'
+
+function invoice(partial: Partial<MatchInvoice> & Pick<MatchInvoice, 'id' | 'invoice_number' | 'remaining_bani'>): MatchInvoice {
+  return {
+    series: 'FCT',
+    client_id: 'c1',
+    client_name: 'Finsquare IT Solutions SRL',
+    client_cui: 'RO12345678',
+    client_ibans: ['RO49AAAA1B31007593840000'],
+    issue_date: '2026-09-01',
+    due_date: '2026-09-16',
+    currency: 'RON',
+    direction: 'issued',
+    ...partial
+  }
+}
+
+function input(over: Partial<EngineInput> & { transaction: EngineInput['transaction']; invoices: MatchInvoice[] }): EngineInput {
+  return {
+    seriesList: ['FCT'],
+    defaultSeries: 'FCT',
+    rules: [],
+    ...over
+  }
+}
+
+describe('extractInvoiceRefs', () => {
+  it('reads common Romanian reference formats', () => {
+    const series = ['FCT']
+    expect(extractInvoiceRefs('FCT0026', series, 'FCT')).toEqual([{ series: 'FCT', number: '26' }])
+    expect(extractInvoiceRefs('FCT 26', series, 'FCT')).toEqual([{ series: 'FCT', number: '26' }])
+    expect(extractInvoiceRefs('fct-0026', series, 'FCT')).toEqual([{ series: 'FCT', number: '26' }])
+    expect(extractInvoiceRefs('F.0026', series, 'FCT')).toEqual([{ series: 'FCT', number: '26' }])
+    expect(extractInvoiceRefs('factura 26', series, 'FCT')).toEqual([{ series: 'FCT', number: '26' }])
+    expect(extractInvoiceRefs('c/v fact FCT26', series, 'FCT')).toEqual([{ series: 'FCT', number: '26' }])
+    expect(extractInvoiceRefs('FCT0026 FCT0027', series, 'FCT')).toEqual([
+      { series: 'FCT', number: '26' },
+      { series: 'FCT', number: '27' }
+    ])
+  })
+
+  it('does not take digits from IBANs, CUIs, dates or amounts', () => {
+    const series = ['FCT']
+    expect(extractInvoiceRefs('RO49AAAA1B31007593840026', series, 'FCT')).toEqual([])
+    expect(extractInvoiceRefs('CUI RO1230026', series, 'FCT')).toEqual([])
+    expect(extractInvoiceRefs('plata 20.09.2026 1,234.56', series, 'FCT')).toEqual([])
+  })
+})
+
+describe('matchBankTransaction', () => {
+  const base = invoice({ id: 'inv-26', invoice_number: '0026', remaining_bani: 10000 })
+
+  it('invoice_ref exact unique amount', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base],
+      transaction: { amount_bani: 10000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'plata FCT0026' }
+    }))
+    expect(result?.rule).toBe(RULE.invoiceRef)
+    expect(result?.confidence).toBe(98)
+    expect(result?.auto).toBe(true)
+  })
+
+  it('invoice_ref_multi when amount equals sum', () => {
+    const second = invoice({ id: 'inv-27', invoice_number: '0027', remaining_bani: 5000, issue_date: '2026-09-02' })
+    const result = matchBankTransaction(input({
+      invoices: [base, second],
+      transaction: { amount_bani: 15000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'FCT0026 FCT0027' }
+    }))
+    expect(result?.rule).toBe(RULE.invoiceRefMulti)
+    expect(result?.confidence).toBe(97)
+    expect(result?.allocations).toHaveLength(2)
+  })
+
+  it('invoice_ref_partial when amount is below remaining', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base],
+      transaction: { amount_bani: 4000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'FCT 26' }
+    }))
+    expect(result?.rule).toBe(RULE.invoiceRefPartial)
+    expect(result?.confidence).toBe(90)
+    expect(result?.allocations[0].amount_bani).toBe(4000)
+  })
+
+  it('iban_amount when IBAN identifies the client and amount matches one invoice', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base, invoice({ id: 'other', invoice_number: '99', remaining_bani: 8000, client_id: 'c2', client_ibans: [] })],
+      transaction: {
+        amount_bani: 10000,
+        currency: 'RON',
+        counterparty_name: '',
+        counterparty_iban: 'RO49AAAA1B31007593840000',
+        description: 'transfer'
+      }
+    }))
+    expect(result?.rule).toBe(RULE.ibanAmount)
+    expect(result?.confidence).toBe(90)
+    expect(result?.auto).toBe(true)
+  })
+
+  it('multi_invoice oldest-first for 2-5 invoices', () => {
+    const a = invoice({ id: 'a', invoice_number: '1', remaining_bani: 3000, issue_date: '2026-01-01' })
+    const b = invoice({ id: 'b', invoice_number: '2', remaining_bani: 7000, issue_date: '2026-02-01' })
+    const result = matchBankTransaction(input({
+      invoices: [b, a],
+      transaction: {
+        amount_bani: 10000,
+        currency: 'RON',
+        counterparty_name: '',
+        counterparty_iban: 'RO49AAAA1B31007593840000',
+        description: ''
+      }
+    }))
+    expect(result?.rule).toBe(RULE.multiInvoice)
+    expect(result?.confidence).toBe(75)
+    expect(result?.auto).toBe(false)
+    expect(result?.allocations.map(item => item.invoiceId)).toEqual(['a', 'b'])
+  })
+
+  it('partial_oldest when client is known and amount does not match a combo', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base],
+      transaction: {
+        amount_bani: 2500,
+        currency: 'RON',
+        counterparty_name: '',
+        counterparty_iban: 'RO49AAAA1B31007593840000',
+        description: ''
+      }
+    }))
+    expect(result?.rule).toBe(RULE.partialOldest)
+    expect(result?.confidence).toBe(60)
+    expect(result?.allocations[0].amount_bani).toBe(2500)
+  })
+
+  it('name_amount at 45', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base],
+      transaction: {
+        amount_bani: 10000,
+        currency: 'RON',
+        counterparty_name: 'FINSQUARE IT SOLUTIONS S.R.L.',
+        counterparty_iban: '',
+        description: ''
+      }
+    }))
+    expect(result?.rule).toBe(RULE.nameAmount)
+    expect(result?.confidence).toBe(45)
+    expect(result?.auto).toBe(false)
+  })
+
+  it('caps duplicate invoice numbers below auto-apply', () => {
+    const dup = invoice({ id: 'dup', invoice_number: '0026', remaining_bani: 10000, client_id: 'c9' })
+    const result = matchBankTransaction(input({
+      invoices: [base, dup],
+      transaction: { amount_bani: 10000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'FCT0026' }
+    }))
+    expect(result?.confidence).toBeLessThan(AUTO_APPLY_THRESHOLD)
+    expect(result?.auto).toBe(false)
+    expect(result?.rule).toBe(RULE.duplicateRef)
+  })
+
+  it('overpayment allocates remaining and keeps leftover', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base],
+      transaction: { amount_bani: 15000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'FCT0026' }
+    }))
+    expect(result?.overpayment_bani).toBe(5000)
+    expect(result?.allocations[0].amount_bani).toBe(10000)
+  })
+
+  it('rejects different currency', () => {
+    const result = matchBankTransaction(input({
+      invoices: [base],
+      transaction: { amount_bani: 10000, currency: 'EUR', counterparty_name: '', counterparty_iban: '', description: 'FCT0026' }
+    }))
+    expect(result).toBeNull()
+  })
+
+  it('matches outgoing amounts only to purchase invoices', () => {
+    const purchase = invoice({
+      id: 'pur-1',
+      invoice_number: '88',
+      remaining_bani: 20000,
+      direction: 'purchase',
+      client_name: 'Supplier SRL'
+    })
+    const result = matchBankTransaction(input({
+      invoices: [base, purchase],
+      transaction: { amount_bani: -20000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'FCT88' }
+    }))
+    expect(result?.allocations[0].invoiceId).toBe('pur-1')
+  })
+
+  it('iban_amount also fires from a learned bank_match_rules IBAN', () => {
+    const result = matchBankTransaction(input({
+      invoices: [invoice({ id: 'inv-l', invoice_number: '55', remaining_bani: 8000, client_ibans: [] })],
+      rules: [{ client_id: 'c1', counterparty_iban: 'RO22CCCC1B31007593841111', counterparty_name_norm: null }],
+      transaction: {
+        amount_bani: 8000,
+        currency: 'RON',
+        counterparty_name: '',
+        counterparty_iban: 'RO22CCCC1B31007593841111',
+        description: 'transfer'
+      }
+    }))
+    expect(result?.rule).toBe(RULE.ibanAmount)
+    expect(result?.confidence).toBe(90)
+    expect(result?.auto).toBe(true)
+  })
+
+  it('uses remaining after prepaid_amount already baked into remaining_bani', () => {
+    const prepaid = invoice({ id: 'pre', invoice_number: '10', remaining_bani: 4000 })
+    const result = matchBankTransaction(input({
+      invoices: [prepaid],
+      transaction: { amount_bani: 4000, currency: 'RON', counterparty_name: '', counterparty_iban: '', description: 'FCT10' }
+    }))
+    expect(result?.rule).toBe(RULE.invoiceRef)
+    expect(result?.allocations[0].amount_bani).toBe(4000)
+  })
+})

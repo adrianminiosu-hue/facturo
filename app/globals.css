@@ -621,6 +621,25 @@ body {
     border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
   }
 
+  .btn-success {
+    background: #b8e6c8 !important;
+    color: #0b4f2a !important;
+    border-color: #7dcea0 !important;
+    box-shadow: none;
+  }
+  .btn-success:hover {
+    background: #a4dcba !important;
+  }
+  .btn-danger {
+    background: #f5b8b6 !important;
+    color: #7f1d1d !important;
+    border-color: #e08986 !important;
+    box-shadow: none;
+  }
+  .btn-danger:hover {
+    background: #ef9f9c !important;
+  }
+
   .nav-link {
     @apply text-[13px] tracking-wide;
     color: var(--muted-foreground);

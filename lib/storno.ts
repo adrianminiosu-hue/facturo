@@ -7,22 +7,19 @@ export async function applyStornoToOriginal(
 ) {
   const { data: original } = await client
     .from('invoices')
-    .select('total, amount_paid, status')
+    .select('id, user_id, company_id')
     .eq('id', opts.originalId)
     .single()
   if (!original) return
-  const paid = Number(original.amount_paid || 0) + Number(opts.amount)
-  const fullyPaid = paid >= Number(original.total) - 0.009
   await client.from('invoice_payments').insert({
     invoice_id: opts.originalId,
-    user_id: opts.userId,
+    user_id: original.user_id || opts.userId,
+    company_id: original.company_id || null,
+    created_by: opts.userId,
     amount: opts.amount,
     paid_on: calendarDateInBucharest(0),
     method: 'compensation',
+    source: 'manual',
     notes: `Storno ${opts.creditRef}`
   })
-  await client.from('invoices').update({
-    amount_paid: paid,
-    status: fullyPaid ? 'paid' : original.status
-  }).eq('id', opts.originalId)
 }

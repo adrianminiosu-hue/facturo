@@ -12,6 +12,7 @@ import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { purchaseInvoiceFromRow } from '@/lib/purchaseInvoicePersist'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import type { SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
+import InvoicePaymentsSection from '@/components/InvoicePaymentsSection'
 import { useLocale } from '@/components/LocaleProvider'
 
 type Line = {
@@ -169,6 +170,12 @@ export default function PurchaseInvoiceViewPage() {
             </div>
           </div>
         </div>
+
+        <InvoicePaymentsSection
+          invoice={{ id: invoice.id, total: invoice.total, amount_paid: invoice.amountPaid }}
+          actorUserId={userId}
+          onChanged={load}
+        />
 
         <div className="card p-6">
           <h3 className="font-bold mb-2">{t('inv.notes')}</h3>

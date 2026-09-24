@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
+import InvoicePaymentsSection from '@/components/InvoicePaymentsSection'
 import PaymentModal from '@/components/PaymentModal'
 import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
@@ -328,9 +329,6 @@ export default function InvoiceViewPage() {
             <p className="text-sm">{t('inv.issuedOn', { date: formatRoDate(invoice.issue_date) })}</p>
             <p className="text-sm mt-1">{t('inv.vatPointOn', { date: formatRoDate(invoice.tax_point_date || invoice.issue_date) })}</p>
             <p className="text-sm mt-1">{t('inv.dueOn', { date: invoice.due_date ? formatRoDate(invoice.due_date) : '—' })}</p>
-            {Number(invoice.amount_paid) > 0 && (
-              <p className="text-sm mt-1">{t('inv.collectedOf', { paid: ron(Number(invoice.amount_paid)), total: ron(Number(invoice.total)) })}</p>
-            )}
             {remainingOf(invoice) > 0 && remainingOf(invoice) < Number(invoice.total) && (
               <p className="text-sm mt-1">{t('inv.remaining', { amount: ron(remainingOf(invoice)) })}</p>
             )}
@@ -379,6 +377,12 @@ export default function InvoiceViewPage() {
           </div>
         </div>
 
+        <InvoicePaymentsSection
+          invoice={invoice}
+          actorUserId={userId}
+          onChanged={load}
+        />
+
         {notesWithoutSpvMark(invoice.notes) && (
           <div className="card p-6">
             <h3 className="font-bold mb-2">{t('inv.notes')}</h3>
@@ -390,6 +394,7 @@ export default function InvoiceViewPage() {
         <PaymentModal
           invoice={invoice}
           userId={ownerUserId || userId}
+          companyId={company?.id}
           firmName={company?.company_name}
           onClose={() => setPayOpen(false)}
           onSaved={() => { setPayOpen(false); load() }}
