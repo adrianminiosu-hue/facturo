@@ -80,7 +80,7 @@ export default function PurchaseInvoicesPage() {
     <div className="app-shell">
       <AppNav active="purchase-invoices" />
       <div className="max-w-5xl mx-auto px-8 py-8">
-        <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="page-toolbar">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('pur.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
@@ -123,7 +123,7 @@ export default function PurchaseInvoicesPage() {
               <p className="text-xs text-[color:var(--color-muted-foreground)] mb-3">{importNote}</p>
             )}
             <div className="card overflow-hidden">
-              <div className={`${LIST_GRID} py-1.5 border-b border-gray-50 items-center`}>
+              <div className={`${LIST_GRID} list-head py-1.5 border-b border-gray-50 items-center`}>
                 <span className="text-xs font-medium text-gray-400">{t('common.number')}</span>
                 <span className="text-xs font-medium text-gray-400">{t('pur.supplier')}</span>
                 <span className="text-xs font-medium text-gray-400">{t('common.date')}</span>
@@ -135,28 +135,28 @@ export default function PurchaseInvoicesPage() {
               {invoices.map((invoice, i) => (
                 <div
                   key={invoice.id}
-                  className={`${LIST_GRID} py-2 items-center ${i !== invoices.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  className={`${LIST_GRID} list-row list-row-purchases py-2 items-center ${i !== invoices.length - 1 ? 'border-b border-gray-50' : ''}`}
                 >
                   <Link
                     href={`/facturi-achizitie/${invoice.id}`}
-                    className="text-sm font-medium text-[color:var(--color-foreground)] hover:underline"
+                    className="list-cell-title text-sm font-medium text-[color:var(--color-foreground)] hover:underline"
                   >
                     {invoice.series}{invoice.invoiceNumber}
                   </Link>
-                  <span className="text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.supplierName}>
+                  <span className="list-cell-sub text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.supplierName}>
                     {invoice.supplierName}
                   </span>
-                  <span className="text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(invoice.issueDate)}</span>
-                  <span className="inline-block text-xs px-2 py-1 rounded-lg font-medium bg-teal-50 text-teal-700 w-fit">
+                  <span className="list-cell-meta text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(invoice.issueDate)}</span>
+                  <span className="list-cell-status inline-block text-xs px-2 py-1 rounded-lg font-medium bg-teal-50 text-teal-700 w-fit">
                     {t('pur.inEfactura')}
                   </span>
-                  <span className="text-xs text-[color:var(--color-muted-foreground)]">
+                  <span className="list-cell-extra text-xs text-[color:var(--color-muted-foreground)]">
                     {t(paymentStatusKey(invoice.paymentStatus) as MessageKey)}
                   </span>
-                  <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
+                  <span className="list-cell-amount text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
                     {formatRon(invoice.total)}
                   </span>
-                  <div className="flex flex-nowrap items-center justify-end gap-1.5">
+                  <div className="list-cell-actions flex flex-wrap items-center justify-end gap-1.5">
                     <button
                       type="button"
                       onClick={() => openPurchaseInvoicePdf(invoice.id, userId, company?.id)}

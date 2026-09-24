@@ -213,7 +213,7 @@ function BancaPageInner() {
     <div className="app-shell">
       <AppNav active="banca" />
       <div className="max-w-5xl mx-auto px-8 py-8">
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="page-toolbar">
           <div>
             <h2 className="text-3xl">{t('bank.title')}</h2>
             <p className="text-[color:var(--color-muted-foreground)] mt-1">{t('bank.lead')}</p>
@@ -221,7 +221,7 @@ function BancaPageInner() {
           <button type="button" className="btn btn-primary" onClick={() => setImportOpen(true)}>{t('rec.importStatement')}</button>
         </div>
 
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <button type="button" className={tab === 'inbox' ? 'btn btn-primary' : 'btn btn-outline'} onClick={() => setTab('inbox')}>
             {t('bank.tab.inbox')}{inbox.length ? ` (${inbox.length})` : ''}
           </button>
@@ -232,7 +232,7 @@ function BancaPageInner() {
           <span className="btn btn-outline opacity-50 cursor-not-allowed">{t('bank.tab.accounts')} · {t('bank.soon')}</span>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="filter-bar mb-4">
           <select className="select" value={dir} onChange={e => setDir(e.target.value as 'all' | 'in' | 'out')}>
             <option value="all">{t('bank.filter.all')}</option>
             <option value="in">{t('bank.filter.in')}</option>
@@ -300,7 +300,7 @@ function BancaPageInner() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="bank-row-actions flex items-center gap-2 shrink-0">
                       <span className={tx.amount > 0 ? 'text-green-700 font-medium' : 'font-medium'}>{formatRon(tx.amount)}</span>
                       {tab === 'inbox' && (
                         <>

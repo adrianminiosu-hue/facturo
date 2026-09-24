@@ -462,7 +462,7 @@ export default function Invoices() {
       <AppNav active="invoices" />
 
       <div className={`max-w-7xl mx-auto px-6 py-8 ${selectedCount > 0 ? 'pb-28' : ''}`}>
-        <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="page-toolbar">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
@@ -583,7 +583,7 @@ export default function Invoices() {
             ) : (
               <>
               <div className="card overflow-hidden">
-                <div className={`${LIST_GRID} py-1.5 border-b border-gray-50 items-center`}>
+                <div className={`${LIST_GRID} list-head py-1.5 border-b border-gray-50 items-center`}>
                   <input
                     ref={selectAllRef}
                     type="checkbox"
@@ -607,7 +607,7 @@ export default function Invoices() {
                   const status = invoiceStatusAppearance(invoice)
                   const alreadySpv = alreadySentToSpv(invoice)
                   return (
-                    <div key={invoice.id} className={`${LIST_GRID} py-1 items-center ${i !== pagedInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                    <div key={invoice.id} className={`${LIST_GRID} list-row list-row-invoices py-1 items-center ${i !== pagedInvoices.length - 1 ? 'border-b border-gray-50' : ''}`}>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -615,16 +615,16 @@ export default function Invoices() {
                         onChange={() => toggleSelected(invoice.id, eligible)}
                         aria-label={t('inv.selectOne', { ref: invoiceRef(invoice) })}
                         title={eligible ? t('inv.selectOne', { ref: invoiceRef(invoice) }) : alreadySpv ? t('inv.alreadySent') : t('inv.draftsSkip')}
-                        className="h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
+                        className="list-cell-check h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
                       />
-                      <Link href={`/invoices/${invoice.id}`} className="text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
+                      <Link href={`/invoices/${invoice.id}`} className="list-cell-title text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
                         {invoice.series}{invoice.invoice_number}
                       </Link>
-                      <span className="text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
+                      <span className="list-cell-sub text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
                         {invoice.clients?.company_name || '—'}
                       </span>
-                      <span className="text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
-                      <span>
+                      <span className="list-cell-meta text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
+                      <span className="list-cell-status">
                         <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>
                           {t(status.key)}
                         </span>
@@ -638,10 +638,10 @@ export default function Invoices() {
                           <p className="text-[10px] text-[color:var(--color-muted-foreground)] mt-1 font-mono">#{invoice.efactura_index}</p>
                         )}
                       </span>
-                      <span className="text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
+                      <span className="list-cell-amount text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
                         {formatRon(invoice.total)}
                       </span>
-                      <div className="flex flex-nowrap items-center justify-end gap-1.5">
+                      <div className="list-cell-actions flex flex-wrap items-center justify-end gap-1.5">
                         {isDraftInvoice(invoice.status) && (
                           <Link
                             href={`/invoices/${invoice.id}/edit`}

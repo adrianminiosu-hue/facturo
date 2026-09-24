@@ -21,6 +21,8 @@ export const messages: Record<'ro' | 'en', Record<string, string>> = {
     'nav.operator': 'Operator',
     'nav.logout': 'Deconectare',
     'nav.language': 'Limbă',
+    'nav.menu': 'Meniu',
+    'nav.closeMenu': 'Închide meniul',
 
     'bank.title': 'Bancă',
     'bank.lead': 'Import extras, confirmă potriviri, anulează alocări.',
@@ -1065,6 +1067,8 @@ export const messages: Record<'ro' | 'en', Record<string, string>> = {
     'nav.operator': 'Operator',
     'nav.logout': 'Sign out',
     'nav.language': 'Language',
+    'nav.menu': 'Menu',
+    'nav.closeMenu': 'Close menu',
 
     'bank.title': 'Bank',
     'bank.lead': 'Import statements, confirm matches, undo allocations.',

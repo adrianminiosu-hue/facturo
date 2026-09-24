@@ -235,7 +235,7 @@ export default function IncasariPage() {
     <div className="app-shell">
       <AppNav active="receivables" />
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div className="page-toolbar">
           <div>
             <p className="kicker mb-2">{t('rec.portfolio')}</p>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('rec.title')}</h2>
@@ -325,9 +325,9 @@ export default function IncasariPage() {
           </div>
         ) : (
           <>
-          <div className="card overflow-x-auto">
-            <div className="min-w-[900px]">
-              <div className="grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+          <div className="card overflow-hidden">
+            <div>
+              <div className="list-head grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
                 <span>{t('common.client')}</span>
                 <span>{t('rec.invoice')}</span>
                 <span>{t('rec.due')}</span>
@@ -337,14 +337,14 @@ export default function IncasariPage() {
                 <span className="text-right">{t('common.actions')}</span>
               </div>
               {paged.map((row, i) => (
-                <div key={row.id} className={`grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                  <span className="text-sm truncate">{row.clients?.company_name || '—'}</span>
-                  <span className="text-sm font-medium">{row.series}{row.invoice_number}</span>
-                  <span className="text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(row.due_date)}</span>
-                  <span className={`text-xs font-medium ${!row.settled && row.days < 0 ? 'text-amber-800' : 'text-[color:var(--color-muted-foreground)]'}`}>
+                <div key={row.id} className={`list-row list-row-incasari grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                  <span className="list-cell-sub text-sm truncate">{row.clients?.company_name || '—'}</span>
+                  <span className="list-cell-title text-sm font-medium">{row.series}{row.invoice_number}</span>
+                  <span className="list-cell-meta text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(row.due_date)}</span>
+                  <span className={`list-cell-extra text-xs font-medium ${!row.settled && row.days < 0 ? 'text-amber-800' : 'text-[color:var(--color-muted-foreground)]'}`}>
                     {daysLabel(row.days, row.settled)}
                   </span>
-                  <span className="text-sm font-medium">
+                  <span className="list-cell-amount text-sm font-medium">
                     {ron(row.rest)}
                     {Number(row.amount_paid) > 0 && (
                       <span className="block text-[11px] font-normal text-[color:var(--color-muted-foreground)]">
@@ -359,10 +359,10 @@ export default function IncasariPage() {
                     type="date"
                     value={row.promised_pay_date || ''}
                     onChange={e => savePromise(row.id, e.target.value)}
-                    className="input py-0.5 px-2 text-xs"
+                    className="list-cell-promise input py-0.5 px-2 text-xs"
                     title={t('rec.promisedTitle')}
                   />
-                  <div className="flex justify-end gap-1.5 flex-wrap">
+                  <div className="list-cell-actions flex justify-end gap-1.5 flex-wrap">
                     {!row.settled && (
                       <>
                     <button

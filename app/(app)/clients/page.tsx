@@ -421,7 +421,7 @@ export default function Clients() {
       <div className="max-w-5xl mx-auto px-8 py-8">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="page-toolbar">
           <div>
             <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cli.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
@@ -514,7 +514,7 @@ export default function Clients() {
                         placeholder="ex: 12345678"
                       />
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           value={form.cui}
@@ -698,7 +698,7 @@ export default function Clients() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <div className="grid grid-cols-12 px-6 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="list-head grid grid-cols-12 px-6 py-3 border-b border-gray-100 bg-gray-50">
               <span className="col-span-4 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('common.company')}</span>
               <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('cli.contact')}</span>
               <span className="col-span-3 text-xs font-medium text-[color:var(--color-muted-foreground)] uppercase tracking-wider">{t('cli.bank')}</span>
@@ -713,9 +713,9 @@ export default function Clients() {
               return (
                 <div
                   key={client.id}
-                  className={`grid grid-cols-12 px-6 py-4 items-center ${i !== filteredClients.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  className={`list-row list-row-clients grid grid-cols-12 px-6 py-4 items-center ${i !== filteredClients.length - 1 ? 'border-b border-gray-50' : ''}`}
                 >
-                  <div className="col-span-4">
+                  <div className="list-cell-title col-span-4">
                     <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
                       {t('cli.cui')}: {client.cui || '—'}{city ? ` · ${city}` : ''}
@@ -726,7 +726,7 @@ export default function Clients() {
                       </p>
                     )}
                   </div>
-                  <div className="col-span-3">
+                  <div className="list-cell-sub col-span-3">
                     <p className="text-sm text-[color:var(--color-muted-foreground)]">{client.email || '—'}</p>
                     <p className="text-xs text-[color:var(--color-muted-foreground)] opacity-70 mt-0.5">{client.phone || '—'}</p>
                     {contactCount > 0 && (
@@ -736,7 +736,7 @@ export default function Clients() {
                       </p>
                     )}
                   </div>
-                  <div className="col-span-3">
+                  <div className="list-cell-meta col-span-3">
                     {(() => {
                       const accounts = banksFromClient(client).filter(isBankAccountComplete)
                       const defaults = accounts.filter(a => a.is_default)
@@ -757,7 +757,7 @@ export default function Clients() {
                       ))
                     })()}
                   </div>
-                  <div className="col-span-2 flex items-center justify-end gap-2">
+                  <div className="list-cell-actions col-span-2 flex items-center justify-end gap-2">
                     <button
                       onClick={() => openEdit(client)}
                       className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition"

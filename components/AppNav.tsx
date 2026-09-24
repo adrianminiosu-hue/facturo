@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCompany } from '@/components/CompanyProvider'
@@ -13,9 +13,11 @@ const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator', 'efa
 
 export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { t } = useLocale()
   const { userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
   const [inboxCount, setInboxCount] = useState(0)
+  const [menuOpen, setMenuOpen] = useState(false)
   const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
   const settingsActive = SETTINGS.includes(active as typeof SETTINGS[number])
   const [invoicesOpen, setInvoicesOpen] = useState(invoicesActive)
@@ -25,6 +27,24 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
     if (invoicesActive) setInvoicesOpen(true)
     if (settingsActive) setSettingsOpen(true)
   }, [invoicesActive, settingsActive])
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     if (!company?.id) return
@@ -51,7 +71,8 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
 
   return (
     <>
-      <aside className="app-sidebar">
+      {menuOpen && <div className="nav-backdrop" onClick={() => setMenuOpen(false)} />}
+      <aside className={`app-sidebar${menuOpen ? ' is-open' : ''}`}>
         <div className="side-brand">
           <BrandLockup href="/dashboard" />
         </div>
@@ -107,10 +128,30 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
             </div>
           )}
         </nav>
+        <div className="side-footer">
+          <button type="button" onClick={handleLogout} className="side-link">
+            {t('nav.logout')}
+          </button>
+        </div>
       </aside>
 
       <header className="top-nav gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <button
+            type="button"
+            className="nav-menu-btn"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? t('nav.closeMenu') : t('nav.menu')}
+            onClick={() => setMenuOpen(v => !v)}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              {menuOpen ? (
+                <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              ) : (
+                <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              )}
+            </svg>
+          </button>
           <select
             value={company?.id || ''}
             onChange={async e => {
@@ -142,7 +183,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
           </Link>
           <button
             onClick={handleLogout}
-            className="nav-meta text-sm transition"
+            className="nav-meta text-sm transition top-nav-logout"
           >
             {t('nav.logout')}
           </button>
