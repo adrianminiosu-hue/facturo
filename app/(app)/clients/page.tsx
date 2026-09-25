@@ -1,12 +1,26 @@
 'use client'
+import { authHeaders } from '@/lib/authHeaders'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
+import { emailIssueKey, validateEmail } from '@/lib/email'
+import EmailField from '@/components/EmailField'
 import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import ClientContactsFields from '@/components/ClientContactsFields'
+import AnafStatusBadges from '@/components/AnafStatusBadges'
+import {
+  anafRisk,
+  anafStatusFromLookup,
+  anafStatusFromRow,
+  anafStatusToColumns,
+  isMissingAnafColumnError,
+  withoutAnafColumns,
+  type AnafStatus,
+  type AnafStatusRow
+} from '@/lib/anafStatus'
 import ClientAddressesFields from '@/components/ClientAddressesFields'
 import ClientBankAccountsFields from '@/components/ClientBankAccountsFields'
 import { countyCodeFromName } from '@/lib/romania'
@@ -21,6 +35,7 @@ import {
   type IbanCurrency
 } from '@/lib/roBanks'
 import { tenantWrite } from '@/lib/portfolio'
+import { formatRegCom } from '@/lib/regCom'
 import {
   DEFAULT_LEGAL_FORM,
   inferLegalForm,
@@ -58,7 +73,7 @@ import {
   type ClientBankAccountRow
 } from '@/lib/clientBanks'
 
-interface Client {
+interface Client extends AnafStatusRow {
   id: string
   user_id?: string
   company_id?: string | null
@@ -110,6 +125,9 @@ export default function Clients() {
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
   const [cuiLoading, setCuiLoading] = useState(false)
+  // ANAF status from the last CUI lookup (or the stored one when editing); persisted on save.
+  const [anafStatus, setAnafStatus] = useState<AnafStatus | null>(null)
+  const [anafNote, setAnafNote] = useState('')
   const [form, setForm] = useState(emptyForm)
   const [contacts, setContacts] = useState<ClientContactDraft[]>([])
   const [addresses, setAddresses] = useState<ClientAddressDraft[]>([firstClientAddress()])
@@ -160,15 +178,17 @@ export default function Clients() {
     try {
       const res = await fetch('/api/cui', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ cui: form.cui })
       })
       const data = await res.json()
       if (data.success) {
+        setAnafStatus(anafStatusFromLookup(data.anaf))
+        setAnafNote(data.source === 'openapi' ? t('cli.anafUnavailable') : '')
         setForm(f => ({
           ...f,
           company_name: data.company_name || f.company_name,
-          reg_com: data.reg_com || f.reg_com,
+          reg_com: formatRegCom(data.reg_com, { county: data.county, countyCode: data.county_code }) || f.reg_com,
           vat_registered: data.vat_registered ?? f.vat_registered,
           legal_form: inferLegalForm(data.company_name)
         }))
@@ -181,6 +201,8 @@ export default function Clients() {
           country: data.country || 'RO'
         }))
       } else {
+        setAnafStatus(null)
+        setAnafNote('')
         alert(t('cli.cuiNotFound'))
       }
     } catch (e) {
@@ -189,9 +211,45 @@ export default function Clients() {
     setCuiLoading(false)
   }
 
+  // Edit mode: refresh only the ANAF status (and the VAT flag), never overwrite the edited fields.
+  const recheckAnaf = async () => {
+    if (!form.cui) return
+    setCuiLoading(true)
+    try {
+      const res = await fetch('/api/cui', {
+        method: 'POST',
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ cui: form.cui })
+      })
+      const data = await res.json()
+      if (!data.success) { alert(data.message || t('cli.cuiNotFound')); return }
+      setAnafStatus(anafStatusFromLookup(data.anaf))
+      setAnafNote(data.source === 'openapi' ? t('cli.anafUnavailable') : '')
+      if (typeof data.vat_registered === 'boolean') setForm(f => ({ ...f, vat_registered: data.vat_registered }))
+    } catch {
+      alert(t('cli.connError'))
+    } finally {
+      setCuiLoading(false)
+    }
+  }
+
+  const anafPanel = (anafStatus || anafNote) ? (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {anafStatus && (
+        <div className="flex flex-wrap gap-2">
+          <AnafStatusBadges status={anafStatus} vatRegistered={form.vat_registered} publicInstitution={form.is_public_institution} />
+        </div>
+      )}
+      {anafRisk(anafStatus) && <p className="text-xs font-medium text-red-800">{t('cli.anafRiskWarn')}</p>}
+      {anafNote && <p className="text-xs text-amber-800">{anafNote}</p>}
+    </div>
+  ) : null
+
   const openNew = () => {
     setEditClient(null)
     setForm(emptyForm)
+    setAnafStatus(null)
+    setAnafNote('')
     setContacts([])
     setAddresses([firstClientAddress()])
     setBanks([firstClientBankAccount()])
@@ -205,7 +263,7 @@ export default function Clients() {
     setForm({
       company_name: client.company_name,
       cui: client.cui || '',
-      reg_com: client.reg_com || '',
+      reg_com: formatRegCom(client.reg_com, { county: client.county, countyCode: client.county_code }),
       vat_registered: client.vat_registered !== false,
       is_public_institution: client.is_public_institution === true,
       legal_form: isLegalFormCode(client.legal_form) ? client.legal_form : inferLegalForm(client.company_name),
@@ -216,6 +274,8 @@ export default function Clients() {
       bic: normalizeBic(client.bic),
       iban_currency: normalizeIbanCurrency(client.iban_currency)
     })
+    setAnafStatus(anafStatusFromRow(client))
+    setAnafNote('')
     setContacts(contactsFromRows(client.client_contacts))
     const loaded = addressesFromClient({
       ...client,
@@ -262,15 +322,12 @@ export default function Clients() {
       alert(t('cli.nameRequired'))
       return
     }
-    const email = form.email.trim()
-    if (!email) {
-      alert(t('cli.emailRequired'))
+    const emailCheck = validateEmail(form.email, { required: true })
+    if (!emailCheck.ok) {
+      alert(t(emailIssueKey(emailCheck.issue), { suggestion: emailCheck.suggestion || '' }))
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert(t('cli.emailInvalid'))
-      return
-    }
+    const email = emailCheck.normalized
     if (!form.phone.trim()) {
       alert(t('cli.phoneRequired'))
       return
@@ -308,13 +365,14 @@ export default function Clients() {
     const bankFields = defaultBankFields(completeBanks)
     const payload = {
       ...form,
+      reg_com: formatRegCom(form.reg_com),
       email,
       ...addressFields,
       ...bankFields
     }
     if (editClient) {
       const updateRow = {
-        email: form.email,
+        email,
         phone: form.phone,
         bank_name: bankFields.bank_name,
         iban: bankFields.iban,
@@ -328,7 +386,8 @@ export default function Clients() {
         county: payload.county,
         vat_registered: form.vat_registered,
         is_public_institution: form.is_public_institution,
-        legal_form: form.legal_form
+        legal_form: form.legal_form,
+        ...anafStatusToColumns(anafStatus)
       }
       let pendingUpdate = updateRow
       let { error } = await supabase
@@ -350,6 +409,11 @@ export default function Clients() {
         const retry = await supabase.from('clients').update(pendingUpdate).eq('id', editClient.id)
         error = retry.error
       }
+      if (error && isMissingAnafColumnError(error)) {
+        pendingUpdate = withoutAnafColumns(pendingUpdate)
+        const retry = await supabase.from('clients').update(pendingUpdate).eq('id', editClient.id)
+        error = retry.error
+      }
       if (error) {
         alert(error.message)
         return
@@ -363,7 +427,7 @@ export default function Clients() {
       setEditClient(null)
       loadClients()
     } else {
-      let pendingInsert = { ...payload, ...tenantWrite({ ownerUserId: ownerUserId || userId, actorUserId: userId, companyId: company?.id }) }
+      let pendingInsert = { ...payload, ...anafStatusToColumns(anafStatus), ...tenantWrite({ ownerUserId: ownerUserId || userId, actorUserId: userId, companyId: company?.id }) }
       let { data, error } = await supabase
         .from('clients')
         .insert(pendingInsert)
@@ -383,6 +447,12 @@ export default function Clients() {
       }
       if (error && isMissingLegalFormColumnError(error)) {
         pendingInsert = withoutLegalFormColumn(pendingInsert)
+        const retry = await supabase.from('clients').insert(pendingInsert).select('*').single()
+        data = retry.data
+        error = retry.error
+      }
+      if (error && isMissingAnafColumnError(error)) {
+        pendingInsert = withoutAnafColumns(pendingInsert)
         const retry = await supabase.from('clients').insert(pendingInsert).select('*').single()
         data = retry.data
         error = retry.error
@@ -500,7 +570,15 @@ export default function Clients() {
                 {editClient ? (
                   <div>
                     <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.cuiCif')}</label>
-                    <input type="text" className="input bg-gray-50 text-gray-400 cursor-not-allowed" value={form.cui} readOnly />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input type="text" className="input flex-1 bg-gray-50 text-gray-400 cursor-not-allowed" value={form.cui} readOnly />
+                      {form.cui && (
+                        <button onClick={recheckAnaf} disabled={cuiLoading} className="btn btn-outline disabled:opacity-50 whitespace-nowrap">
+                          {cuiLoading ? t('common.searching') : t('cli.anafRecheck')}
+                        </button>
+                      )}
+                    </div>
+                    {anafPanel}
                   </div>
                 ) : (
                   <div>
@@ -509,7 +587,7 @@ export default function Clients() {
                       <input
                         type="text"
                         value={form.cui}
-                        onChange={e => setForm(f => ({ ...f, cui: e.target.value }))}
+                        onChange={e => { setForm(f => ({ ...f, cui: e.target.value })); setAnafStatus(null); setAnafNote('') }}
                         className="input"
                         placeholder="ex: 12345678"
                       />
@@ -518,7 +596,7 @@ export default function Clients() {
                         <input
                           type="text"
                           value={form.cui}
-                          onChange={e => setForm(f => ({ ...f, cui: e.target.value }))}
+                          onChange={e => { setForm(f => ({ ...f, cui: e.target.value })); setAnafStatus(null); setAnafNote('') }}
                           className="input flex-1"
                           placeholder="ex: 12345678"
                         />
@@ -536,6 +614,7 @@ export default function Clients() {
                         {t('cli.notFoundManual')} <button onClick={() => setManualEdit(true)} className="text-blue-500 underline">{t('cli.manual')}</button>
                       </p>
                     )}
+                    {anafPanel}
                   </div>
                 )}
 
@@ -614,17 +693,10 @@ export default function Clients() {
                 {t('cli.contactData')}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.email')} *</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    className="input"
-                    placeholder="ex: contact@companie.ro"
-                    required
-                  />
-                </div>
+                <EmailField
+                  value={form.email}
+                  onChange={email => setForm(f => ({ ...f, email }))}
+                />
                 <div>
                   <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('common.phone')} *</label>
                   <input
@@ -717,6 +789,9 @@ export default function Clients() {
                 >
                   <div className="list-cell-title col-span-4">
                     <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
+                    {anafRisk(anafStatusFromRow(client)) && (
+                      <div className="mt-1"><AnafStatusBadges status={anafStatusFromRow(client)} compact /></div>
+                    )}
                     <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">
                       {t('cli.cui')}: {client.cui || '—'}{city ? ` · ${city}` : ''}
                     </p>

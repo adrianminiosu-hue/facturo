@@ -1,4 +1,5 @@
 'use client'
+import { authHeaders } from '@/lib/authHeaders'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -7,6 +8,9 @@ import { countyNameFromCode } from '@/lib/romania'
 import { useCompany } from '@/components/CompanyProvider'
 import BrandLockup from '@/components/BrandLockup'
 import { useLocale } from '@/components/LocaleProvider'
+import { emailIssueKey, validateEmail } from '@/lib/email'
+import EmailField from '@/components/EmailField'
+import { formatRegCom } from '@/lib/regCom'
 
 export default function Onboarding() {
   const router = useRouter()
@@ -102,7 +106,7 @@ export default function Onboarding() {
     try {
       const res = await fetch('/api/cui', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ cui })
       })
       const data = await res.json()
@@ -111,7 +115,7 @@ export default function Onboarding() {
           setProfile(f => ({
             ...f,
             company_name: data.company_name || f.company_name,
-            reg_com: data.reg_com || f.reg_com,
+            reg_com: formatRegCom(data.reg_com, { county: data.county, countyCode: data.county_code }) || f.reg_com,
             address: data.address || f.address,
             city: data.city || f.city,
             county: data.county || f.county,
@@ -123,7 +127,7 @@ export default function Onboarding() {
           setClient(f => ({
             ...f,
             company_name: data.company_name || f.company_name,
-            reg_com: data.reg_com || f.reg_com,
+            reg_com: formatRegCom(data.reg_com, { county: data.county, countyCode: data.county_code }) || f.reg_com,
             address: data.address || f.address,
             city: data.city || f.city,
             county: data.county || f.county,
@@ -143,8 +147,11 @@ export default function Onboarding() {
 
   const persistProfileIfNeeded = async () => {
     if (!profile.company_name.trim()) return
+    const emailCheck = validateEmail(profile.email)
     const payload = {
       ...profile,
+      reg_com: formatRegCom(profile.reg_com, { county: profile.county, countyCode: profile.county_code }),
+      email: emailCheck.normalized,
       county: countyNameFromCode(profile.county_code) || profile.county
     }
     if (company?.id) {
@@ -158,6 +165,11 @@ export default function Onboarding() {
 
   const saveProfile = async () => {
     if (!profile.company_name) { alert(t('onb.companyNameRequired')); return }
+    const emailCheck = validateEmail(profile.email)
+    if (!emailCheck.ok) {
+      alert(t(emailIssueKey(emailCheck.issue), { suggestion: emailCheck.suggestion || '' }))
+      return
+    }
     setSaving(true)
     await persistProfileIfNeeded()
     setSaving(false)
@@ -166,12 +178,19 @@ export default function Onboarding() {
 
   const saveClient = async () => {
     if (!client.company_name) { alert(t('onb.clientNameRequired')); return }
+    const emailCheck = validateEmail(client.email)
+    if (!emailCheck.ok) {
+      alert(t(emailIssueKey(emailCheck.issue), { suggestion: emailCheck.suggestion || '' }))
+      return
+    }
     const { data: { user } } = await supabase.auth.getUser()
     const companyId = company?.id
     if (!companyId) { alert(t('onb.saveCompanyFirst')); return }
     setSaving(true)
     const payload = {
       ...client,
+      reg_com: formatRegCom(client.reg_com, { county: client.county, countyCode: client.county_code }),
+      email: emailCheck.normalized,
       county: countyNameFromCode(client.county_code) || client.county,
       user_id: user?.id || userId,
       company_id: companyId
@@ -346,16 +365,14 @@ export default function Onboarding() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('onb.emailCompany')}</label>
-                  <input
-                    type="email"
-                    value={profile.email}
-                    onChange={e => setProfile(f => ({ ...f, email: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="contact@companie.ro"
-                  />
-                </div>
+                <EmailField
+                  required={false}
+                  label={t('onb.emailCompany')}
+                  value={profile.email}
+                  onChange={email => setProfile(f => ({ ...f, email }))}
+                  placeholder="contact@companie.ro"
+                  inputClassName="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('pro.series')}</label>
                   <input
@@ -466,16 +483,14 @@ export default function Onboarding() {
               </label>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('onb.emailClient')}</label>
-                  <input
-                    type="email"
-                    value={client.email}
-                    onChange={e => setClient(f => ({ ...f, email: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="contact@client.ro"
-                  />
-                </div>
+                <EmailField
+                  required={false}
+                  label={t('onb.emailClient')}
+                  value={client.email}
+                  onChange={email => setClient(f => ({ ...f, email }))}
+                  placeholder="contact@client.ro"
+                  inputClassName="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.phone')}</label>
                   <input
