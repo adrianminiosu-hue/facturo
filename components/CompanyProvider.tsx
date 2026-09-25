@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { ACTIVE_COMPANY_KEY, companyFromRow, emptyCompanyFields, type Company } from '@/lib/company'
 import { loadMembershipOwnerIds, uniqueIds, type PortfolioRole } from '@/lib/portfolio'
 import { useLocale } from '@/components/LocaleProvider'
+import { authHeaders } from '@/lib/authHeaders'
 
 type CompanyContextValue = {
   userId: string
@@ -29,7 +30,7 @@ async function acceptPendingInvites(userId: string) {
   try {
     await fetch('/api/team/accept', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userId })
     })
   } catch {

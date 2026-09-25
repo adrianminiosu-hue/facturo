@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { confirmMatch, ignoreMatch, undoAllocation, undoMatch } from '@/lib/bank/matching/apply'
 import { toBani } from '@/lib/bank/matching/types'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
@@ -9,9 +10,9 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const actorUserId = String(body.actorUserId || body.userId || '')
+    const actorUserId = await authenticatedUserId(request)
+    if (!actorUserId) return unauthorized()
     const action = String(body.action || '')
-    if (!actorUserId) return NextResponse.json({ error: 'Lipseste utilizatorul.' }, { status: 400 })
     const client = supabaseAdmin() as unknown as QueryClient
 
     if (action === 'confirm') {

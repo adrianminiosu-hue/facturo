@@ -6,6 +6,7 @@ import BrandLockup from '@/components/BrandLockup'
 import LocaleSwitch from '@/components/LocaleSwitch'
 import { useLocale } from '@/components/LocaleProvider'
 import { supabase } from '@/lib/supabase'
+import { authHeaders } from '@/lib/authHeaders'
 
 export default function InvitePage() {
   const { token } = useParams<{ token: string }>()
@@ -35,7 +36,7 @@ export default function InvitePage() {
         setBusy(true)
         const accept = await fetch('/api/team/accept', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ userId: user.id, token })
         })
         const body = await accept.json()

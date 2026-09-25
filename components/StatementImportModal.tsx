@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CsvColumnRole, CsvImportMapping, ImportSummary } from '@/lib/bank/import/types'
 import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
+import { authHeaders } from '@/lib/authHeaders'
 
 const ROLES: CsvColumnRole[] = ['ignore', 'date', 'amount', 'debit', 'credit', 'name', 'iban', 'details', 'reference']
 
@@ -54,7 +55,7 @@ export default function StatementImportModal({
     if (extra?.csvMapping) body.set('csvMapping', JSON.stringify(extra.csvMapping))
     if (extra?.confirmForeignIban) body.set('confirmForeignIban', 'true')
     try {
-      const res = await fetch('/api/bank/import', { method: 'POST', body })
+      const res = await fetch('/api/bank/import', { method: 'POST', body, headers: await authHeaders() })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || t('imp.fail'))

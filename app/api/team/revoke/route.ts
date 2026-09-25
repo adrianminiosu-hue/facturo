@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, memberId } = await request.json()
-    const ownerId = String(userId || '')
+    const ownerId = await authenticatedUserId(request)
+    if (!ownerId) return unauthorized()
+    const { memberId } = await request.json()
     const id = String(memberId || '')
     if (!ownerId || !id) return NextResponse.json({ error: 'Lipsesc datele.' }, { status: 400 })
 

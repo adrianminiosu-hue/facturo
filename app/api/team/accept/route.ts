@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isMissingPortfolioTableError, normalizeInviteEmail } from '@/lib/portfolio'
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, token } = await request.json()
-    const actorId = String(userId || '')
-    if (!actorId) return NextResponse.json({ error: 'Lipsă utilizator.' }, { status: 400 })
+    const actorId = await authenticatedUserId(request)
+    if (!actorId) return unauthorized()
+    const { token } = await request.json()
 
     const admin = supabaseAdmin()
     const { data } = await admin.auth.admin.getUserById(actorId)

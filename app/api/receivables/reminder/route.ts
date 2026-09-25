@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendInvoiceReminder } from '@/lib/dueReminders'
 import { getInvoiceForActor } from '@/lib/portfolio'
+import { authenticatedUserId } from '@/lib/serverAuth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,8 +11,13 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { invoiceId, userId } = await request.json()
-    if (!invoiceId || !userId) {
+    // The acting user comes from the session token, never from the request body.
+    const userId = await authenticatedUserId(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Autentificare necesară.' }, { status: 401 })
+    }
+    const { invoiceId } = await request.json()
+    if (!invoiceId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }
 

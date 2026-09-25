@@ -1,3 +1,4 @@
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { actorCanAccessOwner } from '@/lib/portfolio'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
@@ -89,9 +90,9 @@ export async function callbackAnafOAuth(request: NextRequest) {
 }
 
 export async function anafOAuthStatus(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get('userId') || ''
+  const userId = await authenticatedUserId(request)
+  if (!userId) return unauthorized()
   const ownerUserId = request.nextUrl.searchParams.get('ownerUserId') || userId
-  if (!userId) return NextResponse.json({ error: 'Missing params' }, { status: 400 })
   const admin = supabaseAdmin()
   const allowed = await actorCanAccessOwner(admin, userId, ownerUserId)
   if (!allowed) return NextResponse.json({ error: 'Nu ai acces.' }, { status: 403 })

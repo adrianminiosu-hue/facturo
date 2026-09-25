@@ -8,6 +8,7 @@ import { remainingOf } from '@/lib/invoiceMath'
 import { maskIban, paymentSourceKey } from '@/lib/bank/labels'
 import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
+import { authHeaders } from '@/lib/authHeaders'
 
 type Payment = {
   id: string
@@ -64,7 +65,7 @@ export default function InvoicePaymentsSection({
     setBusy(row.id)
     const res = await fetch('/api/bank/match', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(row.bank_transaction_id
         ? { action: 'undo', transactionId: row.bank_transaction_id, actorUserId }
         : { action: 'undo', paymentId: row.id, actorUserId })

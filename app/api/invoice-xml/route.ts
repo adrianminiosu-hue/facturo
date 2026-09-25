@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
 import { loadBuyer } from '@/lib/loadBuyer'
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const invoiceId = searchParams.get('id')
-    const userId = searchParams.get('userId')
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
 
     if (!invoiceId || !userId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })

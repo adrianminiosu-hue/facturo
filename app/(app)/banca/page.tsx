@@ -8,10 +8,12 @@ import { supabase } from '@/lib/supabase'
 import { formatRoDate } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
+import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import { confidenceKind, maskIban } from '@/lib/bank/labels'
 import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
+import { authHeaders } from '@/lib/authHeaders'
 
 type Tx = {
   id: string
@@ -63,8 +65,7 @@ function paidOf(invoiceId: string, invoice: InvoiceOpt, payments: PaymentRow[]) 
 
 function restOf(invoice: InvoiceOpt, payments: PaymentRow[]) {
   return remainingOf({
-    total: invoice.total,
-    prepaid_amount: invoice.prepaid_amount,
+    ...invoice,
     amount_paid: paidOf(invoice.id, invoice, payments)
   })
 }
@@ -106,13 +107,13 @@ function BancaPageInner() {
     const [txRes, sugRes, invRes, payRes, accRes] = await Promise.all([
       txQuery,
       supabase.from('bank_match_suggestions').select('bank_transaction_id, invoice_id, amount, confidence, rule').eq('company_id', company.id),
-      supabase.from('invoices').select('id, series, invoice_number, client_id, total, amount_paid, prepaid_amount, direction, notes, clients(company_name)').eq('company_id', company.id),
+      supabase.from('invoices').select('id, series, invoice_number, client_id, total, amount_paid, prepaid_amount, direction, notes, exchange_rate, subtotal, invoice_items(quantity, unit_price, tva_rate, total), clients(company_name)').eq('company_id', company.id),
       supabase.from('invoice_payments').select('invoice_id, amount, bank_transaction_id').eq('company_id', company.id),
       supabase.from('bank_accounts').select('id, iban').eq('company_id', company.id)
     ])
     setTxs((txRes.data || []) as Tx[])
     setSuggestions((sugRes.data || []) as Suggestion[])
-    setInvoices((invRes.data || []) as InvoiceOpt[])
+    setInvoices(await Promise.all(((invRes.data || []) as InvoiceOpt[]).map(row => ensureConvertedInvoiceAmounts(supabase, row))))
     setPayments((payRes.data || []) as PaymentRow[])
     setAccounts((accRes.data || []) as Array<{ id: string; iban: string }>)
     setLoading(false)
@@ -160,7 +161,7 @@ function BancaPageInner() {
   const act = async (action: string, body: Record<string, unknown>) => {
     const res = await fetch('/api/bank/match', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ ...body, action, actorUserId: userId })
     })
     const data = await res.json().catch(() => ({}))

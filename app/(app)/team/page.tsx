@@ -6,6 +6,7 @@ import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import { supabase } from '@/lib/supabase'
 import { MAX_OPERATORS, isMissingPortfolioTableError, type PortfolioMember } from '@/lib/portfolio'
+import { authHeaders } from '@/lib/authHeaders'
 
 export default function TeamPage() {
   const router = useRouter()
@@ -49,7 +50,7 @@ export default function TeamPage() {
     setBusy('invite')
     const res = await fetch('/api/team/invite', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userId, email })
     })
     const data = await res.json()
@@ -69,7 +70,7 @@ export default function TeamPage() {
     setBusy(member.id)
     const res = await fetch('/api/team/revoke', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userId, memberId: member.id })
     })
     const data = await res.json()

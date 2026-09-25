@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateEfacturaXml } from '@/lib/efactura'
 import { simulateSpvUpload } from '@/lib/efacturaSpv'
@@ -357,7 +358,9 @@ function asBulkItem(processed: ProcessedUpload) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { invoiceId, invoiceIds, userId } = await request.json()
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
+    const { invoiceId, invoiceIds } = await request.json()
     const bulkIds = Array.isArray(invoiceIds)
       ? invoiceIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
       : null

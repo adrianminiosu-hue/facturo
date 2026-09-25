@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { Resend } from 'resend'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { MAX_OPERATORS, isMissingPortfolioTableError, normalizeInviteEmail } from '@/lib/portfolio'
@@ -7,8 +8,9 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, email } = await request.json()
-    const ownerId = String(userId || '')
+    const ownerId = await authenticatedUserId(request)
+    if (!ownerId) return unauthorized()
+    const { email } = await request.json()
     const inviteEmail = normalizeInviteEmail(String(email || ''))
     if (!ownerId || !inviteEmail || !inviteEmail.includes('@')) {
       return NextResponse.json({ error: 'Introdu un email valid.' }, { status: 400 })

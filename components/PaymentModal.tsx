@@ -6,6 +6,7 @@ import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 import { useLocale } from '@/components/LocaleProvider'
 import { isMessageKey, type MessageKey } from '@/lib/messages'
+import { authHeaders } from '@/lib/authHeaders'
 
 export const PAYMENT_METHODS = [
   { id: 'transfer' },
@@ -172,7 +173,7 @@ export default function PaymentModal({
               onClick={async () => {
                 const res = await fetch('/api/bank/match', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: await authHeaders({ 'Content-Type': 'application/json' }),
                   body: JSON.stringify({
                     action: 'confirm',
                     transactionId: offer.id,

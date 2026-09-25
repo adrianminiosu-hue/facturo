@@ -79,7 +79,9 @@ export async function getInvoiceForActor(client: QueryClient, invoiceId: string,
   const { data: invoice } = await client.from('invoices').select('*').eq('id', invoiceId).maybeSingle()
   if (!invoice) return null
   const allowed = await actorCanAccessOwner(client, actorUserId, invoice.user_id)
-  return allowed ? invoice : null
+  if (!allowed) return null
+  const { ensureConvertedInvoiceAmounts } = await import('@/lib/invoicePersist')
+  return ensureConvertedInvoiceAmounts(client, invoice)
 }
 
 export async function getCompanyForActor(client: QueryClient, companyId: string, actorUserId: string) {

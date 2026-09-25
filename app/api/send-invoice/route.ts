@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, internalHeaders, unauthorized } from '@/lib/serverAuth'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { loadSeller } from '@/lib/loadSeller'
 import { formatRon } from '@/lib/money'
+import { billedTotal } from '@/lib/invoiceMath'
 import { getInvoiceForActor } from '@/lib/portfolio'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -14,7 +16,9 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { invoiceId, userId } = await request.json()
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
+    const { invoiceId } = await request.json()
 
     // Fetch invoice data
     const invoice = await getInvoiceForActor(supabase, invoiceId, userId)
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Generate PDF
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const pdfRes = await fetch(`${baseUrl}/api/invoice-pdf?id=${invoiceId}&userId=${userId}`)
+    const pdfRes = await fetch(`${baseUrl}/api/invoice-pdf?id=${invoiceId}`, { headers: internalHeaders(userId) })
     const pdfBuffer = await pdfRes.arrayBuffer()
     const pdfBase64 = Buffer.from(pdfBuffer).toString('base64')
 
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
           <p style="color: #666666;">Bună ziua,</p>
           <p style="color: #666666;">
             Vă transmitem alăturat factura <strong>${invoice.series}${invoice.invoice_number}</strong> 
-            în valoare de <strong>${formatRon(invoice.total)}</strong>.
+            în valoare de <strong>${formatRon(billedTotal(invoice))}</strong>.
           </p>
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr style="background: #f9fafb;">
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
             </tr>
             <tr>
               <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Total de plată</td>
-              <td style="padding: 12px; border: 1px solid #e5e7eb; color: #111111; font-weight: bold;">${formatRon(invoice.total)}</td>
+              <td style="padding: 12px; border: 1px solid #e5e7eb; color: #111111; font-weight: bold;">${formatRon(billedTotal(invoice))}</td>
             </tr>
           </table>
           ${profile?.iban ? `

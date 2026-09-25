@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { actorCanAccessOwner, getCompanyForActor } from '@/lib/portfolio'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 import ReactPDF, { Document, Page, Text, View, StyleSheet, Font, Svg, Circle, Path } from '@react-pdf/renderer'
 import { findSimulatedPurchaseInvoice, type PurchaseBuyer, type SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
@@ -277,15 +279,22 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const invoiceId = searchParams.get('id')
-    const userId = searchParams.get('userId')
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
     const companyId = searchParams.get('companyId')
 
     if (!invoiceId || !userId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }
 
+    if (companyId && !(await getCompanyForActor(supabase, companyId, userId))) {
+      return NextResponse.json({ error: 'Nu ai acces la această firmă.' }, { status: 403 })
+    }
     const stored = await loadBuyer(userId, companyId)
     const registered = await loadRegisteredPurchaseInvoice(supabase, invoiceId)
+    if (registered && !(await actorCanAccessOwner(supabase, userId, (registered as { user_id?: string }).user_id))) {
+      return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
+    }
     const invoice = registered
       ? purchaseInvoiceFromRow({ invoice: registered, buyer: stored })
       : findSimulatedPurchaseInvoice({ ...stored, id: companyId || stored.id || userId }, invoiceId)

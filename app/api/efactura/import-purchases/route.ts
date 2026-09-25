@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCompanyForActor } from '@/lib/portfolio'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 import {
   simulatedPurchaseInvoices,
@@ -36,7 +38,12 @@ async function loadBuyer(userId: string, companyId?: string | null): Promise<Pur
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, companyId, company } = await request.json()
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
+    const { companyId, company } = await request.json()
+    if (companyId && !(await getCompanyForActor(supabase, companyId, userId))) {
+      return NextResponse.json({ error: 'Nu ai acces la această firmă.' }, { status: 403 })
+    }
     if (!userId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }

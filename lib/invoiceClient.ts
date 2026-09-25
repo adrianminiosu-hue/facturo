@@ -1,9 +1,31 @@
-export async function downloadInvoicePdf(invoiceId: string, userId: string) {
-  window.open(`/api/invoice-pdf?id=${invoiceId}&userId=${userId}`, '_blank')
+import { authHeaders } from '@/lib/authHeaders'
+
+/** Opens a PDF from our API in a new tab, sending the session token instead of a userId in the URL. */
+async function openAuthedPdf(url: string) {
+  const tab = window.open('', '_blank')
+  try {
+    const res = await fetch(url, { headers: await authHeaders() })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Eroare PDF' }))
+      throw new Error(data.error || 'Nu s-a putut genera PDF-ul.')
+    }
+    const href = URL.createObjectURL(await res.blob())
+    if (tab) tab.location.href = href
+    else window.location.href = href
+    setTimeout(() => URL.revokeObjectURL(href), 60_000)
+  } catch (error) {
+    tab?.close()
+    alert(error instanceof Error ? error.message : 'Nu s-a putut deschide PDF-ul.')
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function downloadInvoicePdf(invoiceId: string, _userId?: string) {
+  await openAuthedPdf(`/api/invoice-pdf?id=${encodeURIComponent(invoiceId)}`)
 }
 
 export async function downloadInvoiceXml(invoiceId: string, userId: string, filename: string) {
-  const res = await fetch(`/api/invoice-xml?id=${invoiceId}&userId=${userId}`)
+  const res = await fetch(`/api/invoice-xml?id=${encodeURIComponent(invoiceId)}`, { headers: await authHeaders() })
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: 'Eroare XML' }))
     throw new Error(data.error || 'Nu s-a putut genera XML-ul e-Factura. Completează județul, adresa și UM.')
@@ -20,7 +42,7 @@ export async function downloadInvoiceXml(invoiceId: string, userId: string, file
 export async function sendInvoiceEmail(invoiceId: string, userId: string) {
   const res = await fetch('/api/send-invoice', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ invoiceId, userId })
   })
   const data = await res.json()
@@ -61,7 +83,7 @@ export type BulkSpvResultItem = {
 export async function uploadToEfactura(invoiceId: string, userId: string): Promise<SimulatedSpvUpload> {
   const res = await fetch('/api/efactura/upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ invoiceId, userId })
   })
   const data = await res.json()
@@ -77,7 +99,7 @@ export async function simulateSpvUploads(
 ): Promise<{ simulated?: boolean; note: string; results: BulkSpvResultItem[] }> {
   const res = await fetch('/api/efactura/upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ invoiceIds, userId })
   })
   const data = await res.json()
@@ -98,7 +120,7 @@ export type EfacturaConnection = {
 export async function loadEfacturaConnection(userId: string, ownerUserId?: string): Promise<EfacturaConnection> {
   const params = new URLSearchParams({ userId })
   if (ownerUserId) params.set('ownerUserId', ownerUserId)
-  const res = await fetch(`/api/efactura/oauth/status?${params.toString()}`)
+  const res = await fetch(`/api/efactura/oauth/status?${params.toString()}`, { headers: await authHeaders() })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Eroare conexiune e-Factura')
   return data
@@ -113,7 +135,7 @@ export function efacturaConnectUrl(userId: string, ownerUserId?: string) {
 export async function disconnectEfactura(userId: string, ownerUserId?: string) {
   const res = await fetch('/api/efactura/oauth/disconnect', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ userId, ownerUserId })
   })
   const data = await res.json()
@@ -147,7 +169,7 @@ export async function importPurchaseInvoicesFromEfactura(
 ): Promise<SimulatedPurchaseImport> {
   const res = await fetch('/api/efactura/import-purchases', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       userId,
       companyId: company?.id,
@@ -162,5 +184,6 @@ export async function importPurchaseInvoicesFromEfactura(
 export function openPurchaseInvoicePdf(invoiceId: string, userId: string, companyId?: string | null) {
   const params = new URLSearchParams({ id: invoiceId, userId })
   if (companyId) params.set('companyId', companyId)
-  window.open(`/api/efactura/purchase-pdf?${params.toString()}`, '_blank')
+  params.delete('userId')
+  return openAuthedPdf(`/api/efactura/purchase-pdf?${params.toString()}`)
 }

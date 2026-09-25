@@ -4,6 +4,7 @@ import { matchBankTransaction } from '@/lib/bank/matching/engine'
 import { tenantWriteVerified, type QueryClient } from '@/lib/bank/tenantWriteServer'
 import { normalizeIban } from '@/lib/iban'
 import { remainingOf } from '@/lib/invoiceMath'
+import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import { isCreditNote, isDraftInvoice, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { actorCanAccessOwner } from '@/lib/portfolio'
 import { fromBani, toBani, type InvoiceDirection, type LearnedRule, type MatchAllocation, type MatchCandidate, type MatchInvoice } from '@/lib/bank/matching/types'
@@ -58,6 +59,9 @@ type InvoiceLoadRow = {
   invoice_type_code?: string | null
   direction?: string | null
   notes?: string | null
+  exchange_rate?: number | null
+  subtotal?: number | null
+  invoice_items?: Array<{ quantity?: number | null; unit_price?: number | null; tva_rate?: number | null; total?: number | null }> | null
   clients?: InvoiceClientRel | InvoiceClientRel[] | null
 }
 
@@ -199,11 +203,11 @@ async function loadTransaction(client: QueryClient, transactionId: string) {
 async function loadInvoices(client: QueryClient, companyId: string, ownerUserId: string) {
   const { data: invoices, error } = await client
     .from('invoices')
-    .select('id, series, invoice_number, client_id, issue_date, due_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, direction, notes, clients(company_name, cui, iban)')
+    .select('id, series, invoice_number, client_id, issue_date, due_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, direction, notes, exchange_rate, subtotal, invoice_items(quantity, unit_price, tva_rate, total), clients(company_name, cui, iban)')
     .eq('company_id', companyId)
     .eq('user_id', ownerUserId)
   if (error) throw new Error(error.message)
-  const rows = (invoices || []) as InvoiceLoadRow[]
+  const rows = await Promise.all(((invoices || []) as InvoiceLoadRow[]).map(row => ensureConvertedInvoiceAmounts(client, row)))
   const clientIds = [...new Set(rows.map(row => row.client_id).filter((id): id is string => !!id))]
   const ibansByClient = new Map<string, string[]>()
   if (clientIds.length) {
@@ -243,8 +247,7 @@ async function loadInvoices(client: QueryClient, companyId: string, ownerUserId:
     const pays = paymentsByInvoice.get(row.id) || []
     const paid = Math.max(pays.reduce((sum, payment) => sum + payment.amount, 0), Number(row.amount_paid || 0))
     const remainingBani = toBani(remainingOf({
-      total: row.total,
-      prepaid_amount: row.prepaid_amount,
+      ...row,
       amount_paid: paid
     }))
     const unlinked = pays

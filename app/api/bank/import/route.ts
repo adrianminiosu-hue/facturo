@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { importStatement } from '@/lib/bank/import/importStatement'
 import type { CsvImportMapping } from '@/lib/bank/import/types'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
@@ -10,7 +11,9 @@ export async function POST(request: NextRequest) {
   try {
     const form = await request.formData()
     const file = form.get('file')
-    const actorUserId = String(form.get('actorUserId') || form.get('userId') || '')
+    // Acting user from the session; company access is verified inside importStatement.
+    const actorUserId = await authenticatedUserId(request)
+    if (!actorUserId) return unauthorized()
     const userId = String(form.get('userId') || actorUserId)
     const companyId = String(form.get('companyId') || '')
     const confirmForeignIban = form.get('confirmForeignIban') === 'true'

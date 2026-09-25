@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 import { parseMulticash940 } from '@/lib/multicash940'
 import { asOpenInvoice, matchPayments, type ExistingPayment } from '@/lib/paymentMatch'
 import { OPEN_INVOICE_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { getCompanyForActor } from '@/lib/portfolio'
+import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +19,8 @@ const MAX_XML_CHARS = 1_500_000
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const userId = String(body.userId || '')
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
     const companyId = String(body.companyId || '')
     const xml = String(body.xml || '')
     if (!userId || !companyId) {
@@ -42,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const { data: invoiceRows, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, company_id, client_id, series, invoice_number, due_date, issue_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, notes, clients(company_name, cui, iban)')
+      .select('id, company_id, client_id, series, invoice_number, due_date, issue_date, total, amount_paid, prepaid_amount, status, currency, invoice_type_code, notes, exchange_rate, subtotal, invoice_items(quantity, unit_price, tva_rate, total), clients(company_name, cui, iban)')
       .eq('user_id', company.user_id)
       .eq('company_id', companyId)
       .in('status', [...OPEN_INVOICE_STATUSES])
@@ -51,9 +54,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: invoiceError.message }, { status: 400 })
     }
 
-    const invoices = (invoiceRows || [])
-      .filter(row => (row as { invoice_type_code?: string }).invoice_type_code !== '381' && !isPurchaseInvoice(row as { notes?: string }))
-      .map(row => asOpenInvoice(row as Record<string, unknown>))
+    const invoices = await Promise.all(
+      (invoiceRows || [])
+        .filter(row => (row as { invoice_type_code?: string }).invoice_type_code !== '381' && !isPurchaseInvoice(row as { notes?: string }))
+        .map(async row => asOpenInvoice(await ensureConvertedInvoiceAmounts(supabase, row as Record<string, unknown>)))
+    )
 
     let existing: ExistingPayment[] = []
     const full = await supabase

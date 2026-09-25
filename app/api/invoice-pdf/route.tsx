@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 import ReactPDF, { Document, Page, Text, View, StyleSheet, Font, Svg, Rect, Path, Circle } from '@react-pdf/renderer'
 import { loadBuyer } from '@/lib/loadBuyer'
@@ -6,7 +7,7 @@ import { loadSeller } from '@/lib/loadSeller'
 import { getInvoiceForActor } from '@/lib/portfolio'
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { formatRon, formatAmount } from '@/lib/money'
-import { computeInvoiceTotals } from '@/lib/invoiceMath'
+import { computeInvoiceTotals, resolveExchangeRate } from '@/lib/invoiceMath'
 import { formatPartyCui, resolveParty } from '@/lib/partySnapshot'
 import { unitLabel } from '@/lib/efactura'
 import { countyNameFromCode } from '@/lib/romania'
@@ -209,7 +210,11 @@ function partyLines(party: any) {
 const InvoicePDF = ({ invoice, items, client, profile }: any) => {
   const seller = partyLines(profile)
   const buyer = partyLines(client)
-  const totals = computeInvoiceTotals(items || [], invoice || {})
+  const fxRate = resolveExchangeRate(items || [], invoice || {})
+  const totals = computeInvoiceTotals(items || [], {
+    ...(invoice || {}),
+    exchange_rate: fxRate
+  })
   return (  <Document>
     <Page size="A4" style={styles.page}>
       {/* Header */}
@@ -310,6 +315,14 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
             <Text style={styles.totalValue}>{formatRon(row.tax)}</Text>
           </View>
         ))}
+        {fxRate > 0 && (
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Curs EUR</Text>
+            <Text style={styles.totalValue}>
+              {fxRate} lei{invoice.exchange_rate_date ? ` · ${invoice.exchange_rate_date}` : ''}
+            </Text>
+          </View>
+        )}
         <View style={styles.grandTotalRow}>
           <Text style={styles.grandTotalLabel}>TOTAL</Text>
           <Text style={styles.grandTotalValue}>{formatRon(totals.taxInclusive)}</Text>
@@ -349,7 +362,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const invoiceId = searchParams.get('id')
-    const userId = searchParams.get('userId')
+    const userId = await authenticatedUserId(request)
+    if (!userId) return unauthorized()
 
     if (!invoiceId || !userId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })

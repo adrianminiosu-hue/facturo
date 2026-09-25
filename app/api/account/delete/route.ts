@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
-  const { userId } = await request.json().catch(() => ({ userId: '' }))
-  if (!userId) return NextResponse.json({ error: 'Lipsă utilizator' }, { status: 400 })
+  // Only the signed-in user can delete their own account.
+  const userId = await authenticatedUserId(request)
+  if (!userId) return unauthorized()
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_KEY

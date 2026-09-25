@@ -8,6 +8,7 @@ import ThemePicker from '@/components/ThemePicker'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import Link from 'next/link'
+import { authHeaders } from '@/lib/authHeaders'
 
 async function avatarRequest(
   method: 'POST' | 'DELETE',
@@ -165,7 +166,7 @@ export default function AccountPage() {
     await supabase.from('profiles').delete().eq('id', userId)
     await fetch('/api/account/delete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userId })
     })
     await supabase.auth.signOut()
