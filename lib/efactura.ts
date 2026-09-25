@@ -1,4 +1,5 @@
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { notesWithFxMention } from '@/lib/invoiceFx'
 import { computeInvoiceTotals, resolveExchangeRate, roundMoney } from '@/lib/invoiceMath'
 import { VAT_ON_COLLECTION_MENTION } from '@/lib/invoiceNotes'
 
@@ -263,7 +264,7 @@ export function generateEfacturaXml(input: {
   })
 
   const taxMap = new Map<string, { category: string; rate: number; taxable: number; tax: number; reason?: string }>()
-  const factor = totals.lineExtension > 0 ? totals.subtotal / totals.lineExtension : 1
+  const factor = totals.lineExtension !== 0 ? totals.subtotal / totals.lineExtension : 1
   for (const line of lines) {
     const key = `${line.category}:${line.item.tva_rate}`
     const current = taxMap.get(key) || {
@@ -311,7 +312,7 @@ export function generateEfacturaXml(input: {
   </cac:${lineTag}>`).join('\n')
 
   const notes = [
-    publicNotes,
+    notesWithFxMention(publicNotes || '', exchangeRate, invoice.exchange_rate_source, invoice.exchange_rate_date),
     seller.vat_on_collection && !(publicNotes || '').includes(VAT_ON_COLLECTION_MENTION) ? VAT_ON_COLLECTION_MENTION : ''
   ].filter(Boolean).join('\n')
 

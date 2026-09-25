@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/lib/efactura'
 import { useLocale } from '@/components/LocaleProvider'
 import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
-import { formatAmount } from '@/lib/money'
-import { computeInvoiceTotals, vatRateOptions } from '@/lib/invoiceMath'
+import { formatAmount, formatRon } from '@/lib/money'
+import { computeInvoiceTotals, roundMoney, vatRateOptions } from '@/lib/invoiceMath'
 import { BNR_FX_URL, parseExchangeRate, type InvoiceFxValue } from '@/lib/invoiceFx'
 import { formatRoDate, lastBankingDayBefore } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
@@ -244,7 +244,7 @@ export default function InvoiceLineItems({
                         onFxChange({ ...fx, rate: parseExchangeRate(e.target.value) })
                       }}
                       className="input"
-                      placeholder="5.08500"
+                      placeholder="5,0851"
                     />
                     <span className="text-sm text-[color:var(--color-muted-foreground)] whitespace-nowrap">lei</span>
                   </div>
@@ -279,9 +279,13 @@ export default function InvoiceLineItems({
                   </div>
                 </div>
               </div>
+              {fx.source === 'BNR' && fx.rate > 0 && (String(rateText).split(/[.,]/)[1] || '').length < 4 && (
+                <p className="text-xs text-amber-800 mt-2">{t('inv.fxDecimals')}</p>
+              )}
               <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
                 {t('inv.fxBnrHelp', { date: formatRoDate(taxPointDate || fx.date || '') })}
               </p>
+              <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('inv.fxMentionHint')}</p>
             </div>
           )}
         </div>
@@ -386,6 +390,9 @@ export default function InvoiceLineItems({
                     className="input px-3 py-2.5"
                     min="0"
                   />
+                  {fx?.enabled && fx.rate > 0 && item.unit_price > 0 && (
+                    <span className="block text-xs text-[color:var(--color-muted-foreground)] mt-1">= {formatRon(roundMoney(item.unit_price * fx.rate))}</span>
+                  )}
                 </div>
                 <div className="col-span-4 md:col-span-1">
                   {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.discount')}</label>}

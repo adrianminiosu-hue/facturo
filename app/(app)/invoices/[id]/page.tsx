@@ -14,7 +14,8 @@ import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey } from '@/lib/uiLabels'
 import { formatAmount, formatRon } from '@/lib/money'
-import { invoiceConvertedHeader, remainingOf } from '@/lib/invoiceMath'
+import { invoiceConvertedHeader, remainingOf, roundMoney } from '@/lib/invoiceMath'
+import { fxRateLine, notesWithFxMention } from '@/lib/invoiceFx'
 import { persistInvoiceConvertedAmounts } from '@/lib/invoicePersist'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
 
@@ -110,14 +111,13 @@ export default function InvoiceViewPage() {
         tva_amount: converted.totals.tvaAmount,
         total: converted.totals.taxInclusive,
         exchange_rate: converted.exchange_rate,
-        exchange_rate_source: loaded.exchange_rate_source || 'BNR',
+        exchange_rate_source: loaded.exchange_rate_source || null,
         exchange_rate_date: loaded.exchange_rate_date || null
       })
       loaded.subtotal = converted.totals.subtotal
       loaded.tva_amount = converted.totals.tvaAmount
       loaded.total = converted.totals.taxInclusive
       loaded.exchange_rate = converted.exchange_rate
-      if (!loaded.exchange_rate_source) loaded.exchange_rate_source = 'BNR'
     }
     setInvoice(loaded)
     if (data.credited_invoice_id) {
@@ -179,6 +179,10 @@ export default function InvoiceViewPage() {
 
   const converted = invoice ? invoiceConvertedHeader(invoice.invoice_items || [], invoice) : null
   const viewTotals = converted?.totals || null
+  const fxRate = converted?.exchange_rate || 0
+  const visibleNotes = invoice
+    ? notesWithFxMention(notesWithoutSpvMark(invoice.notes) || '', fxRate, invoice.exchange_rate_source, invoice.exchange_rate_date)
+    : ''
   const billedInvoice = invoice && viewTotals
     ? {
         ...invoice,
@@ -365,9 +369,7 @@ export default function InvoiceViewPage() {
             )}
             {(converted?.exchange_rate || 0) > 0 && (
               <p className="text-sm mt-1">
-                {t('inv.fxRate')}: {converted!.exchange_rate} lei
-                {invoice.exchange_rate_date ? ` · ${formatRoDate(invoice.exchange_rate_date)}` : ''}
-                {invoice.exchange_rate_source ? ` · ${invoice.exchange_rate_source}` : ''}
+                {t('inv.fxShown')}: {fxRateLine(converted!.exchange_rate, invoice.exchange_rate_source, invoice.exchange_rate_date)}
               </p>
             )}
           </div>
@@ -380,12 +382,19 @@ export default function InvoiceViewPage() {
             <span className="col-span-2 text-right">{t('common.price')}</span>
             <span className="col-span-2 text-right">{t('common.total')}</span>
           </div>
-          {(invoice.invoice_items || []).map(item => (
+          {(invoice.invoice_items || []).map((item, index) => (
             <div key={item.id} className="grid grid-cols-12 px-6 py-3 border-b border-gray-50 last:border-0 text-sm">
               <span className="col-span-6">{item.description}</span>
               <span className="col-span-2 text-right">{item.quantity}</span>
-              <span className="col-span-2 text-right">{formatAmount(item.unit_price)}</span>
-              <span className="col-span-2 text-right">{formatAmount(item.total)}</span>
+              <span className="col-span-2 text-right">
+                {fxRate > 0 ? (
+                  <>
+                    {formatAmount(item.unit_price)} EUR
+                    <span className="block text-xs text-[color:var(--color-muted-foreground)]">= {ron(roundMoney(Number(item.unit_price) * fxRate))}</span>
+                  </>
+                ) : formatAmount(item.unit_price)}
+              </span>
+              <span className="col-span-2 text-right">{fxRate > 0 ? ron(viewTotals?.lines[index]?.total ?? item.total) : formatAmount(item.total)}</span>
             </div>
           ))}
         </div>
@@ -421,10 +430,10 @@ export default function InvoiceViewPage() {
           onChanged={load}
         />
 
-        {notesWithoutSpvMark(invoice.notes) && (
+        {visibleNotes && (
           <div className="card p-6">
             <h3 className="font-bold mb-2">{t('inv.notes')}</h3>
-            <p className="text-sm text-[color:var(--color-muted-foreground)] whitespace-pre-wrap">{notesWithoutSpvMark(invoice.notes)}</p>
+            <p className="text-sm text-[color:var(--color-muted-foreground)] whitespace-pre-wrap">{visibleNotes}</p>
           </div>
         )}
       </div>

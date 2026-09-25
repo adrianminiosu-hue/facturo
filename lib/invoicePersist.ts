@@ -74,7 +74,8 @@ export async function ensureConvertedInvoiceAmounts<T extends InvoiceMoneyRow & 
     tva_amount: converted.totals.tvaAmount,
     total: converted.totals.taxInclusive,
     exchange_rate: converted.exchange_rate || invoice.exchange_rate || null,
-    exchange_rate_source: invoice.exchange_rate_source || (converted.exchange_rate > 0 ? 'BNR' : invoice.exchange_rate_source || null)
+    // A rate inferred from line totals has no known source: never label it BNR.
+    exchange_rate_source: invoice.exchange_rate_source || null
   }
   if (converted.needsPersist && invoice.id) {
     await persistInvoiceConvertedAmounts(supabase, invoice.id, {

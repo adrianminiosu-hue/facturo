@@ -6,6 +6,7 @@ import { loadBuyer } from '@/lib/loadBuyer'
 import { loadSeller } from '@/lib/loadSeller'
 import { getInvoiceForActor } from '@/lib/portfolio'
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { fxRateLine, notesWithFxMention } from '@/lib/invoiceFx'
 import { formatRon, formatAmount } from '@/lib/money'
 import { computeInvoiceTotals, resolveExchangeRate } from '@/lib/invoiceMath'
 import { formatPartyCui, resolveParty } from '@/lib/partySnapshot'
@@ -211,6 +212,7 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
   const seller = partyLines(profile)
   const buyer = partyLines(client)
   const fxRate = resolveExchangeRate(items || [], invoice || {})
+  const pdfNotes = notesWithFxMention(notesWithoutSpvMark(invoice?.notes) || '', fxRate, invoice?.exchange_rate_source, invoice?.exchange_rate_date)
   const totals = computeInvoiceTotals(items || [], {
     ...(invoice || {}),
     exchange_rate: fxRate
@@ -291,7 +293,7 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
           <Text style={[styles.tableText, styles.col1]}>{item.description}</Text>
           <Text style={[styles.tableText, styles.col2, { textAlign: 'center' }]}>{unitLabel(item.unit_code)}</Text>
           <Text style={[styles.tableText, styles.col3, { textAlign: 'center' }]}>{item.quantity}</Text>
-          <Text style={[styles.tableText, styles.col4, { textAlign: 'right' }]}>{formatAmount(item.unit_price)}</Text>
+          <Text style={[styles.tableText, styles.col4, { textAlign: 'right' }]}>{formatAmount(item.unit_price)}{fxRate > 0 ? ' EUR' : ''}</Text>
           <Text style={[styles.tableText, styles.col5, { textAlign: 'center' }]}>{item.tva_rate}%</Text>
           <Text style={[styles.tableText, styles.col6, { textAlign: 'right' }]}>{formatRon(totals.lines[i]?.total ?? item.total)}</Text>
         </View>
@@ -317,10 +319,8 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
         ))}
         {fxRate > 0 && (
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Curs EUR</Text>
-            <Text style={styles.totalValue}>
-              {fxRate} lei{invoice.exchange_rate_date ? ` · ${invoice.exchange_rate_date}` : ''}
-            </Text>
+            <Text style={styles.totalLabel}>Curs</Text>
+            <Text style={styles.totalValue}>{fxRateLine(fxRate, invoice.exchange_rate_source, invoice.exchange_rate_date)}</Text>
           </View>
         )}
         <View style={styles.grandTotalRow}>
@@ -342,10 +342,10 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
       </View>
 
       {/* Notes */}
-      {notesWithoutSpvMark(invoice.notes) && (
+      {pdfNotes && (
         <View style={styles.notes}>
           <Text style={styles.notesLabel}>Mențiuni</Text>
-          <Text style={styles.notesText}>{notesWithoutSpvMark(invoice.notes)}</Text>
+          <Text style={styles.notesText}>{pdfNotes}</Text>
         </View>
       )}
 
