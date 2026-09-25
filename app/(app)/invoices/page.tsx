@@ -8,7 +8,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
 import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/lib/invoiceClient'
-import { addDaysIso, calendarDateInBucharest, startOfIsoWeek } from '@/lib/dates'
+import { addDaysIso, calendarDateInBucharest, formatRoDate, startOfIsoWeek } from '@/lib/dates'
 import type { MessageKey } from '@/lib/messages'
 import { formatRon } from '@/lib/money'
 import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
@@ -626,7 +626,7 @@ export default function Invoices() {
                       <span className="list-cell-sub text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
                         {invoice.clients?.company_name || '—'}
                       </span>
-                      <span className="list-cell-meta text-sm text-[color:var(--color-muted-foreground)]">{invoice.issue_date}</span>
+                      <span className="list-cell-meta text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(invoice.issue_date)}</span>
                       <span className="list-cell-status">
                         <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>
                           {t(status.key)}

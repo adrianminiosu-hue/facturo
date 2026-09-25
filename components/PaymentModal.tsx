@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
-import { formatRon } from '@/lib/money'
+import { formatRon, parseAmount } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 import { useLocale } from '@/components/LocaleProvider'
 import { isMessageKey, type MessageKey } from '@/lib/messages'
@@ -62,7 +62,7 @@ export default function PaymentModal({
 }) {
   const { t } = useLocale()
   const rest = remainingOf(invoice)
-  const [amount, setAmount] = useState(rest.toFixed(2))
+  const [amount, setAmount] = useState(rest.toFixed(2).replace('.', ','))
   const [paidOn, setPaidOn] = useState(calendarDateInBucharest(0))
   const [method, setMethod] = useState('transfer')
   const [reference, setReference] = useState('')
@@ -112,7 +112,7 @@ export default function PaymentModal({
     loadOffer()
   }, [invoice.id, invoice.client_id, companyId, rest])
 
-  const parsed = Number(String(amount).replace(',', '.'))
+  const parsed = parseAmount(amount)
   const remainingAfter = useMemo(() => rest - (Number.isNaN(parsed) ? 0 : parsed), [rest, parsed])
 
   const save = async () => {
@@ -225,7 +225,7 @@ export default function PaymentModal({
                 onChange={e => setAmount(e.target.value)}
                 className="input"
               />
-              <button type="button" className="btn btn-outline shrink-0" onClick={() => setAmount(rest.toFixed(2))}>
+              <button type="button" className="btn btn-outline shrink-0" onClick={() => setAmount(rest.toFixed(2).replace('.', ','))}>
                 {t('pay.allRest')}
               </button>
             </div>

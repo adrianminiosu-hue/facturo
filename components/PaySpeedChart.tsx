@@ -1,4 +1,5 @@
 'use client'
+import { formatDecimal } from '@/lib/money'
 import { useState } from 'react'
 import { formatRoDate } from '@/lib/dates'
 import { useLocale } from '@/components/LocaleProvider'
@@ -15,8 +16,7 @@ function weekdayLetter(isoDate: string, locale: string) {
 }
 
 function axisLabel(value: number) {
-  const rounded = Math.round(value * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  return formatDecimal(value, 1)
 }
 
 function linePath(points: { x: number; y: number }[]) {

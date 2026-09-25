@@ -1,4 +1,5 @@
 'use client'
+import { formatDecimal } from '@/lib/money'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
@@ -47,8 +48,7 @@ function paidOnDate(invoice: InvoiceRow, payments: PaymentRow[]) {
 }
 
 function formatDays(value: number) {
-  const rounded = Math.round(value * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  return formatDecimal(value, 1)
 }
 
 export default function CollectionsDashboard() {

@@ -8,6 +8,7 @@ import { getInvoiceForActor } from '@/lib/portfolio'
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { fxRateLine, notesWithFxMention } from '@/lib/invoiceFx'
 import { formatRon, formatAmount } from '@/lib/money'
+import { formatRoDate } from '@/lib/dates'
 import { computeInvoiceTotals, resolveExchangeRate } from '@/lib/invoiceMath'
 import { formatPartyCui, resolveParty } from '@/lib/partySnapshot'
 import { unitLabel } from '@/lib/efactura'
@@ -246,10 +247,10 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
           <Text style={styles.invoiceTitle}>{invoice.invoice_type_code === '381' ? 'NOTĂ DE CREDITARE' : 'FACTURĂ'}</Text>
           <Text style={styles.invoiceNumber}>Nr. {invoice.series}{invoice.invoice_number}</Text>
           <Text style={[styles.textGray, { textAlign: 'right', marginTop: 8 }]}>
-            Data: {invoice.issue_date}
+            Data: {formatRoDate(invoice.issue_date)}
           </Text>
           <Text style={[styles.textGray, { textAlign: 'right' }]}>
-            Scadență: {invoice.due_date || invoice.issue_date}
+            Scadență: {formatRoDate(invoice.due_date || invoice.issue_date)}
           </Text>
         </View>
       </View>

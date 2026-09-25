@@ -1,4 +1,5 @@
 'use client'
+import { formatDecimal } from '@/lib/money'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -47,7 +48,7 @@ type PaymentRow = {
 
 function formatChangePct(pct: number) {
   const abs = Math.abs(pct)
-  const text = abs.toLocaleString('en-US', { maximumFractionDigits: abs >= 10 ? 0 : 1 })
+  const text = formatDecimal(abs, abs >= 10 ? 0 : 1)
   if (pct > 0) return `+${text}%`
   if (pct < 0) return `−${text}%`
   return '0%'
