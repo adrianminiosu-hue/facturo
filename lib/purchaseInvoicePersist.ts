@@ -89,7 +89,13 @@ async function findOrCreateSupplier(
     if (cui && cui !== '00000000' && rowCui === cui) return true
     return String(row.company_name || '').trim() === opts.supplierName
   })
-  if (existing) return existing
+  if (existing) {
+    // Mark an existing customer as supplier too (no-op on databases without the column).
+    if (existing.is_supplier === false) {
+      await client.from('clients').update({ is_supplier: true }).eq('id', existing.id)
+    }
+    return existing
+  }
 
   const place = splitAddress(opts.supplierAddress)
   const payload: Record<string, unknown> = {
@@ -100,9 +106,18 @@ async function findOrCreateSupplier(
     city: place.city,
     country: 'RO',
     vat_registered: true,
-    legal_form: inferLegalForm(opts.supplierName)
+    legal_form: inferLegalForm(opts.supplierName),
+    is_customer: false,
+    is_supplier: true
   }
   let { data, error } = await client.from('clients').insert(payload).select('*').single()
+  if (error && /is_customer|is_supplier/i.test(String(error.message || ''))) {
+    delete payload.is_customer
+    delete payload.is_supplier
+    const retry = await client.from('clients').insert(payload).select('*').single()
+    data = retry.data
+    error = retry.error
+  }
   if (error && String(error.message || '').toLowerCase().includes('legal_form')) {
     delete payload.legal_form
     const retry = await client.from('clients').insert(payload).select('*').single()

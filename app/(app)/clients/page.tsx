@@ -12,6 +12,15 @@ import { useCompany } from '@/components/CompanyProvider'
 import ClientContactsFields from '@/components/ClientContactsFields'
 import AnafStatusBadges from '@/components/AnafStatusBadges'
 import {
+  isCustomer,
+  isMissingPartnerColumnError,
+  isSupplier,
+  matchesPartnerFilter,
+  withoutPartnerColumns,
+  type PartnerFilter,
+  type PartnerRoleRow
+} from '@/lib/partnerRoles'
+import {
   anafRisk,
   anafStatusFromLookup,
   anafStatusFromRow,
@@ -73,7 +82,7 @@ import {
   type ClientBankAccountRow
 } from '@/lib/clientBanks'
 
-interface Client extends AnafStatusRow {
+interface Client extends AnafStatusRow, PartnerRoleRow {
   id: string
   user_id?: string
   company_id?: string | null
@@ -106,6 +115,9 @@ const emptyForm = {
   reg_com: '',
   vat_registered: true,
   is_public_institution: false,
+  is_customer: true,
+  is_supplier: false,
+  payment_terms_days: '',
   legal_form: DEFAULT_LEGAL_FORM as LegalFormCode,
   email: '',
   phone: '',
@@ -133,16 +145,23 @@ export default function Clients() {
   const [addresses, setAddresses] = useState<ClientAddressDraft[]>([firstClientAddress()])
   const [banks, setBanks] = useState<ClientBankAccountDraft[]>([firstClientBankAccount()])
   const [search, setSearch] = useState('')
+  const [partnerFilter, setPartnerFilter] = useState<PartnerFilter>('customers')
   const [manualEdit, setManualEdit] = useState(false)
 
   const phoneValid = !form.phone || isValidRomanianMobile(form.phone)
 
+  const roleClients = clients.filter(c => matchesPartnerFilter(c, partnerFilter))
+  const partnerCounts = {
+    customers: clients.filter(isCustomer).length,
+    suppliers: clients.filter(isSupplier).length,
+    all: clients.length
+  }
   const filteredClients = search.trim()
-    ? clients.filter(c =>
+    ? roleClients.filter(c =>
         c.company_name?.toLowerCase().includes(search.toLowerCase()) ||
         (c.cui || '').includes(search.trim())
       )
-    : clients
+    : roleClients
 
   useEffect(() => {
     const init = async () => {
@@ -266,6 +285,9 @@ export default function Clients() {
       reg_com: formatRegCom(client.reg_com, { county: client.county, countyCode: client.county_code }),
       vat_registered: client.vat_registered !== false,
       is_public_institution: client.is_public_institution === true,
+      is_customer: isCustomer(client),
+      is_supplier: isSupplier(client),
+      payment_terms_days: client.payment_terms_days === null || client.payment_terms_days === undefined ? '' : String(client.payment_terms_days),
       legal_form: isLegalFormCode(client.legal_form) ? client.legal_form : inferLegalForm(client.company_name),
       email: client.email || '',
       phone: client.phone || '',
@@ -363,8 +385,16 @@ export default function Clients() {
     try {
     const addressFields = defaultAddressFields(savedAddresses)
     const bankFields = defaultBankFields(completeBanks)
+    const termsText = String(form.payment_terms_days || '').trim()
+    const termsDays = termsText === '' ? null : Number(termsText)
+    if (termsDays !== null && (!Number.isInteger(termsDays) || termsDays < 0 || termsDays > 365)) {
+      alert(t('cli.termsInvalid'))
+      setSaving(false)
+      return
+    }
     const payload = {
       ...form,
+      payment_terms_days: termsDays,
       reg_com: formatRegCom(form.reg_com),
       email,
       ...addressFields,
@@ -386,6 +416,9 @@ export default function Clients() {
         county: payload.county,
         vat_registered: form.vat_registered,
         is_public_institution: form.is_public_institution,
+        is_customer: form.is_customer,
+        is_supplier: form.is_supplier,
+        payment_terms_days: termsDays,
         legal_form: form.legal_form,
         ...anafStatusToColumns(anafStatus)
       }
@@ -411,6 +444,11 @@ export default function Clients() {
       }
       if (error && isMissingAnafColumnError(error)) {
         pendingUpdate = withoutAnafColumns(pendingUpdate)
+        const retry = await supabase.from('clients').update(pendingUpdate).eq('id', editClient.id)
+        error = retry.error
+      }
+      if (error && isMissingPartnerColumnError(error)) {
+        pendingUpdate = withoutPartnerColumns(pendingUpdate)
         const retry = await supabase.from('clients').update(pendingUpdate).eq('id', editClient.id)
         error = retry.error
       }
@@ -453,6 +491,12 @@ export default function Clients() {
       }
       if (error && isMissingAnafColumnError(error)) {
         pendingInsert = withoutAnafColumns(pendingInsert)
+        const retry = await supabase.from('clients').insert(pendingInsert).select('*').single()
+        data = retry.data
+        error = retry.error
+      }
+      if (error && isMissingPartnerColumnError(error)) {
+        pendingInsert = withoutPartnerColumns(pendingInsert)
         const retry = await supabase.from('clients').insert(pendingInsert).select('*').single()
         data = retry.data
         error = retry.error
@@ -508,6 +552,19 @@ export default function Clients() {
         {/* Search */}
         {!loading && clients.length > 0 && !showForm && (
           <div className="card p-4 mb-4">
+            <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label={t('cli.role')}>
+              {(['customers', 'suppliers', 'all'] as PartnerFilter[]).map(id => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={partnerFilter === id}
+                  onClick={() => setPartnerFilter(id)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition ${partnerFilter === id ? 'bg-[color:var(--color-foreground)] text-white border-transparent' : 'bg-white border-gray-200 text-gray-700'}`}
+                >
+                  {t(`cli.filter.${id}`)} ({partnerCounts[id]})
+                </button>
+              ))}
+            </div>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">
@@ -679,6 +736,34 @@ export default function Clients() {
                   />
                   {t('cli.publicInst')}
                 </label>
+                <div className="flex flex-wrap items-center gap-4 min-h-[2.5rem]">
+                  <span className="text-sm text-[color:var(--color-muted-foreground)]">{t('cli.role')}</span>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={form.is_customer} onChange={e => setForm(f => ({ ...f, is_customer: e.target.checked }))} />
+                    {t('cli.roleCustomer')}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={form.is_supplier} onChange={e => setForm(f => ({ ...f, is_supplier: e.target.checked }))} />
+                    {t('cli.roleSupplier')}
+                  </label>
+                </div>
+                {form.is_customer && (
+                  <label className="block">
+                    <span className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('cli.terms')}</span>
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={365}
+                        className="input w-28"
+                        value={form.payment_terms_days}
+                        placeholder="15"
+                        onChange={e => setForm(f => ({ ...f, payment_terms_days: e.target.value }))}
+                      />
+                      <span className="text-sm text-[color:var(--color-muted-foreground)]">{t('cli.termsDays')}</span>
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
 
@@ -788,7 +873,14 @@ export default function Clients() {
                   className={`list-row list-row-clients grid grid-cols-12 px-6 py-4 items-center ${i !== filteredClients.length - 1 ? 'border-b border-gray-50' : ''}`}
                 >
                   <div className="list-cell-title col-span-4">
-                    <p className="font-medium text-[color:var(--color-foreground)]">{client.company_name}</p>
+                    <p className="font-medium text-[color:var(--color-foreground)]">
+                      {client.company_name}
+                      {isSupplier(client) && (
+                        <span className="ml-2 align-middle text-[11px] font-medium text-[color:var(--color-muted-foreground)] border border-gray-200 rounded-full px-2 py-0.5">
+                          {isCustomer(client) ? t('cli.badgeBoth') : t('cli.badgeSupplier')}
+                        </span>
+                      )}
+                    </p>
                     {anafRisk(anafStatusFromRow(client)) && (
                       <div className="mt-1"><AnafStatusBadges status={anafStatusFromRow(client)} compact /></div>
                     )}

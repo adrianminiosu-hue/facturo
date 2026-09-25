@@ -1,5 +1,6 @@
 'use client'
 import DateField from '@/components/DateField'
+import { isCustomer, paymentTermsFor } from '@/lib/partnerRoles'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -11,7 +12,7 @@ import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
-import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
+import { calendarDateInBucharest, DEFAULT_DUE_DAYS, defaultDueDate } from '@/lib/dates'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import { defaultInvoiceNotes } from '@/lib/invoiceNotes'
@@ -25,6 +26,9 @@ interface Client {
     address: string
     city: string
     is_public_institution?: boolean
+    is_customer?: boolean | null
+    is_supplier?: boolean | null
+    payment_terms_days?: number | null
 }
 
 function clientAddressLine(client: Client) {
@@ -143,15 +147,23 @@ export default function NewInvoice() {
     init()
   }, [company?.id, userId])
 
+  // Picking a customer applies its payment term to the due date, unless the date was set by hand.
+  const selectClient = (client: Client) => {
+    setSelectedClient(client)
+    if (!dueManual) {
+      setForm(f => ({ ...f, due_date: defaultDueDate(f.issue_date, paymentTermsFor(client, DEFAULT_DUE_DAYS)) }))
+    }
+  }
+
   const loadClients = async () => {
     let query = supabase.from('clients').select('*').order('company_name')
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
-    setClients(data || [])
+    setClients(((data || []) as Client[]).filter(isCustomer))
     // Prefill from /invoices/new?client=<id> (e.g. from the client collections page).
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('client') : null
     const match = wanted ? (data || []).find((c: Client) => c.id === wanted) : null
-    if (match) setSelectedClient(match)
+    if (match) selectClient(match)
   }
 
   const generateInvoiceNumber = async () => {
@@ -295,7 +307,7 @@ export default function NewInvoice() {
                     setForm(f => ({
                       ...f,
                       issue_date,
-                      due_date: dueManual ? f.due_date : defaultDueDate(issue_date),
+                      due_date: dueManual ? f.due_date : defaultDueDate(issue_date, paymentTermsFor(selectedClient, DEFAULT_DUE_DAYS)),
                       tax_point_date: !f.tax_point_date || f.tax_point_date === f.issue_date ? issue_date : f.tax_point_date,
                       delivery_date: !f.delivery_date || f.delivery_date === f.issue_date ? issue_date : f.delivery_date
                     }))
@@ -328,7 +340,7 @@ export default function NewInvoice() {
                 <ClientSearch
                   clients={clients}
                   selectedClient={selectedClient}
-                  onSelect={setSelectedClient}
+                  onSelect={selectClient}
                 />
               </div>
             )}

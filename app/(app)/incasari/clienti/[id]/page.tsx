@@ -41,6 +41,7 @@ type ClientRow = {
   anaf_efactura_registered?: boolean | null
   anaf_vat_on_collection?: boolean | null
   anaf_split_vat?: boolean | null
+  payment_terms_days?: number | null
 }
 type Draft = { enabled: boolean; offsets: number[]; recipient: string }
 
@@ -48,6 +49,8 @@ const CHART_BARS = 8
 const HISTORY_PREVIEW = 6
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ANAF_STALE_MS = 7 * 86400000
+/** Shorter term suggested for clients who pay later and later. */
+const SUGGESTED_TERMS_DAYS = 7
 
 export default function ClientCollectionPage() {
   const { t, locale } = useLocale()
@@ -231,6 +234,18 @@ export default function ClientCollectionPage() {
     }
   }
 
+  const [termsBusy, setTermsBusy] = useState(false)
+  const setPaymentTerms = async (days: number) => {
+    setTermsBusy(true)
+    try {
+      const { error: termsError } = await supabase.from('clients').update({ payment_terms_days: days }).eq('id', clientId)
+      if (termsError) { alert(termsError.message); return }
+      setClientRow(prev => (prev ? { ...prev, payment_terms_days: days } : prev))
+    } finally {
+      setTermsBusy(false)
+    }
+  }
+
   const saveSettings = async (next: Draft) => {
     if (!clientRow) return
     const email = next.recipient.trim()
@@ -300,7 +315,12 @@ export default function ClientCollectionPage() {
               <div className="min-w-0">
                 <h2 className="text-3xl text-[color:var(--color-foreground)]">{client.company_name}</h2>
                 <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
-                  {[client.cui ? t('cc.cui', { cui: client.cui }) : '', client.city || '', clientSince ? t('cc.clientSince', { date: clientSince }) : '']
+                  {[
+                    client.cui ? t('cc.cui', { cui: client.cui }) : '',
+                    client.city || '',
+                    clientSince ? t('cc.clientSince', { date: clientSince }) : '',
+                    clientRow?.payment_terms_days != null ? t('cc.termsLine', { days: clientRow.payment_terms_days }) : ''
+                  ]
                     .filter(Boolean).join(' · ')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -403,6 +423,16 @@ export default function ClientCollectionPage() {
                       <p className="font-semibold text-amber-900">{t('cc.suggestWorse', { from: avg(earlier), to: avg(recent) })}</p>
                       <p className="text-sm text-amber-900 mt-1">{t('cc.suggestText')}</p>
                     </div>
+                    {clientRow && (clientRow.payment_terms_days == null || clientRow.payment_terms_days > SUGGESTED_TERMS_DAYS) && (
+                      <button
+                        type="button"
+                        className="btn btn-outline text-sm bg-white"
+                        disabled={termsBusy}
+                        onClick={() => setPaymentTerms(SUGGESTED_TERMS_DAYS)}
+                      >
+                        {t('cc.setTerms', { days: SUGGESTED_TERMS_DAYS })}
+                      </button>
+                    )}
                     {reminders?.available && !settings.custom && (
                       <button
                         type="button"
