@@ -80,9 +80,12 @@ export function lineDiscount(item: InvoiceLineInput, exchangeRate = 1) {
   const gross = roundMoney(Number(item.quantity || 0) * unit)
   const amount = Number(item.discount_amount || 0)
   const percent = Number(item.discount_percent || 0)
-  const discount = amount > 0 ? amount : roundMoney(gross * percent / 100)
-  const capped = Math.min(Math.max(discount, 0), gross)
-  return { gross, discount: capped, net: roundMoney(gross - capped) }
+  // Negative lines (storno / corrective invoices): the discount shrinks the magnitude and keeps the sign.
+  const sign = gross < 0 ? -1 : 1
+  const magnitude = Math.abs(gross)
+  const discount = amount > 0 ? amount : roundMoney(magnitude * percent / 100)
+  const capped = Math.min(Math.max(discount, 0), magnitude)
+  return { gross, discount: capped, net: roundMoney(sign * (magnitude - capped)) }
 }
 
 export function computeInvoiceTotals(items: InvoiceLineInput[], header: HeaderDiscountInput = {}) {
@@ -97,11 +100,12 @@ export function computeInvoiceTotals(items: InvoiceLineInput[], header: HeaderDi
   const lineExtension = roundMoney(lines.reduce((sum, line) => sum + line.net, 0))
   const headerAmount = Number(header.discount_amount || 0)
   const headerPercent = Number(header.discount_percent || 0)
+  // Signed like the lines, so a negative (storno) invoice is discounted towards zero, never past it.
   const headerDiscount = headerAmount > 0
-    ? Math.min(headerAmount, lineExtension)
+    ? Math.sign(lineExtension) * Math.min(headerAmount, Math.abs(lineExtension))
     : roundMoney(lineExtension * headerPercent / 100)
   const taxExclusive = roundMoney(lineExtension - headerDiscount)
-  const factor = lineExtension > 0 ? taxExclusive / lineExtension : 1
+  const factor = lineExtension !== 0 ? taxExclusive / lineExtension : 1
 
   const taxMap = new Map<number, { rate: number; taxable: number; tax: number }>()
   for (const line of lines) {
@@ -116,7 +120,7 @@ export function computeInvoiceTotals(items: InvoiceLineInput[], header: HeaderDi
   const vatBreakdown = [...taxMap.values()].sort((a, b) => b.rate - a.rate)
   const tvaAmount = roundMoney(vatBreakdown.reduce((sum, row) => sum + row.tax, 0))
   const taxInclusive = roundMoney(taxExclusive + tvaAmount)
-  const prepaid = Math.min(Math.max(Number(header.prepaid_amount || 0), 0), taxInclusive)
+  const prepaid = Math.min(Math.max(Number(header.prepaid_amount || 0), 0), Math.max(taxInclusive, 0))
   const payable = roundMoney(taxInclusive - prepaid)
 
   return {
