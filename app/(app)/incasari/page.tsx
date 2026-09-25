@@ -9,9 +9,12 @@ import { useCompany } from '@/components/CompanyProvider'
 import { agingKey, calendarDateInBucharest, daysUntilDue, formatRoDate, type AgingKey } from '@/lib/dates'
 import PaymentModal from '@/components/PaymentModal'
 import StatementImportModal from '@/components/StatementImportModal'
+import ReceivablesTabs from '@/components/ReceivablesTabs'
+import { authHeaders } from '@/lib/authHeaders'
 import { RECEIVABLE_LIST_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
+import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import type { MessageKey } from '@/lib/messages'
 
 type Row = {
@@ -91,7 +94,7 @@ export default function IncasariPage() {
   const load = async () => {
     let query = supabase
       .from('invoices')
-      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, prepaid_amount, invoice_type_code, notes, clients(company_name, email)')
+      .select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, reminder_sent_at, promised_pay_date, amount_paid, prepaid_amount, invoice_type_code, notes, exchange_rate, subtotal, invoice_items(quantity, unit_price, tva_rate, total), clients(company_name, email)')
       .in('status', [...RECEIVABLE_LIST_STATUSES])
       .order('due_date', { ascending: true })
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
@@ -101,12 +104,14 @@ export default function IncasariPage() {
         ? supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, notes, clients(company_name, email)').eq('company_id', company.id).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
         : supabase.from('invoices').select('id, user_id, company_id, client_id, series, invoice_number, due_date, total, status, notes, clients(company_name, email)').eq('user_id', ownerUserId || userId).in('status', [...RECEIVABLE_LIST_STATUSES]).order('due_date', { ascending: true })
       const fallback = await fallbackQuery
-      setRows(((fallback.data || []) as unknown as Row[]).filter(row => !isPurchaseInvoice(row as Row & { notes?: string; direction?: string })))
+      const fallbackRows = ((fallback.data || []) as unknown as Row[]).filter(row => !isPurchaseInvoice(row as Row & { notes?: string; direction?: string }))
+      setRows(await Promise.all(fallbackRows.map(row => ensureConvertedInvoiceAmounts(supabase, row))))
     } else {
-      setRows(((data || []) as unknown as Row[]).filter(row => {
+      const issued = ((data || []) as unknown as Row[]).filter(row => {
         const typed = row as Row & { invoice_type_code?: string; notes?: string; direction?: string }
         return typed.invoice_type_code !== '381' && !isPurchaseInvoice(typed)
-      }))
+      })
+      setRows(await Promise.all(issued.map(row => ensureConvertedInvoiceAmounts(supabase, row))))
     }
     let extrasQuery = supabase
       .from('bank_transactions')
@@ -207,8 +212,8 @@ export default function IncasariPage() {
     try {
       const res = await fetch('/api/receivables/reminder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: row.id, userId })
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ invoiceId: row.id })
       })
       const data = await res.json()
       if (!res.ok) { alert(data.error || t('rec.reminderFail')); return }
@@ -257,6 +262,8 @@ export default function IncasariPage() {
             {t('rec.importStatement')}
           </button>
         </div>
+
+        <ReceivablesTabs active="invoices" />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           <div className="card p-6">
