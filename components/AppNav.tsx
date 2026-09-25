@@ -10,23 +10,27 @@ import LocaleSwitch from '@/components/LocaleSwitch'
 import { useLocale } from '@/components/LocaleProvider'
 
 const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator', 'efactura'] as const
+const DASHBOARD_SLOTS = [1, 2, 3, 4, 5] as const
 
-export default function AppNav({ active }: { active: 'dashboard' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
+export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
   const router = useRouter()
   const pathname = usePathname()
   const { t } = useLocale()
   const { userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
   const [inboxCount, setInboxCount] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  const dashboardActive = active === 'dashboard' || active.startsWith('dashboard-')
   const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
   const settingsActive = SETTINGS.includes(active as typeof SETTINGS[number])
+  const [dashboardOpen, setDashboardOpen] = useState(dashboardActive)
   const [invoicesOpen, setInvoicesOpen] = useState(invoicesActive)
   const [settingsOpen, setSettingsOpen] = useState(settingsActive)
 
   useEffect(() => {
+    if (dashboardActive) setDashboardOpen(true)
     if (invoicesActive) setInvoicesOpen(true)
     if (settingsActive) setSettingsOpen(true)
-  }, [invoicesActive, settingsActive])
+  }, [dashboardActive, invoicesActive, settingsActive])
 
   useEffect(() => {
     setMenuOpen(false)
@@ -77,7 +81,25 @@ export default function AppNav({ active }: { active: 'dashboard' | 'clients' | '
           <BrandLockup href="/dashboard" />
         </div>
         <nav className="flex-1 min-h-0 overflow-auto flex flex-col gap-0.5">
-          <Link href="/dashboard" className={sideClass(active === 'dashboard')}>{t('nav.dashboard')}</Link>
+          <button
+            type="button"
+            onClick={() => setDashboardOpen(v => !v)}
+            className={sideClass(dashboardActive)}
+            aria-expanded={dashboardOpen}
+          >
+            <span>{t('nav.dashboard')}</span>
+            <span className="side-caret" data-open={dashboardOpen}>▾</span>
+          </button>
+          {dashboardOpen && (
+            <div className="side-group">
+              <Link href="/dashboard" className={subClass(active === 'dashboard')}>{t('nav.dashboardMain')}</Link>
+              {DASHBOARD_SLOTS.map(n => (
+                <Link key={n} href={`/dashboard/${n}`} className={subClass(active === `dashboard-${n}`)}>
+                  {t(`nav.dashboard${n}`)}
+                </Link>
+              ))}
+            </div>
+          )}
 
           <button
             type="button"

@@ -12,6 +12,7 @@ export type Company = {
   country: string
   vat_registered: boolean
   vat_on_collection: boolean
+  legal_form?: string
   bank_name: string
   iban: string
   bic: string
@@ -38,6 +39,7 @@ export const emptyCompanyFields = {
   country: 'RO',
   vat_registered: true,
   vat_on_collection: false,
+  legal_form: '',
   bank_name: '',
   iban: '',
   bic: '',
@@ -65,6 +67,7 @@ export function companyFromRow(row: Record<string, unknown>, userId: string): Co
     country: String(row.country || 'RO'),
     vat_registered: row.vat_registered !== false,
     vat_on_collection: row.vat_on_collection === true,
+    legal_form: String(row.legal_form || ''),
     bank_name: String(row.bank_name || ''),
     iban: String(row.iban || ''),
     bic: String(row.bic || ''),

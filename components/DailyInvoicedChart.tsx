@@ -21,8 +21,22 @@ function axisLabel(value: number) {
   return formatAmount(value).replace(/\.00$/, '')
 }
 
-export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
+export default function DailyInvoicedChart({
+  days,
+  title,
+  kicker,
+  emptyLabel,
+  chartId = 'daily'
+}: {
+  days: DailyAmount[]
+  title?: string
+  kicker?: string
+  emptyLabel?: string
+  chartId?: string
+}) {
   const { t, locale } = useLocale()
+  const invoicedFill = `facturoBarInvoiced-${chartId}`
+  const collectedFill = `facturoBarCollected-${chartId}`
   const [active, setActive] = useState<number | null>(null)
   const max = Math.max(...days.flatMap(d => [d.invoiced, d.collected]), 0)
   const peak = max > 0 ? max * 1.12 : 1
@@ -43,8 +57,8 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <p className="kicker mb-2">{t('dash.dailyVolume')}</p>
-          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.last15')}</h3>
+          <p className="kicker mb-2">{kicker || t('dash.dailyVolume')}</p>
+          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{title || t('dash.last15')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
             {t('dash.invoicedCollected', { invoiced: formatRon(invoicedTotal), collected: formatRon(collectedTotal) })}
           </p>
@@ -69,11 +83,11 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
           aria-label={t('chart.ariaDaily')}
         >
           <defs>
-            <linearGradient id="facturoBarInvoiced" x1="0" y1="1" x2="0" y2="0">
+            <linearGradient id={invoicedFill} x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor="#155e75" />
               <stop offset="100%" stopColor="#22d3ee" />
             </linearGradient>
-            <linearGradient id="facturoBarCollected" x1="0" y1="1" x2="0" y2="0">
+            <linearGradient id={collectedFill} x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor="#9a3412" />
               <stop offset="100%" stopColor="#fb923c" />
             </linearGradient>
@@ -138,7 +152,7 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
                     width={barW}
                     height={invoicedH}
                     rx={3}
-                    fill="url(#facturoBarInvoiced)"
+                    fill={`url(#${invoicedFill})`}
                     opacity={opacity}
                   />
                 )}
@@ -149,7 +163,7 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
                     width={barW}
                     height={collectedH}
                     rx={3}
-                    fill="url(#facturoBarCollected)"
+                    fill={`url(#${collectedFill})`}
                     opacity={opacity}
                   />
                 )}
@@ -178,7 +192,7 @@ export default function DailyInvoicedChart({ days }: { days: DailyAmount[] }) {
 
         {invoicedTotal === 0 && collectedTotal === 0 && (
           <p className="absolute inset-x-0 top-1/3 text-center text-sm text-[color:var(--color-muted-foreground)]">
-            {t('dash.noVolume15')}
+            {emptyLabel || t('dash.noVolume15')}
           </p>
         )}
 
