@@ -3,6 +3,7 @@ import { useParams } from 'next/navigation'
 import CollectionsDashboard from '@/components/CollectionsDashboard'
 import DashboardWorkspace from '@/components/DashboardWorkspace'
 import SalesDashboard from '@/components/SalesDashboard'
+import { visibleDashboardSlots } from '@/lib/dashboardSlots'
 
 const SLOTS = [1, 2, 3, 4, 5] as const
 type Slot = (typeof SLOTS)[number]
@@ -14,7 +15,7 @@ function isSlot(value: number): value is Slot {
 export default function ExtraDashboardPage() {
   const params = useParams()
   const slot = Number(params.slot)
-  if (!isSlot(slot)) {
+  if (!isSlot(slot) || !visibleDashboardSlots().includes(slot)) {
     return (
       <div className="app-shell flex items-center justify-center">
         <p className="text-gray-500">404</p>

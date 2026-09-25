@@ -1,4 +1,5 @@
 'use client'
+import { visibleDashboardSlots } from '@/lib/dashboardSlots'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -10,7 +11,7 @@ import LocaleSwitch from '@/components/LocaleSwitch'
 import { useLocale } from '@/components/LocaleProvider'
 
 const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator', 'efactura'] as const
-const DASHBOARD_SLOTS = [1, 2, 3, 4, 5] as const
+const DASHBOARD_SLOTS = visibleDashboardSlots()
 
 export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
   const router = useRouter()

@@ -33,26 +33,34 @@ export function oauthCookieOptions(request: NextRequest) {
   }
 }
 
+/**
+ * POST (authenticated): returns the ANAF authorize URL and sets the nonce cookie.
+ * The acting user comes from the session token, never from the URL, so nobody can bind
+ * their ANAF certificate to someone else's account by sharing a link.
+ */
 export async function startAnafOAuth(request: NextRequest) {
   if (!anafOAuthConfigured()) {
-    return NextResponse.redirect(efacturaSettingsUrl(request, {
+    return NextResponse.json({
       error: 'ANAF OAuth nu este configurat. Completează ANAF_OAUTH_CLIENT_ID, SECRET și REDIRECT_URI.'
-    }))
+    }, { status: 503 })
   }
-  const userId = request.nextUrl.searchParams.get('userId') || ''
-  const ownerUserId = request.nextUrl.searchParams.get('ownerUserId') || userId
-  if (!userId) {
-    return NextResponse.redirect(efacturaSettingsUrl(request, { error: 'Autentificare lipsă.' }))
-  }
-  const admin = supabaseAdmin()
-  const allowed = await actorCanAccessOwner(admin, userId, ownerUserId)
-  if (!allowed) {
-    return NextResponse.redirect(efacturaSettingsUrl(request, { error: 'Nu ai acces la acest profil.' }))
-  }
+  const userId = await authenticatedUserId(request)
+  if (!userId) return unauthorized()
+  const body = await request.json().catch(() => ({}))
+  const ownerUserId = String(body?.ownerUserId || userId)
+  const allowed = await actorCanAccessOwner(supabaseAdmin(), userId, ownerUserId)
+  if (!allowed) return NextResponse.json({ error: 'Nu ai acces la acest profil.' }, { status: 403 })
   const { state, nonce } = createOAuthState({ userId, ownerUserId })
-  const res = NextResponse.redirect(authorizeUrl(state))
+  const res = NextResponse.json({ url: authorizeUrl(state) })
   res.cookies.set(ANAF_OAUTH_COOKIE, nonce, oauthCookieOptions(request))
   return res
+}
+
+/** Old GET links (with ?userId=) are no longer honoured. */
+export function startAnafOAuthLegacy(request: NextRequest) {
+  return NextResponse.redirect(efacturaSettingsUrl(request, {
+    error: 'Pornește conectarea ANAF din pagina e-Factura a aplicației.'
+  }))
 }
 
 export async function callbackAnafOAuth(request: NextRequest) {

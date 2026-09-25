@@ -6,7 +6,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import { supabase } from '@/lib/supabase'
 import {
   disconnectEfactura,
-  efacturaConnectUrl,
+  startEfacturaConnect,
   loadEfacturaConnection,
   type EfacturaConnection
 } from '@/lib/invoiceClient'
@@ -57,8 +57,13 @@ export default function EfacturaSettingsPage() {
     init()
   }, [userId, ownerUserId, companyLoading])
 
-  const connect = () => {
-    window.location.href = efacturaConnectUrl(userId, ownerUserId || userId)
+  const connect = async () => {
+    setError('')
+    try {
+      await startEfacturaConnect(ownerUserId || userId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
 
   const disconnect = async () => {

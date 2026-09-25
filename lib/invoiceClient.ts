@@ -126,10 +126,16 @@ export async function loadEfacturaConnection(userId: string, ownerUserId?: strin
   return data
 }
 
-export function efacturaConnectUrl(userId: string, ownerUserId?: string) {
-  const params = new URLSearchParams({ userId })
-  if (ownerUserId) params.set('ownerUserId', ownerUserId)
-  return `/api/efactura/oauth/start?${params.toString()}`
+/** Asks the server (authenticated) for the ANAF authorize URL, then navigates there. */
+export async function startEfacturaConnect(ownerUserId?: string) {
+  const res = await fetch('/api/efactura/oauth/start', {
+    method: 'POST',
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ ownerUserId })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data.url) throw new Error(data.error || 'Conectarea ANAF nu a putut porni.')
+  window.location.href = data.url
 }
 
 export async function disconnectEfactura(userId: string, ownerUserId?: string) {
