@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
+import { emptyInvoiceFx, fxPersistFields, invoiceFxFromRow } from '@/lib/invoiceFx'
 import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
@@ -12,7 +13,7 @@ import { isDraftInvoice, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { applyStornoToOriginal } from '@/lib/storno'
 import { defaultDueDate } from '@/lib/dates'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
-import { updateInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
+import { persistInvoiceConvertedAmounts, updateInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey } from '@/lib/uiLabels'
 
@@ -124,6 +125,7 @@ export default function EditInvoice() {
     prepaid_amount: 0
   })
   const [items, setItems] = useState<InvoiceLineItem[]>([emptyInvoiceLine()])
+  const [fx, setFx] = useState(emptyInvoiceFx())
 
   useEffect(() => {
     const init = async () => {
@@ -183,6 +185,7 @@ export default function EditInvoice() {
       discount_percent: Number(invoice.discount_percent || 0),
       prepaid_amount: Number(invoice.prepaid_amount || 0)
     })
+    setFx(invoiceFxFromRow(invoice, invoice.invoice_items))
     setSelectedClient(invoice.clients)
     setItems(invoice.invoice_items.map((item: any) => ({
       id: item.id,
@@ -201,7 +204,8 @@ export default function EditInvoice() {
 
   const totals = computeInvoiceTotals(items, {
     discount_percent: form.discount_percent,
-    prepaid_amount: form.prepaid_amount
+    prepaid_amount: form.prepaid_amount,
+    exchange_rate: fx.enabled ? fx.rate : 0
   })
 
   const saveInvoice = async (status: 'draft' | 'sent') => {
@@ -211,12 +215,14 @@ export default function EditInvoice() {
       alert(t('inv.publicBuyerAlert'))
       return
     }
+    if (fx.enabled && !(fx.rate > 0)) {
+      alert(t('inv.fxRequired'))
+      return
+    }
     setSaving(true)
 
     const { error } = await updateInvoiceRow(supabase, invoiceId, {
       client_id: selectedClient.id,
-      series: form.series,
-      invoice_number: form.invoice_number,
       issue_date: form.issue_date,
       due_date: form.due_date || defaultDueDate(form.issue_date),
       status,
@@ -235,6 +241,7 @@ export default function EditInvoice() {
       period_end: form.period_end || null,
       discount_percent: form.discount_percent || 0,
       prepaid_amount: form.prepaid_amount || 0,
+      ...fxPersistFields(fx),
       ...invoicePartySnapshots({
         status,
         seller: company as unknown as Record<string, unknown>,
@@ -246,6 +253,13 @@ export default function EditInvoice() {
       setSaving(false)
       return
     }
+
+    await persistInvoiceConvertedAmounts(supabase, invoiceId, {
+      subtotal: totals.subtotal,
+      tva_amount: totals.tvaAmount,
+      total: totals.total,
+      ...fxPersistFields(fx)
+    })
 
     await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
     await supabase.from('invoice_items').insert(
@@ -303,15 +317,23 @@ export default function EditInvoice() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.series')}</label>
-                <input type="text" value={form.series}
-                  onChange={e => setForm(f => ({ ...f, series: e.target.value }))}
-                  className="input" />
+                <input
+                  type="text"
+                  value={form.series}
+                  readOnly
+                  aria-readonly="true"
+                  className="input bg-gray-50 text-gray-500 cursor-not-allowed"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.number')}</label>
-                <input type="text" value={form.invoice_number}
-                  onChange={e => setForm(f => ({ ...f, invoice_number: e.target.value }))}
-                  className="input" />
+                <input
+                  type="text"
+                  value={form.invoice_number}
+                  readOnly
+                  aria-readonly="true"
+                  className="input bg-gray-50 text-gray-500 cursor-not-allowed"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.issueDate')}</label>
@@ -334,6 +356,7 @@ export default function EditInvoice() {
                   className="input" />
               </div>
             </div>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('inv.seriesNumberHint')}</p>
           </div>
 
           <div className="card p-6">
@@ -356,7 +379,13 @@ export default function EditInvoice() {
             lockType={form.invoice_type_code === '381'}
           />
 
-          <InvoiceLineItems items={items} onChange={setItems} />
+          <InvoiceLineItems
+            items={items}
+            onChange={setItems}
+            fx={fx}
+            onFxChange={setFx}
+            taxPointDate={form.tax_point_date || form.issue_date}
+          />
 
           <InvoiceTotalsFields
             totals={totals}

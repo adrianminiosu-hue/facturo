@@ -11,6 +11,7 @@ import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/li
 import { addDaysIso, calendarDateInBucharest, startOfIsoWeek } from '@/lib/dates'
 import type { MessageKey } from '@/lib/messages'
 import { formatRon } from '@/lib/money'
+import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
 import { alreadySentToSpv, canSendToEfactura, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
@@ -128,11 +129,13 @@ export default function Invoices() {
   const loadInvoices = async () => {
     let query = supabase
       .from('invoices')
-      .select('*, clients(id, company_name)')
+      .select('*, clients(id, company_name), invoice_items(quantity, unit_price, tva_rate, total)')
       .order('created_at', { ascending: false })
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
-    const rows = ((data || []) as Invoice[]).filter(inv => !isPurchaseInvoice(inv))
+    const rows = await Promise.all(
+      ((data || []) as Invoice[]).filter(inv => !isPurchaseInvoice(inv)).map(inv => ensureConvertedInvoiceAmounts(supabase, inv))
+    )
     setInvoices(rows)
     const originals = rows
       .filter(inv => !isDraftInvoice(inv.status) && !isCreditNote(inv.invoice_type_code))

@@ -2,7 +2,7 @@
  * Invoice structure checks: 2026 VAT, discounts, payable after avans.
  * Run: npx tsx scripts/check-invoice-structure.ts
  */
-import { computeInvoiceTotals, remainingOf, VAT_RATES } from '../lib/invoiceMath'
+import { computeInvoiceTotals, invoiceConvertedHeader, remainingOf, resolveExchangeRate, VAT_RATES } from '../lib/invoiceMath'
 import { generateEfacturaXml, missingEfacturaFields } from '../lib/efactura'
 import { defaultInvoiceNotes, VAT_ON_COLLECTION_MENTION } from '../lib/invoiceNotes'
 
@@ -90,5 +90,21 @@ assert('tax point date', xml.includes('<cbc:TaxPointDate>2026-09-16</cbc:TaxPoin
 assert('contact in xml', xml.includes('<cac:Contact>'))
 assert('no EUR', !xml.includes('EUR'))
 assert('remaining accounts for prepaid', remainingOf({ total: 1089, prepaid_amount: 100, amount_paid: 0 }) === 989)
+
+const fxItems = [
+  { quantity: 1, unit_price: 3000, tva_rate: 21, total: 18222.60 },
+  { quantity: 1, unit_price: 2500, tva_rate: 21, total: 15185.50 }
+]
+const inferred = resolveExchangeRate(fxItems, { subtotal: 5500, total: 6655 })
+assert('infer eur rate from converted line totals', inferred === 5.02)
+const fxHeader = invoiceConvertedHeader(fxItems, { subtotal: 5500, tva_amount: 1155, total: 6655 })
+assert('converted baza uses rate', fxHeader.totals.subtotal === 27610)
+assert('converted vat uses rate', fxHeader.totals.tvaAmount === 5798.1)
+assert('converted total uses rate', fxHeader.totals.taxInclusive === 33408.1)
+assert('backfill needed when header is unconverted', fxHeader.needsPersist === true)
+assert('remaining uses converted line totals', remainingOf({
+  total: 6655,
+  invoice_items: fxItems
+}) === 33408.1)
 
 console.log('all invoice structure checks passed')

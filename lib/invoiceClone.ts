@@ -1,6 +1,6 @@
 import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
-import { computeInvoiceTotals } from '@/lib/invoiceMath'
+import { computeInvoiceTotals, invoiceConvertedHeader, resolveExchangeRate } from '@/lib/invoiceMath'
 import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
 import { isCreditNote, isDraftInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -36,6 +36,9 @@ export type CloneInvoice = {
   period_start?: string | null
   period_end?: string | null
   discount_percent?: number | null
+  exchange_rate?: number | null
+  exchange_rate_source?: string | null
+  exchange_rate_date?: string | null
   clients?: Record<string, unknown> | null
   invoice_items?: Line[] | null
 }
@@ -92,7 +95,11 @@ export async function copyInvoiceAsDraft(
   })
   const today = calendarDateInBucharest(0)
   const items = invoice.invoice_items || []
-  const totals = computeInvoiceTotals(items, invoice)
+  const exchange_rate = resolveExchangeRate(items, invoice)
+  const totals = computeInvoiceTotals(items, {
+    ...invoice,
+    exchange_rate
+  })
   const { data: created, error } = await insertInvoiceRow(client, {
     user_id: userId,
     company_id: invoice.company_id || company?.id || null,
@@ -118,6 +125,9 @@ export async function copyInvoiceAsDraft(
     period_end: invoice.period_end || null,
     discount_percent: Number(invoice.discount_percent || 0),
     prepaid_amount: 0,
+    exchange_rate: exchange_rate || invoice.exchange_rate || null,
+    exchange_rate_source: invoice.exchange_rate_source || null,
+    exchange_rate_date: invoice.exchange_rate_date || null,
     ...invoicePartySnapshots({
       status: 'draft',
       seller: company as unknown as Record<string, unknown>,
@@ -145,6 +155,8 @@ export async function createStornoDraft(
     startNumber: company?.invoice_start_number ?? undefined
   })
   const today = calendarDateInBucharest(0)
+  const items = invoice.invoice_items || []
+  const converted = invoiceConvertedHeader(items, invoice)
   const { data: created, error } = await insertInvoiceRow(client, {
     user_id: userId,
     company_id: invoice.company_id || company?.id || null,
@@ -156,21 +168,23 @@ export async function createStornoDraft(
     tax_point_date: today,
     delivery_date: today,
     status: 'draft',
-    subtotal: invoice.subtotal,
-    tva_amount: invoice.tva_amount,
-    total: invoice.total,
+    subtotal: converted.totals.subtotal,
+    tva_amount: converted.totals.tvaAmount,
+    total: converted.totals.taxInclusive,
     notes: `Storno pentru ${invoice.series}${invoice.invoice_number}`,
     invoice_type_code: '381',
     currency: 'RON',
     payment_means_code: '42',
     credited_invoice_id: invoice.id,
     discount_percent: invoice.discount_percent || 0,
-    prepaid_amount: 0
+    prepaid_amount: 0,
+    exchange_rate: converted.exchange_rate || invoice.exchange_rate || null,
+    exchange_rate_source: invoice.exchange_rate_source || null,
+    exchange_rate_date: invoice.exchange_rate_date || null
   })
   if (error || !created) throw new Error(error?.message || 'Nu s-a putut crea stornoul. Rulează migrarea storno în Supabase.')
-  const items = invoice.invoice_items || []
   if (items.length) {
-    const { error: itemsError } = await client.from('invoice_items').insert(lineRows(created.id, items))
+    const { error: itemsError } = await client.from('invoice_items').insert(lineRows(created.id, items, converted.totals))
     if (itemsError) throw new Error(itemsError.message)
   }
   return created as { id: string }

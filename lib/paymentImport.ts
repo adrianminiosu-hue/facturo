@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { remainingOf } from '@/lib/paymentMatch'
+import { billedTotal, remainingOf } from '@/lib/invoiceMath'
 import { isOpenReceivable } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 
@@ -126,19 +126,25 @@ export async function applyImportedPayment(
 }
 
 export function remainingMapFromInvoices(
-  invoices: Array<{ id: string; total: number; amount_paid?: number | null; prepaid_amount?: number | null; status: string; company_id?: string | null }>
+  invoices: Array<{
+    id: string
+    total: number
+    amount_paid?: number | null
+    prepaid_amount?: number | null
+    status: string
+    company_id?: string | null
+    invoice_items?: Array<{ quantity?: number | null; unit_price?: number | null; tva_rate?: number | null; total?: number | null }>
+    exchange_rate?: number | null
+    subtotal?: number | null
+  }>
 ) {
   const remaining = new Map<string, number>()
   const meta = new Map<string, { total: number; status: string; company_id: string | null }>()
   for (const inv of invoices) {
     if (!isOpenReceivable(inv.status)) continue
-    remaining.set(inv.id, remainingOf({
-      total: Number(inv.total),
-      amount_paid: Number(inv.amount_paid || 0),
-      prepaid_amount: Number(inv.prepaid_amount || 0)
-    }))
+    remaining.set(inv.id, remainingOf(inv))
     meta.set(inv.id, {
-      total: Number(inv.total),
+      total: billedTotal(inv),
       status: inv.status,
       company_id: inv.company_id || null
     })

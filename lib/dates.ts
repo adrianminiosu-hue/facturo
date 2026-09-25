@@ -37,10 +37,24 @@ export function calendarDateInBucharest(offsetDays = 0) {
   return date.toISOString().slice(0, 10)
 }
 
+/** Last Mon–Fri calendar day strictly before `isoDate`. */
+export function lastBankingDayBefore(isoDate: string) {
+  let date = addDaysIso(isoDate, -1)
+  while (isoWeekday(date) >= 6) date = addDaysIso(date, -1)
+  return date
+}
+
 export function formatRoDate(isoDate: string) {
   const [year, month, day] = isoDate.split('-')
   if (!year || !month || !day) return isoDate
   return `${day}.${month}.${year}`
+}
+
+export function daysBetween(fromIso: string, toIso: string) {
+  const from = Date.parse(`${fromIso}T12:00:00Z`)
+  const to = Date.parse(`${toIso}T12:00:00Z`)
+  if (Number.isNaN(from) || Number.isNaN(to)) return 0
+  return Math.round((to - from) / 86400000)
 }
 
 export function daysUntilDue(dueIso: string, todayIso = calendarDateInBucharest(0)) {

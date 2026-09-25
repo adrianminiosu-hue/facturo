@@ -1,5 +1,5 @@
 import { notesWithoutSpvMark } from '@/lib/invoiceStatus'
-import { computeInvoiceTotals, roundMoney } from '@/lib/invoiceMath'
+import { computeInvoiceTotals, resolveExchangeRate, roundMoney } from '@/lib/invoiceMath'
 import { VAT_ON_COLLECTION_MENTION } from '@/lib/invoiceNotes'
 
 export { roundMoney }
@@ -126,6 +126,9 @@ export type EfacturaInvoice = {
   discount_percent?: number | null
   discount_amount?: number | null
   prepaid_amount?: number | null
+  exchange_rate?: number | null
+  exchange_rate_source?: string | null
+  exchange_rate_date?: string | null
 }
 
 export function missingEfacturaFields(input: {
@@ -250,7 +253,8 @@ export function generateEfacturaXml(input: {
   const publicNotes = notesWithoutSpvMark(invoice.notes)
   const taxPoint = invoice.tax_point_date || invoice.issue_date
   const dueDate = invoice.due_date || invoice.issue_date
-  const totals = computeInvoiceTotals(items, invoice)
+  const exchangeRate = resolveExchangeRate(items, invoice)
+  const totals = computeInvoiceTotals(items, { ...invoice, exchange_rate: exchangeRate })
 
   const lines = items.map((item, index) => {
     const computed = totals.lines[index]
@@ -302,7 +306,7 @@ export function generateEfacturaXml(input: {
       </cac:ClassifiedTaxCategory>
     </cac:Item>
     <cac:Price>
-      ${el('cbc:PriceAmount', Number(line.item.unit_price).toFixed(2), { currencyID: currency })}
+      ${el('cbc:PriceAmount', roundMoney(Number(line.item.unit_price) * (exchangeRate > 0 ? exchangeRate : 1)).toFixed(2), { currencyID: currency })}
     </cac:Price>
   </cac:${lineTag}>`).join('\n')
 
@@ -330,6 +334,12 @@ export function generateEfacturaXml(input: {
   ${el(`cbc:${typeEl}`, typeCode)}
   ${notes ? el('cbc:Note', notes) : ''}
   ${el('cbc:DocumentCurrencyCode', currency)}
+  ${exchangeRate > 0 ? `<cac:TaxExchangeRate>
+    ${el('cbc:SourceCurrencyCode', 'EUR')}
+    ${el('cbc:TargetCurrencyCode', 'RON')}
+    ${el('cbc:CalculationRate', exchangeRate.toFixed(5))}
+    ${invoice.exchange_rate_date ? el('cbc:Date', invoice.exchange_rate_date) : ''}
+  </cac:TaxExchangeRate>` : ''}
   ${invoice.buyer_reference ? el('cbc:BuyerReference', invoice.buyer_reference) : ''}
   ${invoice.order_reference ? `<cac:OrderReference>${el('cbc:ID', invoice.order_reference)}</cac:OrderReference>` : ''}
   ${invoice.billing_reference ? `<cac:BillingReference>

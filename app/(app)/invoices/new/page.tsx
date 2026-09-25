@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
 import InvoiceLineItems, { emptyInvoiceLine, type InvoiceLineItem } from '@/components/InvoiceLineItems'
+import { emptyInvoiceFx, fxPersistFields } from '@/lib/invoiceFx'
 import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
@@ -13,7 +14,7 @@ import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
 import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import { defaultInvoiceNotes } from '@/lib/invoiceNotes'
-import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
+import { insertInvoiceRow, invoicePartySnapshots, persistInvoiceConvertedAmounts } from '@/lib/invoicePersist'
 import { tenantWrite } from '@/lib/portfolio'
 
 interface Client {
@@ -121,6 +122,7 @@ export default function NewInvoice() {
     prepaid_amount: 0
   })
   const [items, setItems] = useState<InvoiceLineItem[]>([emptyInvoiceLine()])
+  const [fx, setFx] = useState(emptyInvoiceFx())
 
   useEffect(() => {
     const init = async () => {
@@ -145,6 +147,10 @@ export default function NewInvoice() {
     query = company?.id ? query.eq('company_id', company.id) : query.eq('user_id', ownerUserId || userId)
     const { data } = await query
     setClients(data || [])
+    // Prefill from /invoices/new?client=<id> (e.g. from the client collections page).
+    const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('client') : null
+    const match = wanted ? (data || []).find((c: Client) => c.id === wanted) : null
+    if (match) setSelectedClient(match)
   }
 
   const generateInvoiceNumber = async () => {
@@ -160,7 +166,8 @@ export default function NewInvoice() {
 
   const totals = computeInvoiceTotals(items, {
     discount_percent: form.discount_percent,
-    prepaid_amount: form.prepaid_amount
+    prepaid_amount: form.prepaid_amount,
+    exchange_rate: fx.enabled ? fx.rate : 0
   })
 
   const saveInvoice = async (status: 'draft' | 'sent') => {
@@ -168,6 +175,10 @@ export default function NewInvoice() {
     if (items.some(i => !i.description)) { alert(t('inv.completeLines')); return }
     if (selectedClient.is_public_institution && !form.buyer_reference.trim()) {
       alert(t('inv.publicBuyerAlert'))
+      return
+    }
+    if (fx.enabled && !(fx.rate > 0)) {
+      alert(t('inv.fxRequired'))
       return
     }
     setSaving(true)
@@ -197,6 +208,7 @@ export default function NewInvoice() {
       period_end: form.period_end || null,
       discount_percent: form.discount_percent || 0,
       prepaid_amount: form.prepaid_amount || 0,
+      ...fxPersistFields(fx),
       ...invoicePartySnapshots({
         status,
         seller: company as unknown as Record<string, unknown>,
@@ -205,6 +217,13 @@ export default function NewInvoice() {
     })
 
     if (error) { alert(t('inv.saveError')); setSaving(false); return }
+
+    await persistInvoiceConvertedAmounts(supabase, invoice.id, {
+      subtotal: totals.subtotal,
+      tva_amount: totals.tvaAmount,
+      total: totals.total,
+      ...fxPersistFields(fx)
+    })
 
     await supabase.from('invoice_items').insert(
       items.map((item, index) => ({
@@ -251,8 +270,9 @@ export default function NewInvoice() {
                 <input
                   type="text"
                   value={form.series}
-                  onChange={e => setForm(f => ({ ...f, series: e.target.value }))}
-                  className="input"
+                  readOnly
+                  aria-readonly="true"
+                  className="input bg-gray-50 text-gray-500 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -260,8 +280,9 @@ export default function NewInvoice() {
                 <input
                   type="text"
                   value={form.invoice_number}
-                  onChange={e => setForm(f => ({ ...f, invoice_number: e.target.value }))}
-                  className="input"
+                  readOnly
+                  aria-readonly="true"
+                  className="input bg-gray-50 text-gray-500 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -295,6 +316,7 @@ export default function NewInvoice() {
                 />
               </div>
             </div>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('inv.seriesNumberHint')}</p>
           </div>
 
           {/* Client selection */}
@@ -319,7 +341,13 @@ export default function NewInvoice() {
             buyerIsPublic={!!selectedClient?.is_public_institution}
           />
 
-          <InvoiceLineItems items={items} onChange={setItems} />
+          <InvoiceLineItems
+            items={items}
+            onChange={setItems}
+            fx={fx}
+            onFxChange={setFx}
+            taxPointDate={form.tax_point_date || form.issue_date}
+          />
 
           <InvoiceTotalsFields
             totals={totals}

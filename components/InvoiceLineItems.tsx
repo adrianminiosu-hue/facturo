@@ -6,6 +6,8 @@ import { useLocale } from '@/components/LocaleProvider'
 import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
 import { formatAmount } from '@/lib/money'
 import { computeInvoiceTotals, vatRateOptions } from '@/lib/invoiceMath'
+import { BNR_FX_URL, parseExchangeRate, type InvoiceFxValue } from '@/lib/invoiceFx'
+import { formatRoDate, lastBankingDayBefore } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
 import { useCompany } from '@/components/CompanyProvider'
 import {
@@ -44,11 +46,11 @@ export const emptyInvoiceLine = (): InvoiceLineItem => ({
   discount_percent: 0
 })
 
-function lineTotal(item: InvoiceLineItem) {
-  return computeInvoiceTotals([item]).lines[0]?.total || 0
+function lineTotal(item: InvoiceLineItem, exchangeRate = 0) {
+  return computeInvoiceTotals([item], { exchange_rate: exchangeRate }).lines[0]?.total || 0
 }
 
-function applyValues(current: InvoiceLineItem, values: Omit<CatalogSuggestion, 'source' | 'catalogId' | 'code'>): InvoiceLineItem {
+function applyValues(current: InvoiceLineItem, values: Omit<CatalogSuggestion, 'source' | 'catalogId' | 'code'>, exchangeRate = 0): InvoiceLineItem {
   const next: InvoiceLineItem = {
     ...current,
     description: values.description,
@@ -59,16 +61,22 @@ function applyValues(current: InvoiceLineItem, values: Omit<CatalogSuggestion, '
     vat_exemption_reason: values.tva_rate > 0 ? '' : (values.vat_exemption_reason || ''),
     discount_percent: values.discount_percent || 0
   }
-  next.total = lineTotal(next)
+  next.total = lineTotal(next, exchangeRate)
   return next
 }
 
 export default function InvoiceLineItems({
   items,
-  onChange
+  onChange,
+  fx,
+  onFxChange,
+  taxPointDate
 }: {
   items: InvoiceLineItem[]
   onChange: (items: InvoiceLineItem[]) => void
+  fx?: InvoiceFxValue
+  onFxChange?: (next: InvoiceFxValue) => void
+  taxPointDate?: string
 }) {
   const { t } = useLocale()
   const { userId, company, ownerUserId } = useCompany()
@@ -79,6 +87,7 @@ export default function InvoiceLineItems({
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const [highlight, setHighlight] = useState(0)
   const [savingIndex, setSavingIndex] = useState<number | null>(null)
+  const [rateText, setRateText] = useState(fx?.rate ? String(fx.rate) : '')
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const reloadCatalog = async () => {
@@ -98,6 +107,12 @@ export default function InvoiceLineItems({
   }, [userId, company?.id])
 
   useEffect(() => {
+    if (!fx?.enabled) return
+    if (parseExchangeRate(rateText) === fx.rate) return
+    setRateText(fx.rate ? String(fx.rate) : '')
+  }, [fx?.enabled, fx?.rate, rateText])
+
+  useEffect(() => {
     const onPointer = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpenIndex(null)
     }
@@ -112,13 +127,13 @@ export default function InvoiceLineItems({
       updated[index].vat_category = vatCategoryFromRate(Number(value), updated[index].vat_category)
       if (Number(value) > 0) updated[index].vat_exemption_reason = ''
     }
-    updated[index].total = lineTotal(updated[index])
+    updated[index].total = lineTotal(updated[index], fx?.rate)
     onChange(updated)
   }
 
   const applySuggestion = (index: number, suggestion: CatalogSuggestion) => {
     const updated = [...items]
-    updated[index] = applyValues(updated[index], suggestion)
+    updated[index] = applyValues(updated[index], suggestion, fx?.rate)
     onChange(updated)
     setOpenIndex(null)
     if (suggestion.catalogId) touchCatalogItem(supabase, suggestion.catalogId)
@@ -130,7 +145,7 @@ export default function InvoiceLineItems({
       applySuggestion(emptyIdx, suggestion)
       return
     }
-    onChange([...items, applyValues(emptyInvoiceLine(), suggestion)])
+    onChange([...items, applyValues(emptyInvoiceLine(), suggestion, fx?.rate)])
     if (suggestion.catalogId) touchCatalogItem(supabase, suggestion.catalogId)
   }
 
@@ -163,6 +178,10 @@ export default function InvoiceLineItems({
   }
 
   const recentChips = useMemo(() => recent.slice(0, 6), [recent])
+  const priced = useMemo(
+    () => computeInvoiceTotals(items, { exchange_rate: fx?.enabled ? fx.rate : 0 }),
+    [fx?.enabled, fx?.rate, items]
+  )
 
   return (
     <div className="card p-6" ref={wrapRef}>
@@ -189,6 +208,82 @@ export default function InvoiceLineItems({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {fx && onFxChange && (
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-sm text-[color:var(--color-foreground)] mb-3">
+            <input
+              type="checkbox"
+              checked={fx.enabled}
+              onChange={e => {
+                const enabled = e.target.checked
+                onFxChange({
+                  ...fx,
+                  enabled,
+                  source: fx.source || 'BNR',
+                  date: enabled ? (fx.date || lastBankingDayBefore(taxPointDate || '')) : fx.date
+                })
+              }}
+            />
+            {t('inv.fxToggle')}
+          </label>
+          {fx.enabled && (
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.fxRate')}</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={rateText}
+                      onChange={e => {
+                        setRateText(e.target.value)
+                        onFxChange({ ...fx, rate: parseExchangeRate(e.target.value) })
+                      }}
+                      className="input"
+                      placeholder="5.08500"
+                    />
+                    <span className="text-sm text-[color:var(--color-muted-foreground)] whitespace-nowrap">lei</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.fxSource')}</label>
+                  <select
+                    value={fx.source || 'BNR'}
+                    onChange={e => onFxChange({ ...fx, source: e.target.value })}
+                    className="input bg-white"
+                  >
+                    <option value="BNR">{t('inv.fxBnr')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.fxDate')}</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={fx.date || lastBankingDayBefore(taxPointDate || '')}
+                      onChange={e => onFxChange({ ...fx, date: e.target.value })}
+                      className="input"
+                    />
+                    <a
+                      href={BNR_FX_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                    >
+                      {t('inv.fxSeeBnr')} ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
+                {t('inv.fxBnrHelp', { date: formatRoDate(taxPointDate || fx.date || '') })}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -283,7 +378,7 @@ export default function InvoiceLineItems({
                   </select>
                 </div>
                 <div className="col-span-4 md:col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.unitPrice')}</label>}
+                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{fx?.enabled ? t('inv.unitPriceEur') : t('inv.unitPrice')}</label>}
                   <input
                     type="number"
                     value={item.unit_price}
@@ -317,7 +412,7 @@ export default function InvoiceLineItems({
                 </div>
                 <div className="col-span-3 md:col-span-1">
                   {index === 0 && <label className="block text-xs text-gray-500 mb-1">Total</label>}
-                  <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{formatAmount(item.total)}</p>
+                  <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{formatAmount(priced.lines[index]?.total || 0)}</p>
                 </div>
                 <div className="col-span-1">
                   {index === 0 && <div className="mb-1 h-4"></div>}

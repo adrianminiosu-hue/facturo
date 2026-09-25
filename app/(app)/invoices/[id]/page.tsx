@@ -14,7 +14,8 @@ import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey } from '@/lib/uiLabels'
 import { formatAmount, formatRon } from '@/lib/money'
-import { computeInvoiceTotals, remainingOf } from '@/lib/invoiceMath'
+import { invoiceConvertedHeader, remainingOf } from '@/lib/invoiceMath'
+import { persistInvoiceConvertedAmounts } from '@/lib/invoicePersist'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
 
 type Line = {
@@ -58,6 +59,9 @@ type Invoice = {
   amount_paid?: number | null
   prepaid_amount?: number | null
   discount_percent?: number | null
+  exchange_rate?: number | null
+  exchange_rate_source?: string | null
+  exchange_rate_date?: string | null
   efactura_status?: string | null
   efactura_index?: string | null
   efactura_error?: string | null
@@ -98,7 +102,24 @@ export default function InvoiceViewPage() {
       router.push('/invoices')
       return
     }
-    setInvoice(data as Invoice)
+    const loaded = data as Invoice
+    const converted = invoiceConvertedHeader(loaded.invoice_items || [], loaded)
+    if (converted.needsPersist) {
+      await persistInvoiceConvertedAmounts(supabase, loaded.id, {
+        subtotal: converted.totals.subtotal,
+        tva_amount: converted.totals.tvaAmount,
+        total: converted.totals.taxInclusive,
+        exchange_rate: converted.exchange_rate,
+        exchange_rate_source: loaded.exchange_rate_source || 'BNR',
+        exchange_rate_date: loaded.exchange_rate_date || null
+      })
+      loaded.subtotal = converted.totals.subtotal
+      loaded.tva_amount = converted.totals.tvaAmount
+      loaded.total = converted.totals.taxInclusive
+      loaded.exchange_rate = converted.exchange_rate
+      if (!loaded.exchange_rate_source) loaded.exchange_rate_source = 'BNR'
+    }
+    setInvoice(loaded)
     if (data.credited_invoice_id) {
       const { data: original } = await supabase
         .from('invoices')
@@ -156,9 +177,17 @@ export default function InvoiceViewPage() {
     }
   }
 
-  const viewTotals = invoice
-    ? computeInvoiceTotals(invoice.invoice_items || [], invoice)
-    : null
+  const converted = invoice ? invoiceConvertedHeader(invoice.invoice_items || [], invoice) : null
+  const viewTotals = converted?.totals || null
+  const billedInvoice = invoice && viewTotals
+    ? {
+        ...invoice,
+        subtotal: viewTotals.subtotal,
+        tva_amount: viewTotals.tvaAmount,
+        total: viewTotals.taxInclusive,
+        exchange_rate: converted?.exchange_rate || invoice.exchange_rate
+      }
+    : invoice
 
   if (loading || !invoice) {
     return (
@@ -167,6 +196,8 @@ export default function InvoiceViewPage() {
       </div>
     )
   }
+
+  const billedRow = billedInvoice ?? invoice
 
   const status = invoiceStatusAppearance(invoice)
   const typeLabel = t(invoiceTypeKey(invoice.invoice_type_code || '380'))
@@ -329,8 +360,15 @@ export default function InvoiceViewPage() {
             <p className="text-sm">{t('inv.issuedOn', { date: formatRoDate(invoice.issue_date) })}</p>
             <p className="text-sm mt-1">{t('inv.vatPointOn', { date: formatRoDate(invoice.tax_point_date || invoice.issue_date) })}</p>
             <p className="text-sm mt-1">{t('inv.dueOn', { date: invoice.due_date ? formatRoDate(invoice.due_date) : '—' })}</p>
-            {remainingOf(invoice) > 0 && remainingOf(invoice) < Number(invoice.total) && (
-              <p className="text-sm mt-1">{t('inv.remaining', { amount: ron(remainingOf(invoice)) })}</p>
+            {remainingOf(billedRow) > 0 && remainingOf(billedRow) < Number(billedRow.total) && (
+              <p className="text-sm mt-1">{t('inv.remaining', { amount: ron(remainingOf(billedRow)) })}</p>
+            )}
+            {(converted?.exchange_rate || 0) > 0 && (
+              <p className="text-sm mt-1">
+                {t('inv.fxRate')}: {converted!.exchange_rate} lei
+                {invoice.exchange_rate_date ? ` · ${formatRoDate(invoice.exchange_rate_date)}` : ''}
+                {invoice.exchange_rate_source ? ` · ${invoice.exchange_rate_source}` : ''}
+              </p>
             )}
           </div>
         </div>
@@ -378,7 +416,7 @@ export default function InvoiceViewPage() {
         </div>
 
         <InvoicePaymentsSection
-          invoice={invoice}
+          invoice={billedInvoice || invoice}
           actorUserId={userId}
           onChanged={load}
         />
@@ -392,7 +430,7 @@ export default function InvoiceViewPage() {
       </div>
       {payOpen && (
         <PaymentModal
-          invoice={invoice}
+          invoice={billedInvoice || invoice}
           userId={ownerUserId || userId}
           companyId={company?.id}
           firmName={company?.company_name}

@@ -1,7 +1,7 @@
 import { ibansEqual } from '@/lib/iban'
 import { paymentFingerprint, type ParsedBankTxn } from '@/lib/multicash940'
 import { stripDiacritics } from '@/lib/romania'
-import { remainingOf } from '@/lib/invoiceMath'
+import { remainingOf, withConvertedInvoiceAmounts } from '@/lib/invoiceMath'
 import { isOpenReceivable } from '@/lib/invoiceStatus'
 import { formatAmount, formatRon } from '@/lib/money'
 
@@ -205,22 +205,23 @@ function scoreInvoice(txn: ParsedBankTxn, invoice: OpenInvoice, uniqueAmount: bo
 }
 
 export function asOpenInvoice(row: Record<string, unknown>): OpenInvoice {
-  const raw = row.clients
+  const billed = withConvertedInvoiceAmounts(row as typeof row & { invoice_items?: Array<{ quantity?: number; unit_price?: number; tva_rate?: number; total?: number }> })
+  const raw = billed.clients
   const client = (Array.isArray(raw) ? raw[0] : raw || {}) as Record<string, unknown>
   return {
-    id: String(row.id),
-    company_id: row.company_id ? String(row.company_id) : null,
-    client_id: row.client_id ? String(row.client_id) : null,
-    series: String(row.series || ''),
-    invoice_number: String(row.invoice_number || ''),
-    due_date: row.due_date ? String(row.due_date) : null,
-    issue_date: row.issue_date ? String(row.issue_date) : null,
-    total: Number(row.total || 0),
-    amount_paid: Number(row.amount_paid || 0),
-    prepaid_amount: Number(row.prepaid_amount || 0),
-    status: String(row.status || ''),
-    currency: row.currency ? String(row.currency) : 'RON',
-    invoice_type_code: row.invoice_type_code ? String(row.invoice_type_code) : '380',
+    id: String(billed.id),
+    company_id: billed.company_id ? String(billed.company_id) : null,
+    client_id: billed.client_id ? String(billed.client_id) : null,
+    series: String(billed.series || ''),
+    invoice_number: String(billed.invoice_number || ''),
+    due_date: billed.due_date ? String(billed.due_date) : null,
+    issue_date: billed.issue_date ? String(billed.issue_date) : null,
+    total: Number(billed.total || 0),
+    amount_paid: Number(billed.amount_paid || 0),
+    prepaid_amount: Number(billed.prepaid_amount || 0),
+    status: String(billed.status || ''),
+    currency: billed.currency ? String(billed.currency) : 'RON',
+    invoice_type_code: billed.invoice_type_code ? String(billed.invoice_type_code) : '380',
     client_name: String(client.company_name || ''),
     client_cui: String(client.cui || ''),
     client_iban: String(client.iban || '')

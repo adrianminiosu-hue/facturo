@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { INVOICE_TYPE_CODES, PAYMENT_MEANS_CODES } from '@/lib/efactura'
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey, paymentMeansKey } from '@/lib/uiLabels'
@@ -27,9 +28,20 @@ export default function InvoiceEfacturaFields({
   lockType?: boolean
 }) {
   const { t } = useLocale()
+  const hasExtra = Boolean(
+    value.order_reference ||
+    value.buyer_reference ||
+    value.period_start ||
+    value.period_end
+  )
+  const [open, setOpen] = useState(hasExtra || !!buyerIsPublic)
   const types = lockType
     ? INVOICE_TYPE_CODES.filter(type => type.code === value.invoice_type_code)
     : INVOICE_TYPE_CODES.filter(type => type.code !== '381' || value.invoice_type_code === '381')
+
+  useEffect(() => {
+    if (buyerIsPublic || hasExtra) setOpen(true)
+  }, [buyerIsPublic, hasExtra])
 
   return (
     <div className="card p-6">
@@ -85,50 +97,65 @@ export default function InvoiceEfacturaFields({
             className="input"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.orderRef')}</label>
-          <input
-            type="text"
-            value={value.order_reference}
-            onChange={e => onChange({ ...value, order_reference: e.target.value })}
-            className="input"
-            placeholder="PO-2026-001"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('inv.buyerRef')} {buyerIsPublic ? '*' : ''}
-          </label>
-          <input
-            type="text"
-            value={value.buyer_reference}
-            onChange={e => onChange({ ...value, buyer_reference: e.target.value })}
-            className="input"
-            placeholder={t('inv.buyerRefPh')}
-          />
-          {buyerIsPublic && !value.buyer_reference && (
-            <p className="text-red-500 text-xs mt-1">{t('inv.buyerRefRequired')}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodFrom')}</label>
-          <input
-            type="date"
-            value={value.period_start}
-            onChange={e => onChange({ ...value, period_start: e.target.value })}
-            className="input"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodTo')}</label>
-          <input
-            type="date"
-            value={value.period_end}
-            onChange={e => onChange({ ...value, period_end: e.target.value })}
-            className="input"
-          />
-        </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen(current => !current)}
+        className="mt-4 text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] inline-flex items-center gap-1.5"
+        aria-expanded={open}
+      >
+        <span aria-hidden>{open ? '▾' : '▸'}</span>
+        {t('inv.moreDetails')}
+      </button>
+
+      {open && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodFrom')}</label>
+            <input
+              type="date"
+              value={value.period_start}
+              onChange={e => onChange({ ...value, period_start: e.target.value })}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodTo')}</label>
+            <input
+              type="date"
+              value={value.period_end}
+              onChange={e => onChange({ ...value, period_end: e.target.value })}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.orderRef')}</label>
+            <input
+              type="text"
+              value={value.order_reference}
+              onChange={e => onChange({ ...value, order_reference: e.target.value })}
+              className="input"
+              placeholder="PO-2026-001"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('inv.buyerRef')} {buyerIsPublic ? '*' : ''}
+            </label>
+            <input
+              type="text"
+              value={value.buyer_reference}
+              onChange={e => onChange({ ...value, buyer_reference: e.target.value })}
+              className="input"
+              placeholder={t('inv.buyerRefPh')}
+            />
+            {buyerIsPublic && !value.buyer_reference && (
+              <p className="text-red-500 text-xs mt-1">{t('inv.buyerRefRequired')}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

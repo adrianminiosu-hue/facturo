@@ -11,12 +11,60 @@ export type InvoiceLineInput = {
   tva_rate?: number | null
   discount_percent?: number | null
   discount_amount?: number | null
+  total?: number | null
 }
 
 export type HeaderDiscountInput = {
   discount_percent?: number | null
   discount_amount?: number | null
   prepaid_amount?: number | null
+  exchange_rate?: number | null
+}
+
+export function effectiveExchangeRate(rate?: number | null) {
+  const value = Number(rate || 0)
+  return value > 0 ? value : 1
+}
+
+export function normalizeExchangeRate(rate: number) {
+  return Math.round((Number(rate) + Number.EPSILON) * 1e5) / 1e5
+}
+
+/** Stored rate, or infer it when lines were saved in RON but unit prices stayed in EUR. */
+export function resolveExchangeRate(
+  items: InvoiceLineInput[],
+  header?: HeaderDiscountInput & { subtotal?: number | null; total?: number | null }
+) {
+  const stored = Number(header?.exchange_rate || 0)
+  if (stored > 0) return normalizeExchangeRate(stored)
+  for (const item of items) {
+    const net = Number(item.quantity || 0) * Number(item.unit_price || 0)
+    const expected = roundMoney(net * (1 + Number(item.tva_rate || 0) / 100))
+    const actual = Number(item.total || 0)
+    if (expected > 0 && actual > expected * 1.001) return normalizeExchangeRate(actual / expected)
+  }
+  const rawBase = items.reduce((sum, item) => {
+    return sum + Number(item.quantity || 0) * Number(item.unit_price || 0)
+  }, 0)
+  const savedBase = Number(header?.subtotal || 0)
+  if (rawBase > 0 && savedBase > rawBase * 1.001) return normalizeExchangeRate(savedBase / rawBase)
+  return 0
+}
+
+export function invoiceConvertedHeader(
+  items: InvoiceLineInput[],
+  header: HeaderDiscountInput & { subtotal?: number | null; tva_amount?: number | null; total?: number | null } = {}
+) {
+  const exchange_rate = resolveExchangeRate(items, header)
+  const totals = computeInvoiceTotals(items, { ...header, exchange_rate })
+  const storedRate = Number(header.exchange_rate || 0)
+  const needsPersist = exchange_rate > 0 && (
+    !(storedRate > 0) ||
+    Math.abs(Number(header.subtotal || 0) - totals.subtotal) > 0.02 ||
+    Math.abs(Number(header.tva_amount || 0) - totals.tvaAmount) > 0.02 ||
+    Math.abs(Number(header.total || 0) - totals.taxInclusive) > 0.02
+  )
+  return { exchange_rate, totals, needsPersist }
 }
 
 export function vatRateOptions(current?: number) {
@@ -27,8 +75,9 @@ export function vatRateOptions(current?: number) {
   return [...VAT_RATES]
 }
 
-export function lineDiscount(item: InvoiceLineInput) {
-  const gross = roundMoney(Number(item.quantity || 0) * Number(item.unit_price || 0))
+export function lineDiscount(item: InvoiceLineInput, exchangeRate = 1) {
+  const unit = Number(item.unit_price || 0) * effectiveExchangeRate(exchangeRate)
+  const gross = roundMoney(Number(item.quantity || 0) * unit)
   const amount = Number(item.discount_amount || 0)
   const percent = Number(item.discount_percent || 0)
   const discount = amount > 0 ? amount : roundMoney(gross * percent / 100)
@@ -37,8 +86,9 @@ export function lineDiscount(item: InvoiceLineInput) {
 }
 
 export function computeInvoiceTotals(items: InvoiceLineInput[], header: HeaderDiscountInput = {}) {
+  const fxRate = effectiveExchangeRate(header.exchange_rate)
   const lines = items.map(item => {
-    const { gross, discount, net } = lineDiscount(item)
+    const { gross, discount, net } = lineDiscount(item, fxRate)
     const rate = Number(item.tva_rate || 0)
     const vat = roundMoney(net * rate / 100)
     return { gross, discount, net, vat, rate, total: roundMoney(net + vat) }
@@ -83,15 +133,49 @@ export function computeInvoiceTotals(items: InvoiceLineInput[], header: HeaderDi
   }
 }
 
-export function remainingOf(invoice: {
+export type InvoiceMoneyRow = HeaderDiscountInput & {
+  id?: string
+  subtotal?: number | null
+  tva_amount?: number | null
   total?: number | null
   amount_paid?: number | null
-  prepaid_amount?: number | null
+  invoice_items?: InvoiceLineInput[] | null
+  items?: InvoiceLineInput[] | null
+  exchange_rate_source?: string | null
+  exchange_rate_date?: string | null
+}
+
+export function invoiceLinesOf(invoice: {
+  invoice_items?: InvoiceLineInput[] | null
+  items?: InvoiceLineInput[] | null
 }) {
+  return invoice.invoice_items || invoice.items || []
+}
+
+export function billedTotal(invoice: InvoiceMoneyRow) {
+  const items = invoiceLinesOf(invoice)
+  if (items.length) return invoiceConvertedHeader(items, invoice).totals.taxInclusive
+  return Number(invoice.total || 0)
+}
+
+export function withConvertedInvoiceAmounts<T extends InvoiceMoneyRow>(invoice: T): T {
+  const items = invoiceLinesOf(invoice)
+  if (!items.length) return invoice
+  const { exchange_rate, totals } = invoiceConvertedHeader(items, invoice)
+  return {
+    ...invoice,
+    subtotal: totals.subtotal,
+    tva_amount: totals.tvaAmount,
+    total: totals.taxInclusive,
+    exchange_rate: exchange_rate || invoice.exchange_rate || null
+  }
+}
+
+export function remainingOf(invoice: InvoiceMoneyRow) {
   return Math.max(
     0,
     roundMoney(
-      Number(invoice.total || 0) - Number(invoice.prepaid_amount || 0) - Number(invoice.amount_paid || 0)
+      billedTotal(invoice) - Number(invoice.prepaid_amount || 0) - Number(invoice.amount_paid || 0)
     )
   )
 }
