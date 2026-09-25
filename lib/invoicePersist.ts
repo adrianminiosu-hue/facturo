@@ -66,6 +66,8 @@ export async function ensureConvertedInvoiceAmounts<T extends InvoiceMoneyRow & 
       .eq('invoice_id', invoice.id)
     lines = loaded.data || []
   }
+  // No lines (not loaded, or a header-only invoice): keep the stored amounts instead of recomputing 0.
+  if (!lines.length) return invoice
   const converted = invoiceConvertedHeader(lines, invoice)
   const next = {
     ...invoice,

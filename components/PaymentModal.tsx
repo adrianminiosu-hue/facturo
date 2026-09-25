@@ -129,6 +129,10 @@ export default function PaymentModal({
       setError(t('pay.needDate'))
       return
     }
+    if (paidOn > calendarDateInBucharest(0)) {
+      setError(t('pay.futureDate'))
+      return
+    }
     setSaving(true)
     const insert = await supabase.from('invoice_payments').insert({
       invoice_id: invoice.id,
@@ -234,7 +238,7 @@ export default function PaymentModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm mb-1 text-[color:var(--color-muted-foreground)]">{t('pay.date')}</label>
-              <input type="date" value={paidOn} onChange={e => setPaidOn(e.target.value)} className="input" />
+              <input type="date" value={paidOn} max={calendarDateInBucharest(0)} onChange={e => setPaidOn(e.target.value)} className="input" />
             </div>
             <div>
               <label className="block text-sm mb-1 text-[color:var(--color-muted-foreground)]">{t('pay.method')}</label>

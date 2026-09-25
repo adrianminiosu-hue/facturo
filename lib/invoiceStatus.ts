@@ -66,6 +66,12 @@ export function invoiceStatusAppearance(invoice: {
   if (isEfacturaProcessing(invoice)) {
     return { key: 'status.anafProcessing' as const, label: 'În prelucrare ANAF', style: 'bg-amber-50 text-amber-800' }
   }
+  // A rejected e-Factura is not a validly issued invoice: that outranks "paid" until it is corrected and resent.
+  if (invoice.efactura_status === 'rejected') {
+    return invoice.status === 'paid'
+      ? { key: 'status.rejectedPaid' as const, label: 'Respinsă ANAF · încasată', style: 'bg-red-50 text-red-700' }
+      : { key: 'status.rejected' as const, label: 'Respinsă ANAF', style: 'bg-red-50 text-red-700' }
+  }
   const transferred = alreadySentToSpv(invoice)
   if (invoice.status === 'paid' && transferred) {
     return { key: 'status.paidSpv' as const, label: 'Plătită · SPV', style: INVOICE_STATUS_LABEL.spv.style }

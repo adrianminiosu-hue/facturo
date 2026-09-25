@@ -1,3 +1,4 @@
+import { calendarDateInBucharest } from '@/lib/dates'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { billedTotal, remainingOf } from '@/lib/invoiceMath'
 import { isOpenReceivable } from '@/lib/invoiceStatus'
@@ -54,6 +55,9 @@ export async function applyImportedPayment(
   }
   if (!line.paidOn || !Number.isFinite(line.amount) || line.amount <= 0) {
     return { fingerprint: line.fingerprint, outcome: 'error', invoiceId: null, error: 'Sumă sau dată invalidă.' }
+  }
+  if (line.paidOn > calendarDateInBucharest(0)) {
+    return { fingerprint: line.fingerprint, outcome: 'error', invoiceId: null, error: 'Data plății este în viitor.' }
   }
   if (line.currency && line.currency !== 'RON') {
     return { fingerprint: line.fingerprint, outcome: 'error', invoiceId: null, error: 'Doar RON.' }

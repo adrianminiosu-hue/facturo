@@ -246,7 +246,7 @@ export default function InvoiceViewPage() {
 
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>{t(status.key)}</span>
-          {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-500">{t('inv.rejectedShort')}</span>}
+          {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-700">{t('inv.rejectedFix')}</span>}
           {isEfacturaProcessing(invoice) && <span className="text-xs text-amber-700">{t('inv.anafWorking')}</span>}
           {invoice.efactura_index && (
             <span className="text-xs font-mono text-[color:var(--color-muted-foreground)]">index {invoice.efactura_index}</span>

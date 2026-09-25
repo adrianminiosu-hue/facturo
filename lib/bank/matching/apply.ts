@@ -1,3 +1,4 @@
+import { calendarDateInBucharest } from '@/lib/dates'
 import { AUTO_APPLY_THRESHOLD, RULE } from '@/lib/bank/matching/constants'
 import { extractInvoiceRefs } from '@/lib/bank/matching/extractRefs'
 import { matchBankTransaction } from '@/lib/bank/matching/engine'
@@ -309,6 +310,10 @@ async function writeAllocations(
     actorUserId: string
   }
 ) {
+  // A receipt cannot be booked on a day that has not happened yet (bad statement line or test data).
+  if (opts.transaction.booking_date > calendarDateInBucharest(0)) {
+    throw new Error(`Tranzacția are data ${opts.transaction.booking_date}, în viitor. Verifică extrasul.`)
+  }
   const tenant = await tenantWriteVerified(client, {
     userId: opts.transaction.user_id,
     companyId: opts.transaction.company_id,

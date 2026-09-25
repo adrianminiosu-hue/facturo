@@ -631,9 +631,6 @@ export default function Invoices() {
                         <span className={`inline-block text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>
                           {t(status.key)}
                         </span>
-                        {invoice.efactura_status === 'rejected' && (
-                          <p className="text-[10px] text-red-500 mt-1 font-medium">{t('inv.rejectedShort')}</p>
-                        )}
                         {isEfacturaProcessing(invoice) && (
                           <p className="text-[10px] text-amber-700 mt-1 font-medium">{t('inv.anafWorking')}</p>
                         )}
