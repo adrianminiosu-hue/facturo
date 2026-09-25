@@ -1,6 +1,7 @@
 'use client'
 import { useParams } from 'next/navigation'
 import CollectionsDashboard from '@/components/CollectionsDashboard'
+import ForecastDashboard from '@/components/ForecastDashboard'
 import DashboardWorkspace from '@/components/DashboardWorkspace'
 import SalesDashboard from '@/components/SalesDashboard'
 import { slotFromParam, visibleDashboardSlots } from '@/lib/dashboardSlots'
@@ -23,6 +24,7 @@ export default function ExtraDashboardPage() {
     )
   }
   if (slot === 1) return <SalesDashboard />
+  if (slot === 3) return <ForecastDashboard />
   if (slot === 4) return <CollectionsDashboard />
   return <DashboardWorkspace slot={slot} />
 }
