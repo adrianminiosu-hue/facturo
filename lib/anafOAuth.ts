@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const ANAF_AUTHORIZE_URL = 'https://logincert.anaf.ro/anaf-oauth2/v1/authorize'
 export const ANAF_TOKEN_URL = 'https://logincert.anaf.ro/anaf-oauth2/v1/token'
-export const ANAF_CONNECT_ERROR = 'Conectează e-Factura din Setări înainte de trimitere.'
+export const ANAF_CONNECT_ERROR = 'Conectează e-Factura din Setări (autorizare cu certificatul digital).'
 
 export type AnafEnvironment = 'test' | 'prod'
 export type AnafEfacturaMode = 'simulate' | 'test' | 'prod'

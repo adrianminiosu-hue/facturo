@@ -77,7 +77,7 @@ function tokenError() {
   return `Tokenul ANAF a expirat sau nu este valid. Reconectează e-Factura (${anafEnvironmentLabel()}) din Setări.`
 }
 
-async function anafFetch(path: string, accessToken: string, init?: RequestInit) {
+export async function anafFetch(path: string, accessToken: string, init?: RequestInit) {
   const res = await fetch(`${anafEfacturaBase()}${path}`, {
     ...init,
     cache: 'no-store',

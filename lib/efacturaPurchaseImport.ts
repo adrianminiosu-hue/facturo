@@ -44,6 +44,8 @@ export type SimulatedPurchaseInvoice = {
   amountPaid?: number
   paymentStatus?: string
   seal: PurchaseInvoiceSeal
+  /** Storage path of ANAF's original ZIP (real imports only). */
+  archivePath?: string | null
 }
 
 export type PurchaseBuyer = {

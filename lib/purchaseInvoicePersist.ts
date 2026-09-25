@@ -64,11 +64,15 @@ export function purchaseInvoiceFromRow(input: {
     total: Number(invoice.total || 0),
     amountPaid: Number(invoice.amount_paid || 0),
     paymentStatus: String(invoice.payment_status || 'unpaid'),
-    seal: sealFor(String(invoice.id), signedAtFor(invoice))
+    // Real imports carry ANAF's signature metadata; the generated seal is only for simulated demo invoices.
+    seal: invoice.efactura_signature
+      ? { valid: true, ...invoice.efactura_signature }
+      : sealFor(String(invoice.id), signedAtFor(invoice)),
+    archivePath: invoice.efactura_zip_path || null
   }
 }
 
-async function findOrCreateSupplier(
+export async function findOrCreateSupplier(
   client: QueryClient,
   opts: {
     ownerUserId: string
@@ -133,7 +137,7 @@ async function findOrCreateSupplier(
   return data
 }
 
-async function loadPurchaseRows(
+export async function loadPurchaseRows(
   client: QueryClient,
   opts: { ownerUserId: string; companyId?: string | null }
 ) {
@@ -145,7 +149,7 @@ async function loadPurchaseRows(
   return ((data || []) as Record<string, any>[]).filter(isPurchaseInvoice)
 }
 
-async function insertRegisteredPurchase(
+export async function insertRegisteredPurchase(
   client: QueryClient,
   row: Record<string, unknown>
 ) {

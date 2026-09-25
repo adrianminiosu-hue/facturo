@@ -39,6 +39,21 @@ export async function downloadInvoiceXml(invoiceId: string, userId: string, file
   URL.revokeObjectURL(href)
 }
 
+/** ANAF's original archive (XML + signature) of an invoice received from SPV. */
+export async function downloadEfacturaArchive(invoiceId: string, filename: string) {
+  const res = await fetch(`/api/efactura/archive?id=${encodeURIComponent(invoiceId)}`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: 'Arhiva nu a putut fi descărcată.' }))
+    throw new Error(data.error || 'Arhiva nu a putut fi descărcată.')
+  }
+  const href = URL.createObjectURL(await res.blob())
+  const link = document.createElement('a')
+  link.href = href
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(href)
+}
+
 export async function sendInvoiceEmail(invoiceId: string, userId: string) {
   const res = await fetch('/api/send-invoice', {
     method: 'POST',

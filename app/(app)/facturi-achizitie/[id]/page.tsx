@@ -7,7 +7,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import { supabase } from '@/lib/supabase'
 import { formatRoDate } from '@/lib/dates'
 import { formatAmount, formatRon } from '@/lib/money'
-import { openPurchaseInvoicePdf } from '@/lib/invoiceClient'
+import { downloadEfacturaArchive, openPurchaseInvoicePdf } from '@/lib/invoiceClient'
 import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { purchaseInvoiceFromRow } from '@/lib/purchaseInvoicePersist'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
@@ -114,6 +114,14 @@ export default function PurchaseInvoiceViewPage() {
           <button className="btn btn-outline" onClick={() => setSealOpen(true)}>
             {t('pur.sealShort')}
           </button>
+          {invoice.archivePath && (
+            <button
+              className="btn btn-outline"
+              onClick={() => downloadEfacturaArchive(invoice.id, `e-Factura-${invoice.series}${invoice.invoiceNumber}.zip`).catch(e => alert(e instanceof Error ? e.message : String(e)))}
+            >
+              {t('pur.archive')}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

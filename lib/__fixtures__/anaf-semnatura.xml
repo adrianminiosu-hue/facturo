@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DetachedSignature xmlns="mfp:anaf:dgti:efactura:detachedSignature:v1" xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+<ds:Signature Id="id-1"><ds:SignedInfo><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+<ds:Reference URI=""><ds:DigestValue>abcDEF123==</ds:DigestValue></ds:Reference></ds:SignedInfo>
+<ds:KeyInfo><ds:X509Data><ds:X509SubjectName>CN=ANAF e-Factura, O=MINISTERUL FINANTELOR, C=RO</ds:X509SubjectName><ds:X509SerialNumber>1234567890</ds:X509SerialNumber></ds:X509Data></ds:KeyInfo>
+<ds:Object><xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#"><xades:SignedProperties><xades:SignedSignatureProperties><xades:SigningTime>2026-09-21T10:15:00Z</xades:SigningTime></xades:SignedSignatureProperties></xades:SignedProperties></xades:QualifyingProperties></ds:Object>
+</ds:Signature></DetachedSignature>
