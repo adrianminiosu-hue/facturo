@@ -10,7 +10,7 @@ import { track } from '@/lib/landingTrack'
 import { legalCompany } from '@/config/company'
 import PhoneMock from '@/components/landing/PhoneMock'
 import DesktopMock from '@/components/landing/DesktopMock'
-import DeviceSwitch, { type LandingDevice } from '@/components/landing/DeviceSwitch'
+import { type LandingDevice } from '@/components/landing/DeviceSwitch'
 import LandingAura, { LandingMark } from '@/components/landing/LandingAura'
 
 function SignupLink({
@@ -34,6 +34,15 @@ export default function LandingPage() {
   const router = useRouter()
   const [device, setDevice] = useState<LandingDevice>('desktop')
 
+  // The product preview follows the visitor's screen: phone mockup on phones, desktop otherwise.
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)')
+    const apply = () => setDevice(query.matches ? 'mobile' : 'desktop')
+    apply()
+    query.addEventListener('change', apply)
+    return () => query.removeEventListener('change', apply)
+  }, [])
+
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has('preview')) return
     supabase.auth.getSession().then(({ data }) => {
@@ -52,7 +61,6 @@ export default function LandingPage() {
             <Link href="/login" className="landing-text-link">
               {t('landing.signIn')}
             </Link>
-            <DeviceSwitch value={device} onChange={setDevice} />
           </div>
         </div>
       </header>

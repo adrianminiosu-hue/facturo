@@ -1,4 +1,5 @@
 'use client'
+import DateField from '@/components/DateField'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -362,8 +363,7 @@ export default function IncasariPage() {
                       </span>
                     )}
                   </span>
-                  <input
-                    type="date"
+                  <DateField
                     value={row.promised_pay_date || ''}
                     onChange={e => savePromise(row.id, e.target.value)}
                     className="list-cell-promise input py-0.5 px-2 text-xs"

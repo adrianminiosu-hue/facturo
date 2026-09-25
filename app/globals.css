@@ -610,7 +610,7 @@ body {
       grid-template-columns: auto minmax(0, 1fr) auto !important;
       grid-template-areas:
         "check title amount"
-        "check sub sub"
+        "check sub meta"
         "check status actions";
     }
 
@@ -658,8 +658,11 @@ body {
       flex-wrap: wrap;
     }
 
+    /* Issue date next to the client name on phone cards. */
     .list-row-invoices .list-cell-meta {
-      display: none;
+      justify-self: end;
+      white-space: nowrap;
+      font-size: 0.75rem;
     }
 
     .list-row-clients .list-cell-actions,

@@ -1,4 +1,5 @@
 'use client'
+import DateField from '@/components/DateField'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
@@ -238,7 +239,7 @@ export default function PaymentModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm mb-1 text-[color:var(--color-muted-foreground)]">{t('pay.date')}</label>
-              <input type="date" value={paidOn} max={calendarDateInBucharest(0)} onChange={e => setPaidOn(e.target.value)} className="input" />
+              <DateField value={paidOn} max={calendarDateInBucharest(0)} onChange={e => setPaidOn(e.target.value)} className="input" />
             </div>
             <div>
               <label className="block text-sm mb-1 text-[color:var(--color-muted-foreground)]">{t('pay.method')}</label>

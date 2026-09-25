@@ -1,4 +1,5 @@
 'use client'
+import DateField from '@/components/DateField'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/lib/efactura'
@@ -262,8 +263,7 @@ export default function InvoiceLineItems({
                 <div>
                   <label className="block text-sm font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.fxDate')}</label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="date"
+                    <DateField
                       value={fx.date || lastBankingDayBefore(taxPointDate || '')}
                       onChange={e => onFxChange({ ...fx, date: e.target.value })}
                       className="input"

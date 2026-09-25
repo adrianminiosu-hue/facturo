@@ -203,7 +203,8 @@ export async function loadRecentInvoiceLines(
         vat_exemption_reason: String(item.vat_exemption_reason || ''),
         discount_percent: Number(item.discount_percent) || 0
       }
-      const key = suggestionKey(suggestion)
+      // One suggestion per article name: invoices come newest first, so the latest price wins.
+      const key = catalogNameKey(suggestion.description)
       if (seen.has(key)) continue
       seen.add(key)
       lines.push(suggestion)

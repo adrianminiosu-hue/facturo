@@ -1,5 +1,5 @@
 'use client'
-import { visibleDashboardSlots } from '@/lib/dashboardSlots'
+import { dashboardHref, visibleDashboardSlots } from '@/lib/dashboardSlots'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -95,7 +95,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             <div className="side-group">
               <Link href="/dashboard" className={subClass(active === 'dashboard')}>{t('nav.dashboardMain')}</Link>
               {DASHBOARD_SLOTS.map(n => (
-                <Link key={n} href={`/dashboard/${n}`} className={subClass(active === `dashboard-${n}`)}>
+                <Link key={n} href={dashboardHref(n)} className={subClass(active === `dashboard-${n}`)}>
                   {t(`nav.dashboard${n}`)}
                 </Link>
               ))}

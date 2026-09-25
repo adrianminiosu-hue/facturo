@@ -1,4 +1,5 @@
 'use client'
+import DateField from '@/components/DateField'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
@@ -337,7 +338,7 @@ export default function EditInvoice() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.issueDate')}</label>
-                <input type="date" value={form.issue_date}
+                <DateField value={form.issue_date}
                   onChange={e => {
                     const issue_date = e.target.value
                     setForm(f => ({
@@ -351,7 +352,7 @@ export default function EditInvoice() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.dueDate')}</label>
-                <input type="date" value={form.due_date}
+                <DateField value={form.due_date}
                   onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
                   className="input" />
               </div>

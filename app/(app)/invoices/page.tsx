@@ -1,4 +1,5 @@
 'use client'
+import DateField from '@/components/DateField'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -529,8 +530,7 @@ export default function Invoices() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.from')}</label>
-                  <input
-                    type="date"
+                  <DateField
                     value={filterFrom}
                     onChange={e => { setIssuePeriod(''); setFilterFrom(e.target.value) }}
                     className="input px-3 py-2.5"
@@ -538,8 +538,7 @@ export default function Invoices() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[color:var(--color-muted-foreground)] mb-1">{t('inv.to')}</label>
-                  <input
-                    type="date"
+                  <DateField
                     value={filterTo}
                     onChange={e => { setIssuePeriod(''); setFilterTo(e.target.value) }}
                     className="input px-3 py-2.5"

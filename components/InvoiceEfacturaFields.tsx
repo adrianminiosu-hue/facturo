@@ -1,4 +1,5 @@
 'use client'
+import DateField from '@/components/DateField'
 import { useEffect, useState } from 'react'
 import { INVOICE_TYPE_CODES, PAYMENT_MEANS_CODES } from '@/lib/efactura'
 import { useLocale } from '@/components/LocaleProvider'
@@ -81,8 +82,7 @@ export default function InvoiceEfacturaFields({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.vatDate')}</label>
-          <input
-            type="date"
+          <DateField
             value={value.tax_point_date}
             onChange={e => onChange({ ...value, tax_point_date: e.target.value })}
             className="input"
@@ -90,8 +90,7 @@ export default function InvoiceEfacturaFields({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.deliveryDate')}</label>
-          <input
-            type="date"
+          <DateField
             value={value.delivery_date}
             onChange={e => onChange({ ...value, delivery_date: e.target.value })}
             className="input"
@@ -113,8 +112,7 @@ export default function InvoiceEfacturaFields({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodFrom')}</label>
-            <input
-              type="date"
+            <DateField
               value={value.period_start}
               onChange={e => onChange({ ...value, period_start: e.target.value })}
               className="input"
@@ -122,8 +120,7 @@ export default function InvoiceEfacturaFields({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.periodTo')}</label>
-            <input
-              type="date"
+            <DateField
               value={value.period_end}
               onChange={e => onChange({ ...value, period_end: e.target.value })}
               className="input"
