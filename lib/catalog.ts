@@ -127,7 +127,7 @@ function scopedQuery(query: any, companyId?: string | null, userId?: string | nu
   return companyId ? query.eq('company_id', companyId) : query.eq('user_id', userId)
 }
 
-/** One article per name for the owner profile. Profile-level rows win over leftover per-company copies. */
+/** One article per name. A firm's own article wins over a common one with the same name. */
 export function dedupeCatalogItems(items: CatalogItem[]) {
   const byName = new Map<string, CatalogItem>()
   for (const item of items) {
@@ -137,10 +137,10 @@ export function dedupeCatalogItems(items: CatalogItem[]) {
       byName.set(key, item)
       continue
     }
-    const newIsProfile = !item.company_id
-    const currentIsProfile = !current.company_id
+    const newIsFirm = !!item.company_id
+    const currentIsFirm = !!current.company_id
     const newerUse = (item.last_used_at || '') > (current.last_used_at || '')
-    if ((newIsProfile && !currentIsProfile) || (newIsProfile === currentIsProfile && newerUse)) {
+    if ((newIsFirm && !currentIsFirm) || (newIsFirm === currentIsFirm && newerUse)) {
       byName.set(key, item)
     }
   }
@@ -155,9 +155,13 @@ export async function loadCatalogItems(
     .from('catalog_items')
     .select('*')
     .order('name', { ascending: true })
-  // Nomenclator is profile-scoped: all companies of the same owner share one catalog.
-  if (opts.userId) query = query.eq('user_id', opts.userId)
-  else query = scopedQuery(query, opts.companyId, opts.userId)
+  // Common articles (company_id null) are shared by all firms of the owner; the rest belong to one firm.
+  if (opts.userId) {
+    query = query.eq('user_id', opts.userId)
+    if (opts.companyId) query = query.or(`company_id.is.null,company_id.eq.${opts.companyId}`)
+  } else {
+    query = scopedQuery(query, opts.companyId, opts.userId)
+  }
   if (opts.activeOnly !== false) query = query.eq('active', true)
   const { data, error } = await query
   if (error) {
@@ -213,12 +217,16 @@ export async function loadRecentInvoiceLines(
   return lines
 }
 
-export function catalogWriteRow(draft: CatalogDraft, opts: { userId: string; actorUserId?: string; companyId?: string | null }) {
+export function catalogWriteRow(
+  draft: CatalogDraft,
+  opts: { userId: string; actorUserId?: string; companyId?: string | null; shared?: boolean }
+) {
   const name = normalizeCatalogName(draft.name)
   const tva_rate = Number(draft.tva_rate) || 0
   return {
     user_id: opts.userId,
-    company_id: null,
+    // New articles belong to the current firm unless marked common to all firms.
+    company_id: opts.shared ? null : (opts.companyId || null),
     ...(opts.actorUserId ? { created_by: opts.actorUserId } : {}),
     code: draft.code.trim(),
     name,
@@ -272,7 +280,7 @@ export async function saveLineToCatalog(
       return { error: 'Nomenclatorul nu este instalat. Rulează migrația 20260917_catalog_items.sql.' }
     }
     if (isCatalogDuplicateError(error)) {
-      const loaded = await loadCatalogItems(client, { userId: opts.userId, activeOnly: false })
+      const loaded = await loadCatalogItems(client, { userId: opts.userId, companyId: opts.companyId, activeOnly: false })
       const item = loaded.items.find(row => catalogNameKey(row.name) === catalogNameKey(name))
       if (item) return { item, alreadyExisted: true }
     }
@@ -307,7 +315,7 @@ export async function importCatalogFromRecent(
   client: QueryClient,
   opts: { userId: string; companyId?: string | null; items: CatalogItem[] }
 ) {
-  const recent = await loadRecentInvoiceLines(client, { userId: opts.userId, invoiceLimit: 80 })
+  const recent = await loadRecentInvoiceLines(client, { userId: opts.userId, companyId: opts.companyId, invoiceLimit: 80 })
   const known = new Set(opts.items.map(item => catalogNameKey(item.name)))
   const rows = []
   for (const line of recent) {
@@ -448,4 +456,35 @@ export function filterSuggestions(
     })
     .slice(0, limit)
   return { catalogMatches, recentMatches }
+}
+
+/** VAT rates in force since 1 Aug 2025 (Legea 141/2025); anything else is an old rate. */
+const CURRENT_VAT_RATES = [21, 11, 0]
+
+function looseKey(name: string) {
+  return normalizeCatalogName(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\bserviciu\b/g, 'servicii')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+export type CatalogWarning = { oldVat: boolean; duplicateOf: string | null }
+
+/** Flags articles with an outdated VAT rate and names that differ only by case, diacritics or singular/plural. */
+export function catalogWarnings(items: CatalogItem[]): Record<string, CatalogWarning> {
+  const firstByKey = new Map<string, CatalogItem>()
+  const out: Record<string, CatalogWarning> = {}
+  for (const item of items) {
+    const key = looseKey(item.name)
+    const first = firstByKey.get(key)
+    if (!first) firstByKey.set(key, item)
+    out[item.id] = {
+      oldVat: item.active && !CURRENT_VAT_RATES.includes(Number(item.tva_rate)),
+      duplicateOf: first && first.id !== item.id && item.active ? first.name : null
+    }
+  }
+  return out
 }

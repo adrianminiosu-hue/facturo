@@ -10,8 +10,8 @@ import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/li
 import { formatAmount } from '@/lib/money'
 import { vatRateOptions } from '@/lib/invoiceMath'
 import {
+  catalogWarnings,
   catalogWriteRow,
-  deleteCatalogItemsByName,
   emptyCatalogDraft,
   importCatalogFromRecent,
   isCatalogDuplicateError,
@@ -23,7 +23,7 @@ import {
 export default function NomenclatorPage() {
   const router = useRouter()
   const { t } = useLocale()
-  const { userId, ownerUserId, loading: companyLoading } = useCompany()
+  const { userId, ownerUserId, company, companies, loading: companyLoading } = useCompany()
   const [items, setItems] = useState<CatalogItem[]>([])
   const [missingTable, setMissingTable] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -33,6 +33,9 @@ export default function NomenclatorPage() {
   const [form, setForm] = useState<CatalogDraft>(emptyCatalogDraft())
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
+  // Common to all firms (company_id null) vs. only the current firm.
+  const [shared, setShared] = useState(false)
+  const [fixingId, setFixingId] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -42,11 +45,12 @@ export default function NomenclatorPage() {
       await loadItems()
     }
     init()
-  }, [ownerUserId, userId, companyLoading])
+  }, [ownerUserId, userId, companyLoading, company?.id])
 
   const loadItems = async () => {
     const result = await loadCatalogItems(supabase, {
       userId: ownerUserId || userId,
+      companyId: company?.id,
       activeOnly: false
     })
     setMissingTable(!!result.missingTable)
@@ -61,8 +65,28 @@ export default function NomenclatorPage() {
       )
     : items
 
+  const warnings = catalogWarnings(items)
+  const firmName = company?.company_name || ''
+
+  const fixVat = async (item: CatalogItem) => {
+    setFixingId(item.id)
+    const { error } = await supabase.from('catalog_items').update({ tva_rate: 21, vat_category: 'S', vat_exemption_reason: '', updated_at: new Date().toISOString() }).eq('id', item.id)
+    setFixingId('')
+    if (error) { alert(error.message); return }
+    await loadItems()
+  }
+
+  const deactivate = async (item: CatalogItem) => {
+    setFixingId(item.id)
+    const { error } = await supabase.from('catalog_items').update({ active: false, updated_at: new Date().toISOString() }).eq('id', item.id)
+    setFixingId('')
+    if (error) { alert(error.message); return }
+    await loadItems()
+  }
+
   const openNew = () => {
     setEditItem(null)
+    setShared(false)
     setForm(emptyCatalogDraft())
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -70,6 +94,7 @@ export default function NomenclatorPage() {
 
   const openEdit = (item: CatalogItem) => {
     setEditItem(item)
+    setShared(!item.company_id)
     setForm({
       code: item.code,
       name: item.name,
@@ -103,7 +128,7 @@ export default function NomenclatorPage() {
       return
     }
     setSaving(true)
-    const payload = catalogWriteRow(form, { userId: ownerUserId || userId, actorUserId: userId })
+    const payload = catalogWriteRow(form, { userId: ownerUserId || userId, actorUserId: userId, companyId: company?.id, shared })
     const result = editItem
       ? await supabase.from('catalog_items').update(payload).eq('id', editItem.id)
       : await supabase.from('catalog_items').insert(payload)
@@ -121,12 +146,10 @@ export default function NomenclatorPage() {
 
   const remove = async (item: CatalogItem) => {
     if (!confirm(t('cat.confirmDelete', { name: item.name }))) return
-    const result = await deleteCatalogItemsByName(supabase, {
-      userId: ownerUserId || userId,
-      name: item.name
-    })
+    // Only this article: a same-named article of another firm stays.
+    const result = await supabase.from('catalog_items').delete().eq('id', item.id)
     if (result.error) {
-      alert(result.error)
+      alert(result.error.message)
       return
     }
     await loadItems()
@@ -137,6 +160,7 @@ export default function NomenclatorPage() {
     setImporting(true)
     const result = await importCatalogFromRecent(supabase, {
       userId: ownerUserId || userId,
+      companyId: company?.id,
       items
     })
     setImporting(false)
@@ -310,6 +334,15 @@ export default function NomenclatorPage() {
                   </div>
                 </>
               )}
+              {company && (
+                <label className="md:col-span-2 flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
+                  <input type="checkbox" checked={shared} onChange={e => setShared(e.target.checked)} />
+                  {t('cat.shared')}
+                  <span className="text-xs text-[color:var(--color-muted-foreground)]">
+                    {shared ? t('cat.sharedHint') : t('cat.firmHint', { firm: firmName })}
+                  </span>
+                </label>
+              )}
               {editItem && (
                 <label className="md:col-span-2 flex items-center gap-2 text-sm text-[color:var(--color-foreground)]">
                   <input
@@ -388,7 +421,22 @@ export default function NomenclatorPage() {
                     {item.kind === 'product' ? t('cat.product') : t('cat.service')}
                     {item.code ? ` · ${item.code}` : ''}
                     {item.active ? '' : ` · ${t('cat.inactive')}`}
+                    {companies.length > 1 && ` · ${item.company_id ? t('cat.scopeFirm', { firm: firmName }) : t('cat.scopeShared')}`}
                   </p>
+                  {warnings[item.id]?.oldVat && (
+                    <p className="text-xs text-amber-800 mt-1">
+                      {t('cat.oldVat', { rate: item.tva_rate })}{' '}
+                      <button type="button" className="underline font-medium" disabled={fixingId === item.id} onClick={() => fixVat(item)}>{t('cat.fixVat')}</button>
+                      {' · '}
+                      <button type="button" className="underline" disabled={fixingId === item.id} onClick={() => deactivate(item)}>{t('cat.deactivate')}</button>
+                    </p>
+                  )}
+                  {warnings[item.id]?.duplicateOf && (
+                    <p className="text-xs text-amber-800 mt-1">
+                      {t('cat.similar', { name: warnings[item.id].duplicateOf! })}{' '}
+                      <button type="button" className="underline" disabled={fixingId === item.id} onClick={() => deactivate(item)}>{t('cat.deactivate')}</button>
+                    </p>
+                  )}
                 </div>
                 <p className="col-span-2 text-sm text-[color:var(--color-muted-foreground)]">{unitMessageKey(item.unit_code) ? t(unitMessageKey(item.unit_code)!) : unitLabel(item.unit_code)}</p>
                 <p className="col-span-2 text-sm tabular-nums">{formatAmount(item.unit_price)}</p>

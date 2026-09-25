@@ -5,7 +5,6 @@ import { tenantWrite } from '@/lib/portfolio'
 import { isPurchaseInvoice, notesWithPurchaseMark } from '@/lib/invoiceStatus'
 import { numericCif, sealFor, type PurchaseBuyer, type SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
 import { unitLabel } from '@/lib/efactura'
-import { importCatalogFromPurchaseLines, type PurchaseCatalogLine } from '@/lib/catalog'
 
 type QueryClient = { from: (table: string) => any }
 
@@ -171,7 +170,6 @@ export async function registerSimulatedPurchaseInvoices(
   const registered: SimulatedPurchaseInvoice[] = []
   let added = 0
   let skipped = 0
-  const catalogLines: PurchaseCatalogLine[] = []
 
   const existingRows = await loadPurchaseRows(client, {
     ownerUserId: opts.ownerUserId,
@@ -186,7 +184,6 @@ export async function registerSimulatedPurchaseInvoices(
     if (existing) {
       skipped += 1
       registered.push(purchaseInvoiceFromRow({ invoice: existing, buyer: opts.buyer }))
-      for (const item of existing.invoice_items || []) catalogLines.push(item)
       continue
     }
 
@@ -249,7 +246,6 @@ export async function registerSimulatedPurchaseInvoices(
           .find(row => row.series === invoice.series && String(row.invoice_number) === invoice.invoiceNumber)
         if (again) {
           registered.push(purchaseInvoiceFromRow({ invoice: again, buyer: opts.buyer }))
-          for (const item of again.invoice_items || []) catalogLines.push(item)
         }
         continue
       }
@@ -273,7 +269,6 @@ export async function registerSimulatedPurchaseInvoices(
     }
 
     added += 1
-    catalogLines.push(...itemRows)
     registered.push(purchaseInvoiceFromRow({
       invoice: created,
       items: itemRows,
@@ -282,15 +277,10 @@ export async function registerSimulatedPurchaseInvoices(
     }))
   }
 
-  const catalog = await importCatalogFromPurchaseLines(client, {
-    userId: opts.ownerUserId,
-    actorUserId: opts.userId,
-    companyId: opts.companyId,
-    lines: catalogLines
-  })
+  // Supplier lines are what we buy, not what we sell: they no longer go into the sales catalog.
 
   registered.sort((a, b) => b.issueDate.localeCompare(a.issueDate))
-  return { invoices: registered, added, skipped, catalogInserted: catalog.inserted || 0 }
+  return { invoices: registered, added, skipped, catalogInserted: 0 }
 }
 
 export async function loadRegisteredPurchaseInvoice(

@@ -94,7 +94,7 @@ export default function InvoiceLineItems({
   const reloadCatalog = async () => {
     if (!userId) return
     const [{ items: rows, missingTable: missing }, recentLines] = await Promise.all([
-      loadCatalogItems(supabase, { userId: ownerUserId || userId, activeOnly: true }),
+      loadCatalogItems(supabase, { userId: ownerUserId || userId, companyId: company?.id, activeOnly: true }),
       loadRecentInvoiceLines(supabase, { userId: ownerUserId || userId, companyId: company?.id })
     ])
     setCatalog(rows)
