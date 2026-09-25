@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { createClient } from '@supabase/supabase-js'
-import { generateEfacturaXml } from '@/lib/efactura'
 import { simulateSpvUpload } from '@/lib/efacturaSpv'
 import {
   errorTextFromDescarcare,
@@ -12,16 +11,16 @@ import {
 } from '@/lib/anafEfactura'
 import {
   ANAF_CONNECT_ERROR,
+  anafEfacturaEnvironment,
   anafEfacturaMode,
+  anafEnvironmentLabel,
   anafOAuthConfigured,
   getValidAccessToken
 } from '@/lib/anafOAuth'
-import { loadBuyer } from '@/lib/loadBuyer'
-import { loadSeller } from '@/lib/loadSeller'
-import { resolveParty } from '@/lib/partySnapshot'
 import { alreadySentToSpv, isDraftInvoice, isEfacturaProcessing, ALREADY_SENT_TO_SPV } from '@/lib/invoiceStatus'
 import { persistEfacturaState, persistSpvAccepted } from '@/lib/spvPersist'
 import { getInvoiceForActor } from '@/lib/portfolio'
+import { buildInvoiceXml } from '@/lib/efacturaXmlBuild'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +28,7 @@ const supabase = createClient(
 )
 
 const SIMULATE_NOTE = 'Simulare mediu test ANAF. Nu s-a folosit certificat și nu s-a trimis nimic în SPV real.'
-const TEST_NOTE = 'Trimitere e-Factura TEST către ANAF.'
+const sentNote = () => `Trimitere e-Factura ${anafEnvironmentLabel()} către ANAF.`
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -65,13 +64,13 @@ async function processSimulate(
   if (accepted) {
     invoicePatch = await persistSpvAccepted(supabase, invoice, {
       efactura_index: result.indexIncarcare,
-      efactura_environment: 'test'
+      efactura_environment: anafEfacturaEnvironment()
     })
   } else {
     await persistEfacturaState(supabase, invoice, {
       efactura_status: 'rejected',
       efactura_error: result.error || null,
-      efactura_environment: 'test'
+      efactura_environment: anafEfacturaEnvironment()
     })
   }
   return {
@@ -105,7 +104,7 @@ async function applyStare(input: {
       efactura_status: 'accepted',
       efactura_index: input.indexIncarcare,
       efactura_error: null,
-      efactura_environment: 'test'
+      efactura_environment: anafEfacturaEnvironment()
     })
     return {
       invoiceId: input.invoice.id,
@@ -113,25 +112,25 @@ async function applyStare(input: {
       outcome: 'accepted',
       body: {
         simulated: false,
-        environment: 'test',
+        environment: anafEfacturaEnvironment(),
         invoiceRef: input.invoiceRef,
         executionStatus: '0',
         indexIncarcare: input.indexIncarcare,
         stare: stare.stare,
         statusResponseXml: stare.statusResponseXml,
-        note: TEST_NOTE,
+        note: sentNote(),
         invoicePatch,
         ...(input.extra || {})
       }
     }
   }
   if (isStareNok(stare.stare)) {
-    const error = await errorTextFromDescarcare(input.accessToken, stare.idDescarcare)
+    const error = await errorTextFromDescarcare(input.accessToken, stare.idDescarcare, stare.error)
     const invoicePatch = await persistEfacturaState(supabase, input.invoice, {
       efactura_status: 'rejected',
       efactura_index: input.indexIncarcare,
       efactura_error: error,
-      efactura_environment: 'test'
+      efactura_environment: anafEfacturaEnvironment()
     })
     return {
       invoiceId: input.invoice.id,
@@ -140,14 +139,14 @@ async function applyStare(input: {
       error,
       body: {
         simulated: false,
-        environment: 'test',
+        environment: anafEfacturaEnvironment(),
         invoiceRef: input.invoiceRef,
         executionStatus: '1',
         indexIncarcare: input.indexIncarcare,
         stare: stare.stare,
         statusResponseXml: stare.statusResponseXml,
         error,
-        note: TEST_NOTE,
+        note: sentNote(),
         invoicePatch,
         ...(input.extra || {})
       }
@@ -157,7 +156,7 @@ async function applyStare(input: {
     efactura_status: 'in_processing',
     efactura_index: input.indexIncarcare,
     efactura_error: null,
-    efactura_environment: 'test'
+    efactura_environment: anafEfacturaEnvironment()
   })
   return {
     invoiceId: input.invoice.id,
@@ -165,7 +164,7 @@ async function applyStare(input: {
     outcome: 'processing',
     body: {
       simulated: false,
-      environment: 'test',
+      environment: anafEfacturaEnvironment(),
       invoiceRef: input.invoiceRef,
       executionStatus: '0',
       indexIncarcare: input.indexIncarcare,
@@ -217,33 +216,22 @@ async function processOne(
     }
   }
 
-  const { data: items } = await supabase
-    .from('invoice_items')
-    .select('*')
-    .eq('invoice_id', invoiceId)
-
-  const liveClient = await loadBuyer(supabase, invoice.client_id)
-  const liveSeller = await loadSeller(supabase, invoice, invoice.user_id)
-  const client = resolveParty(invoice.buyer_snapshot, liveClient)
-  const seller = resolveParty(invoice.seller_snapshot, liveSeller)
-
   let xml = ''
   let xmlError: string | undefined
+  let sellerCui: string | null | undefined
+  let foreignBuyer = false
   try {
-    xml = generateEfacturaXml({
-      invoice,
-      seller,
-      buyer: client,
-      items: items || []
-    })
+    const built = await buildInvoiceXml(supabase, invoice)
+    xml = built.xml
+    sellerCui = built.seller?.cui
+    foreignBuyer = !!built.buyer?.country && String(built.buyer.country).toUpperCase() !== 'RO'
   } catch (error) {
     xmlError = error instanceof Error ? error.message : 'XML invalid'
   }
-
   const mode = anafEfacturaMode()
   if (mode === 'simulate') {
     await delay(400)
-    return processSimulate({ ...invoice, _sellerCui: seller?.cui }, invoiceRef, xmlError)
+    return processSimulate({ ...invoice, _sellerCui: sellerCui }, invoiceRef, xmlError)
   }
 
   if (!anafOAuthConfigured()) {
@@ -281,7 +269,7 @@ async function processOne(
     const invoicePatch = await persistEfacturaState(supabase, invoice, {
       efactura_status: 'rejected',
       efactura_error: xmlError,
-      efactura_environment: 'test'
+      efactura_environment: anafEfacturaEnvironment()
     })
     return {
       invoiceId,
@@ -290,11 +278,11 @@ async function processOne(
       error: xmlError,
       body: {
         simulated: false,
-        environment: 'test',
+        environment: anafEfacturaEnvironment(),
         invoiceRef,
         executionStatus: '1',
         error: xmlError,
-        note: TEST_NOTE,
+        note: sentNote(),
         invoicePatch
       }
     }
@@ -302,9 +290,10 @@ async function processOne(
 
   const uploaded = await uploadEfacturaXml({
     accessToken: tokens.access_token,
-    cif: numericCif(seller?.cui),
+    cif: numericCif(sellerCui),
     xml,
-    invoiceTypeCode: invoice.invoice_type_code
+    invoiceTypeCode: invoice.invoice_type_code,
+    foreignBuyer
   })
 
   if (uploaded.executionStatus !== '0' || !uploaded.indexIncarcare) {
@@ -312,7 +301,7 @@ async function processOne(
     const invoicePatch = await persistEfacturaState(supabase, invoice, {
       efactura_status: 'rejected',
       efactura_error: error,
-      efactura_environment: 'test'
+      efactura_environment: anafEfacturaEnvironment()
     })
     return {
       invoiceId,
@@ -321,12 +310,12 @@ async function processOne(
       error,
       body: {
         simulated: false,
-        environment: 'test',
+        environment: anafEfacturaEnvironment(),
         invoiceRef,
         executionStatus: '1',
         error,
         uploadResponseXml: uploaded.uploadResponseXml,
-        note: TEST_NOTE,
+        note: sentNote(),
         invoicePatch
       }
     }
@@ -336,7 +325,7 @@ async function processOne(
     efactura_status: 'uploaded',
     efactura_index: uploaded.indexIncarcare,
     efactura_error: null,
-    efactura_environment: 'test'
+    efactura_environment: anafEfacturaEnvironment()
   })
 
   return applyStare({
@@ -392,7 +381,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         simulated: anafEfacturaMode() === 'simulate',
-        note: anafEfacturaMode() === 'simulate' ? SIMULATE_NOTE : TEST_NOTE,
+        note: anafEfacturaMode() === 'simulate' ? SIMULATE_NOTE : sentNote(),
         results
       })
     }

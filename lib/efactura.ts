@@ -179,13 +179,28 @@ export function missingEfacturaFields(input: {
   return missing
 }
 
+/** CIUS-RO BR-RO-110/111: Romanian county as ISO 3166-2 ("RO-B", "RO-CJ"). */
+export function roCountrySubentity(countryCode: string, county?: string | null) {
+  const value = String(county || '').trim().toUpperCase()
+  if (countryCode !== 'RO' || !value) return county || ''
+  return value.startsWith('RO-') ? value : `RO-${value}`
+}
+
+/** CIUS-RO BR-RO-100: in Bucharest (RO-B) the city is SECTOR1 … SECTOR6. */
+export function roCityName(countryCode: string, subentity: string, city?: string | null) {
+  if (countryCode !== 'RO' || subentity !== 'RO-B') return city || ''
+  const sector = String(city || '').match(/([1-6])/)
+  return sector ? `SECTOR${sector[1]}` : String(city || '')
+}
+
 function postalAddress(party: EfacturaParty) {
   const country = (party.country || 'RO').toUpperCase()
+  const subentity = roCountrySubentity(country, party.county_code)
   return `<cac:PostalAddress>
       ${el('cbc:StreetName', party.address)}
-      ${el('cbc:CityName', party.city)}
+      ${el('cbc:CityName', roCityName(country, subentity, party.city))}
       ${el('cbc:PostalZone', party.postal_code)}
-      ${el('cbc:CountrySubentity', party.county_code)}
+      ${el('cbc:CountrySubentity', subentity)}
       <cac:Country>${el('cbc:IdentificationCode', country)}</cac:Country>
     </cac:PostalAddress>`
 }
@@ -199,7 +214,7 @@ function contactXml(party: EfacturaParty) {
     </cac:Contact>`
 }
 
-function partyXml(party: EfacturaParty) {
+function partyXml(party: EfacturaParty, role: 'seller' | 'buyer') {
   const vatRegistered = party.vat_registered !== false
   const cuiDigits = (party.cui || '').replace(/\D/g, '')
   const vatId = vatRegistered ? `RO${cuiDigits}` : ''
@@ -219,7 +234,7 @@ function partyXml(party: EfacturaParty) {
       <cac:PartyLegalEntity>
         ${el('cbc:RegistrationName', party.company_name)}
         ${el('cbc:CompanyID', cuiDigits)}
-        ${el('cbc:CompanyLegalForm', party.reg_com)}
+        ${role === 'seller' ? el('cbc:CompanyLegalForm', party.reg_com) : ''}
       </cac:PartyLegalEntity>
       ${contactXml(party)}
     </cac:Party>`
@@ -330,18 +345,16 @@ export function generateEfacturaXml(input: {
   ${el('cbc:ProfileID', 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0')}
   ${el('cbc:ID', invoiceId)}
   ${el('cbc:IssueDate', invoice.issue_date)}
-  ${el('cbc:TaxPointDate', taxPoint)}
   ${credit ? '' : el('cbc:DueDate', dueDate)}
   ${el(`cbc:${typeEl}`, typeCode)}
   ${notes ? el('cbc:Note', notes) : ''}
+  ${el('cbc:TaxPointDate', taxPoint)}
   ${el('cbc:DocumentCurrencyCode', currency)}
-  ${exchangeRate > 0 ? `<cac:TaxExchangeRate>
-    ${el('cbc:SourceCurrencyCode', 'EUR')}
-    ${el('cbc:TargetCurrencyCode', 'RON')}
-    ${el('cbc:CalculationRate', exchangeRate.toFixed(5))}
-    ${invoice.exchange_rate_date ? el('cbc:Date', invoice.exchange_rate_date) : ''}
-  </cac:TaxExchangeRate>` : ''}
   ${invoice.buyer_reference ? el('cbc:BuyerReference', invoice.buyer_reference) : ''}
+  ${(invoice.period_start || invoice.period_end) ? `<cac:InvoicePeriod>
+    ${el('cbc:StartDate', invoice.period_start)}
+    ${el('cbc:EndDate', invoice.period_end)}
+  </cac:InvoicePeriod>` : ''}
   ${invoice.order_reference ? `<cac:OrderReference>${el('cbc:ID', invoice.order_reference)}</cac:OrderReference>` : ''}
   ${invoice.billing_reference ? `<cac:BillingReference>
     <cac:InvoiceDocumentReference>
@@ -349,15 +362,11 @@ export function generateEfacturaXml(input: {
       ${invoice.billing_reference_date ? el('cbc:IssueDate', invoice.billing_reference_date) : ''}
     </cac:InvoiceDocumentReference>
   </cac:BillingReference>` : ''}
-  ${(invoice.period_start || invoice.period_end) ? `<cac:InvoicePeriod>
-    ${el('cbc:StartDate', invoice.period_start)}
-    ${el('cbc:EndDate', invoice.period_end)}
-  </cac:InvoicePeriod>` : ''}
   <cac:AccountingSupplierParty>
-    ${partyXml(seller)}
+    ${partyXml(seller, 'seller')}
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
-    ${partyXml(buyer)}
+    ${partyXml(buyer, 'buyer')}
   </cac:AccountingCustomerParty>
   ${invoice.delivery_date ? `<cac:Delivery>
     ${el('cbc:ActualDeliveryDate', invoice.delivery_date)}

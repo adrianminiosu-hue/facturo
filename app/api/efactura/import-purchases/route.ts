@@ -9,6 +9,7 @@ import {
   type PurchaseBuyer
 } from '@/lib/efacturaPurchaseImport'
 import { registerSimulatedPurchaseInvoices } from '@/lib/purchaseInvoicePersist'
+import { anafEfacturaMode } from '@/lib/anafOAuth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,6 +47,14 @@ export async function POST(request: NextRequest) {
     }
     if (!userId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
+    }
+
+    // The demo invoices below are simulation data. Never write them into an account that is
+    // connected to ANAF for real (test or production): the SPV import is not implemented yet.
+    if (anafEfacturaMode() !== 'simulate') {
+      return NextResponse.json({
+        error: 'Importul facturilor de achiziție din SPV nu este încă disponibil. Facturile demonstrative apar doar în modul simulare.'
+      }, { status: 501 })
     }
 
     const stored = await loadBuyer(userId, companyId)

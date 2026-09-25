@@ -3,10 +3,10 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const ANAF_AUTHORIZE_URL = 'https://logincert.anaf.ro/anaf-oauth2/v1/authorize'
 export const ANAF_TOKEN_URL = 'https://logincert.anaf.ro/anaf-oauth2/v1/token'
-export const ANAF_CONNECT_ERROR = 'Conectează e-Factura TEST din Setări înainte de trimitere.'
+export const ANAF_CONNECT_ERROR = 'Conectează e-Factura din Setări înainte de trimitere.'
 
 export type AnafEnvironment = 'test' | 'prod'
-export type AnafEfacturaMode = 'simulate' | 'test'
+export type AnafEfacturaMode = 'simulate' | 'test' | 'prod'
 
 export type AnafOAuthRow = {
   id: string
@@ -25,11 +25,30 @@ export function anafEfacturaMode(): AnafEfacturaMode {
   const mode = String(process.env.ANAF_EFACTURA_MODE || '').trim().toLowerCase()
   if (mode === 'simulate') return 'simulate'
   if (mode === 'test') return 'test'
+  if (mode === 'prod') return 'prod'
   return process.env.ANAF_OAUTH_CLIENT_ID ? 'test' : 'simulate'
 }
 
+/** Where invoices really go: 'prod' only with ANAF_EFACTURA_MODE=prod, never by default. */
+export function anafEfacturaEnvironment(): AnafEnvironment {
+  return anafEfacturaMode() === 'prod' ? 'prod' : 'test'
+}
+
+export function anafEnvironmentLabel() {
+  const mode = anafEfacturaMode()
+  return mode === 'prod' ? 'PRODUCȚIE' : mode === 'test' ? 'TEST' : 'SIMULARE'
+}
+
 export function anafEfacturaBase() {
-  return (process.env.ANAF_EFACTURA_BASE || 'https://api.anaf.ro/test/FCTEL/rest').replace(/\/$/, '')
+  const fallback = anafEfacturaEnvironment() === 'prod'
+    ? 'https://api.anaf.ro/prod/FCTEL/rest'
+    : 'https://api.anaf.ro/test/FCTEL/rest'
+  const base = (process.env.ANAF_EFACTURA_BASE || fallback).replace(/\/$/, '')
+  // Guard against a mode/base mismatch (e.g. prod mode still pointing at the test API).
+  if (anafEfacturaEnvironment() === 'prod' && base.includes('/test/')) {
+    throw new Error('ANAF_EFACTURA_MODE=prod, dar ANAF_EFACTURA_BASE indică mediul de test.')
+  }
+  return base
 }
 
 export function anafOAuthConfig() {
@@ -229,6 +248,10 @@ export async function deleteOAuthTokens(
     .eq('environment', environment)
 }
 
+/**
+ * The OAuth token is tied to the certificate, not to the API environment: the same token works on
+ * /test and /prod. Rows are stored under 'test' for historical reasons; keep reading them from there.
+ */
 export async function getValidAccessToken(ownerUserId: string, environment: AnafEnvironment = 'test') {
   const client = supabaseAdmin()
   const row = await loadOAuthTokens(client, ownerUserId, environment)
