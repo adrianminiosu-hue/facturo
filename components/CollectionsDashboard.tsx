@@ -6,7 +6,7 @@ import AppNav from '@/components/AppNav'
 import PaySpeedChart, { type PaySpeedDay } from '@/components/PaySpeedChart'
 import { useCompany } from '@/components/CompanyProvider'
 import { useLocale } from '@/components/LocaleProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { calendarDateInBucharest, daysBetween } from '@/lib/dates'
 import { isCreditNote, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { remainingOf, roundMoney } from '@/lib/invoiceMath'
@@ -64,7 +64,7 @@ export default function CollectionsDashboard() {
     const load = async () => {
       if (companyLoading) return
       try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
 
       let invoiceQuery = supabase

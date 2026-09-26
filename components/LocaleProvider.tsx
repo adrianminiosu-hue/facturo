@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
@@ -47,7 +47,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       applyLocale(next)
     }
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCurrentUser().then(({ data: { user } }) => {
       if (user?.user_metadata?.locale) syncFromUser(user.user_metadata.locale)
     })
 
@@ -64,7 +64,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     setLocaleState(next)
     persistLocaleLocal(next)
     applyLocale(next)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await getCurrentUser()
     if (user) await supabase.auth.updateUser({ data: { locale: next } })
   }, [])
 

@@ -1,7 +1,7 @@
 'use client'
 import DateField from '@/components/DateField'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppNav from '@/components/AppNav'
@@ -122,7 +122,7 @@ export default function Invoices() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       loadInvoices()
     }

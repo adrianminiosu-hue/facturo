@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { ACTIVE_COMPANY_KEY, companyFromRow, emptyCompanyFields, type Company } from '@/lib/company'
 import { loadMembershipOwnerIds, uniqueIds, type PortfolioRole } from '@/lib/portfolio'
 import { useLocale } from '@/components/LocaleProvider'
@@ -49,7 +49,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await getCurrentUser()
     if (!user) {
       setUserId('')
       setUserEmail('')

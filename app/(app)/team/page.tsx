@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { MAX_OPERATORS, isMissingPortfolioTableError, type PortfolioMember } from '@/lib/portfolio'
 import { authHeaders } from '@/lib/authHeaders'
 
@@ -37,7 +37,7 @@ export default function TeamPage() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       await loadMembers()
     }

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
 import UserAvatar from '@/components/UserAvatar'
 import ThemePicker from '@/components/ThemePicker'
@@ -52,7 +52,7 @@ export default function AccountPage() {
   }, [userName])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCurrentUser().then(({ data: { user } }) => {
       if (!user) router.push('/login')
     })
   }, [router])

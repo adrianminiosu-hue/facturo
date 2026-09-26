@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import { useLocale } from '@/components/LocaleProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { calendarDateInBucharest, formatRoDate } from '@/lib/dates'
 import { formatAmount, formatRon, parseAmount } from '@/lib/money'
 import { roundMoney } from '@/lib/invoiceMath'
@@ -77,7 +77,7 @@ export default function ForecastDashboard() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       await load()
     }

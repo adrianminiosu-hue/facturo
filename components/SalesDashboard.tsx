@@ -5,7 +5,7 @@ import AppNav from '@/components/AppNav'
 import DailyInvoicedChart, { type DailyAmount } from '@/components/DailyInvoicedChart'
 import { useCompany } from '@/components/CompanyProvider'
 import { useLocale } from '@/components/LocaleProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { calendarDateInBucharest } from '@/lib/dates'
 import { isCreditNote, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
@@ -99,7 +99,7 @@ export default function SalesDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       if (companyLoading) return
 

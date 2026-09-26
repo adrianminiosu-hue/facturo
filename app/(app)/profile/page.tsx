@@ -1,7 +1,7 @@
 'use client'
 import { authHeaders } from '@/lib/authHeaders'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
 import { emailIssueKey, validateEmail } from '@/lib/email'
@@ -87,7 +87,7 @@ export default function Profile() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
     }
     init()
@@ -314,7 +314,7 @@ export default function Profile() {
         if (created) {
           companyId = created.id
         } else {
-          const { data: { user } } = await supabase.auth.getUser()
+          const { data: { user } } = await getCurrentUser()
           let profilePayload = { id: user?.id, ...payload }
           let { error } = await supabase.from('profiles').upsert(profilePayload)
           if (error && isMissingLegalFormColumnError(error)) {

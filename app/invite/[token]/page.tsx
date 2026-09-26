@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import BrandLockup from '@/components/BrandLockup'
 import LocaleSwitch from '@/components/LocaleSwitch'
 import { useLocale } from '@/components/LocaleProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { authHeaders } from '@/lib/authHeaders'
 
 export default function InvitePage() {
@@ -31,7 +31,7 @@ export default function InvitePage() {
       setOwnerName(data.ownerName)
       setReady(true)
       setStatus('')
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (user && data.status === 'pending') {
         setBusy(true)
         const accept = await fetch('/api/team/accept', {

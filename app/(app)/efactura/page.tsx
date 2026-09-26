@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import {
   disconnectEfactura,
   startEfacturaConnect,
@@ -51,7 +51,7 @@ export default function EfacturaSettingsPage() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       await load()
     }

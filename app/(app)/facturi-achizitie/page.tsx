@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { addDaysIso, calendarDateInBucharest, formatRoDate, startOfIsoWeek } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
 import { importPurchaseInvoicesFromEfactura, openPurchaseInvoicePdf } from '@/lib/invoiceClient'
@@ -80,7 +80,7 @@ export default function PurchaseInvoicesPage() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       await loadInvoices()
     }

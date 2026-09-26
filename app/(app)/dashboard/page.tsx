@@ -1,7 +1,7 @@
 'use client'
 import { formatDecimal } from '@/lib/money'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppNav from '@/components/AppNav'
@@ -90,7 +90,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       if (companyLoading) return
       await checkOnboarding()

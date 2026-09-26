@@ -3,7 +3,7 @@ import Money from '@/components/Money'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
 import ReceivablesTabs from '@/components/ReceivablesTabs'
 import PaymentBehaviourBadge from '@/components/PaymentBehaviourBadge'
@@ -36,7 +36,7 @@ export default function ClientCollectionsPage() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       try {
         setData(await loadCollectionData(supabase, { companyId: company?.id, ownerUserId: ownerUserId || userId }))

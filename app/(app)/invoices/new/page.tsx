@@ -2,7 +2,7 @@
 import DateField from '@/components/DateField'
 import { isCustomer, paymentTermsFor } from '@/lib/partnerRoles'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InvoiceEfacturaFields, { type InvoiceEfacturaValue } from '@/components/InvoiceEfacturaFields'
@@ -131,7 +131,7 @@ export default function NewInvoice() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       setSelectedClient(null)
       loadClients()
@@ -196,7 +196,7 @@ export default function NewInvoice() {
     }
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await getCurrentUser()
     const { data: invoice, error } = await insertInvoiceRow(supabase, {
       ...tenantWrite({ ownerUserId: ownerUserId || user?.id || '', actorUserId: userId || user?.id || '', companyId: company?.id }),
       client_id: selectedClient.id,

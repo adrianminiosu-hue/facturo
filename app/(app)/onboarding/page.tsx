@@ -1,7 +1,7 @@
 'use client'
 import { authHeaders } from '@/lib/authHeaders'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import RoAddressFields from '@/components/RoAddressFields'
 import { countyNameFromCode } from '@/lib/romania'
@@ -60,7 +60,7 @@ export default function Onboarding() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       setUserId(user.id)
 
@@ -183,7 +183,7 @@ export default function Onboarding() {
       alert(t(emailIssueKey(emailCheck.issue), { suggestion: emailCheck.suggestion || '' }))
       return
     }
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await getCurrentUser()
     const companyId = company?.id
     if (!companyId) { alert(t('onb.saveCompanyFirst')); return }
     setSaving(true)

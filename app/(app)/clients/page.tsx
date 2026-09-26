@@ -1,7 +1,7 @@
 'use client'
 import { authHeaders } from '@/lib/authHeaders'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { isValidRomanianMobile } from '@/lib/romanianMobile'
 import { emailIssueKey, validateEmail } from '@/lib/email'
@@ -166,7 +166,7 @@ export default function Clients() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       loadClients()
     }

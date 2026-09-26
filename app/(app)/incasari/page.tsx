@@ -3,7 +3,7 @@ import DateField from '@/components/DateField'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
@@ -153,7 +153,7 @@ export default function IncasariPage() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       load()
     }

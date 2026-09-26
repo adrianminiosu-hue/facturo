@@ -5,7 +5,7 @@ import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { UNIT_CODES, VAT_CATEGORIES, unitLabel, vatCategoryFromRate } from '@/lib/efactura'
 import { formatAmount } from '@/lib/money'
 import { vatRateOptions } from '@/lib/invoiceMath'
@@ -40,7 +40,7 @@ export default function NomenclatorPage() {
   useEffect(() => {
     const init = async () => {
       if (companyLoading || !userId) return
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getCurrentUser()
       if (!user) { router.push('/login'); return }
       await loadItems()
     }

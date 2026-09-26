@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import AppNav from '@/components/AppNav'
 import StatementImportModal from '@/components/StatementImportModal'
 import { useCompany } from '@/components/CompanyProvider'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import { formatRoDate } from '@/lib/dates'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
@@ -126,7 +126,7 @@ function BancaPageInner() {
       setLoading(false)
       return
     }
-    supabase.auth.getUser().then(({ data }) => {
+    getCurrentUser().then(({ data }) => {
       if (!data.user) router.push('/login')
       else load()
     })

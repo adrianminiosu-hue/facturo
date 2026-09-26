@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, supabase } from '@/lib/supabase'
 import {
   DEFAULT_THEME,
   applyTheme,
@@ -34,7 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       applyTheme(next)
     }
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCurrentUser().then(({ data: { user } }) => {
       if (user?.user_metadata?.theme) syncFromUser(user.user_metadata.theme)
     })
 
@@ -50,7 +50,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(next)
     persistThemeLocal(next)
     applyTheme(next)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await getCurrentUser()
     if (user) await supabase.auth.updateUser({ data: { theme: next } })
   }, [])
 
