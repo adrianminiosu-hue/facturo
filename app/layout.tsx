@@ -48,7 +48,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('facturo_theme');if(t==='atelier'||t==='nocturne'||t==='pergament'||t==='orizont')document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('facturo_locale');if(l==='en'||l==='ro')document.documentElement.lang=l}catch(e){}`
+            __html: `try{var t=localStorage.getItem('facturo_theme');if(t==='atelier'||t==='nocturne')document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('facturo_locale');if(l==='en'||l==='ro')document.documentElement.lang=l}catch(e){}`
           }}
         />
       </head>

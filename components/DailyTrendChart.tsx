@@ -65,18 +65,18 @@ export default function DailyTrendChart({ days }: { days: DailyAmount[] }) {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <p className="kicker mb-2">{t('dash.trend')}</p>
-          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.evolution')}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-[color:var(--color-foreground)]">{t('dash.evolution')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
             {t('dash.invoicedCollected', { invoiced: formatRon(invoicedTotal), collected: formatRon(collectedTotal) })}
           </p>
         </div>
-        <div className="flex items-center gap-4 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+        <div className="flex items-center gap-4 text-xs text-[color:var(--color-muted-foreground)]">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full bg-[#0e7490]" />
+            <span className="h-0.5 w-4 rounded-full bg-[color:var(--chart-1)]" />
             {t('chart.invoiced')}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full bg-[#c2410c]" />
+            <span className="h-0.5 w-4 rounded-full bg-[color:var(--chart-2)]" />
             {t('chart.collections')}
           </span>
         </div>
@@ -91,12 +91,12 @@ export default function DailyTrendChart({ days }: { days: DailyAmount[] }) {
         >
           <defs>
             <linearGradient id="facturoTrendInvoicedFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
+              <stop offset="0%" style={{ stopColor: 'var(--chart-1)' }} stopOpacity="0.28" />
+              <stop offset="100%" style={{ stopColor: 'var(--chart-1)' }} stopOpacity="0" />
             </linearGradient>
             <linearGradient id="facturoTrendCollectedFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#fb923c" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="#fb923c" stopOpacity="0" />
+              <stop offset="0%" style={{ stopColor: 'var(--chart-2)' }} stopOpacity="0.28" />
+              <stop offset="100%" style={{ stopColor: 'var(--chart-2)' }} stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -132,15 +132,15 @@ export default function DailyTrendChart({ days }: { days: DailyAmount[] }) {
               x2={pad.left + active * slot + slot / 2}
               y1={pad.top}
               y2={baseY}
-              stroke="#0e1218"
+              stroke="currentColor"
               strokeOpacity="0.18"
             />
           )}
 
           <path d={areaPath(invoicedPts, baseY)} fill="url(#facturoTrendInvoicedFill)" />
           <path d={areaPath(collectedPts, baseY)} fill="url(#facturoTrendCollectedFill)" />
-          <path d={linePath(invoicedPts)} fill="none" stroke="#0e7490" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-          <path d={linePath(collectedPts)} fill="none" stroke="#c2410c" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          <path d={linePath(invoicedPts)} fill="none" style={{ stroke: 'var(--chart-1)' }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          <path d={linePath(collectedPts)} fill="none" style={{ stroke: 'var(--chart-2)' }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
           {days.map((day, i) => (
             <g key={day.date}>
@@ -160,16 +160,14 @@ export default function DailyTrendChart({ days }: { days: DailyAmount[] }) {
                 cx={invoicedPts[i].x}
                 cy={invoicedPts[i].y}
                 r={active === i ? 5 : 3.2}
-                fill="#0e7490"
-                stroke="#fff"
+                style={{ fill: 'var(--chart-1)', stroke: 'var(--card)' }}
                 strokeWidth="1.5"
               />
               <circle
                 cx={collectedPts[i].x}
                 cy={collectedPts[i].y}
                 r={active === i ? 5 : 3.2}
-                fill="#c2410c"
-                stroke="#fff"
+                style={{ fill: 'var(--chart-2)', stroke: 'var(--card)' }}
                 strokeWidth="1.5"
               />
               <text

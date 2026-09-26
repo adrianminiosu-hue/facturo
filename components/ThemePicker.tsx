@@ -32,7 +32,7 @@ export default function ThemePicker() {
               }}
             >
               <div className="h-7 flex items-center px-2.5" style={{ background: item.swatches.nav }}>
-                <span className="h-1.5 w-8 rounded-full" style={{ background: item.id === 'atelier' ? '#f8fafc' : item.swatches.ink, opacity: 0.7 }} />
+                <span className="h-1.5 w-8 rounded-full" style={{ background: '#f4f2ec', opacity: 0.7 }} />
                 <span className="ml-auto h-3 w-8 rounded-md" style={{ background: item.swatches.accent }} />
               </div>
               <div className="p-2.5">
@@ -45,7 +45,7 @@ export default function ThemePicker() {
             </div>
             <div className="flex items-center gap-2 mb-1">
               <p className="font-medium text-[color:var(--color-foreground)]">{t(`theme.${item.id}` as MessageKey)}</p>
-              <span className="text-[10px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+              <span className="kicker">
                 {t(`theme.${item.id}Badge` as MessageKey)}
               </span>
             </div>

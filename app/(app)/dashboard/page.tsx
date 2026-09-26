@@ -11,6 +11,7 @@ import DailyTrendChart from '@/components/DailyTrendChart'
 import { addDaysIso, calendarDateInBucharest, startOfIsoWeek } from '@/lib/dates'
 import { isCreditNote, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
+import Money from '@/components/Money'
 import { displayUserName } from '@/lib/userDisplay'
 import { useLocale } from '@/components/LocaleProvider'
 import { localeTag } from '@/lib/i18n'
@@ -344,7 +345,7 @@ export default function Dashboard() {
 
         {/* Header */}
         <div className="mb-8">
-        <h2 className="text-4xl text-[color:var(--color-foreground)]">
+        <h2 className="page-title text-[color:var(--color-foreground)]">
             {displayUserName(userName) ? t('dash.helloName', { name: displayUserName(userName) }) : t('dash.hello')}
           </h2>
           <p className="text-[color:var(--color-muted-foreground)] mt-2">
@@ -358,21 +359,21 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <p className="kicker">{t('dash.thisMonth')}</p>
             </div>
-            <p className="text-4xl brand text-[color:var(--color-foreground)]">{stats.invoicesThisMonth}</p>
+            <p className="kpi text-[color:var(--color-foreground)]">{stats.invoicesThisMonth}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('dash.issuedInvoices')}</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
               <p className="kicker">{t('dash.totalInvoiced')}</p>
             </div>
-            <p className="text-4xl brand text-[color:var(--color-foreground)]">{formatRon(stats.totalAmount).replace(' RON', '')}</p>
+            <p className="kpi text-[color:var(--color-foreground)]"><Money value={stats.totalAmount} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('dash.ronIssued')}</p>
           </div>
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
               <p className="kicker">{t('dash.unpaid')}</p>
             </div>
-            <p className={`text-4xl brand ${stats.unpaidCount > 0 ? 'text-amber-700' : 'text-[color:var(--color-foreground)]'}`}>
+            <p className={`kpi ${stats.unpaidCount > 0 ? 'text-amber-700' : 'text-[color:var(--color-foreground)]'}`}>
               {stats.unpaidCount}
             </p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('dash.pending')}</p>
@@ -381,7 +382,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <p className="kicker">{t('dash.vsLastWeek')}</p>
             </div>
-            <p className={`text-4xl brand ${weekColor}`}>{weekHeadline}</p>
+            <p className={`kpi ${weekColor}`}>{weekHeadline}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{weekCaption}</p>
           </div>
         </div>
@@ -392,7 +393,7 @@ export default function Dashboard() {
           </div>
           <div className="card p-6">
             <p className="kicker mb-2">{t('dash.clients')}</p>
-            <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.top5')}</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-[color:var(--color-foreground)]">{t('dash.top5')}</h3>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1 mb-5">
               {t('dash.top5Lead')}
             </p>
@@ -412,11 +413,11 @@ export default function Dashboard() {
                           <span className="text-[color:var(--color-muted-foreground)] tabular-nums mr-2">{i + 1}.</span>
                           {customer.name}
                         </p>
-                        <p className="text-sm font-medium tabular-nums whitespace-nowrap">{formatRon(customer.amount)}</p>
+                        <p className="text-sm font-medium whitespace-nowrap"><Money value={customer.amount} /></p>
                       </div>
                       <div className="h-1.5 rounded-full bg-[color:var(--muted)] overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-[#0e7490]"
+                          className="h-full rounded-full bg-[color:var(--chart-1)]"
                           style={{ width: `${widthPct}%` }}
                         />
                       </div>

@@ -58,18 +58,18 @@ export default function DailyInvoicedChart({
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <p className="kicker mb-2">{kicker || t('dash.dailyVolume')}</p>
-          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{title || t('dash.last15')}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-[color:var(--color-foreground)]">{title || t('dash.last15')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
             {t('dash.invoicedCollected', { invoiced: formatRon(invoicedTotal), collected: formatRon(collectedTotal) })}
           </p>
         </div>
-        <div className="flex items-center gap-4 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+        <div className="flex items-center gap-4 text-xs text-[color:var(--color-muted-foreground)]">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-[#0e7490]" />
+            <span className="h-2.5 w-2.5 rounded-sm bg-[color:var(--chart-1)]" />
             {t('chart.invoiced')}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-[#c2410c]" />
+            <span className="h-2.5 w-2.5 rounded-sm bg-[color:var(--chart-2)]" />
             {t('chart.collections')}
           </span>
         </div>
@@ -84,12 +84,12 @@ export default function DailyInvoicedChart({
         >
           <defs>
             <linearGradient id={invoicedFill} x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#155e75" />
-              <stop offset="100%" stopColor="#22d3ee" />
+              <stop offset="0%" style={{ stopColor: 'var(--chart-1)' }} />
+              <stop offset="100%" style={{ stopColor: 'var(--chart-1)' }} />
             </linearGradient>
             <linearGradient id={collectedFill} x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#9a3412" />
-              <stop offset="100%" stopColor="#fb923c" />
+              <stop offset="0%" style={{ stopColor: 'var(--chart-2)' }} />
+              <stop offset="100%" style={{ stopColor: 'var(--chart-2)' }} />
             </linearGradient>
           </defs>
 

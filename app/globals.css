@@ -2,45 +2,48 @@
 
 :root,
 html[data-theme="atelier"] {
-  --background: #f4f6f9;
-  --foreground: #111827;
+  /* Veyro light: warm paper, ink, one cobalt accent used sparingly */
+  --background: #f6f5f1;
+  --foreground: #0b0d12;
   --card: #ffffff;
-  --card-foreground: #111827;
-  --muted: #eef1f5;
-  --muted-foreground: #6b7280;
-  --border: #e5e7eb;
-  --ring: rgba(37, 99, 235, 0.16);
-  --primary: #111827;
+  --card-foreground: #0b0d12;
+  --muted: #efede7;
+  --muted-foreground: #62636a;
+  --border: #e7e4dd;
+  --ring: rgba(47, 69, 198, 0.18);
+  --primary: #0b0d12;
   --primary-foreground: #ffffff;
-  --accent: #2563eb;
+  --accent: #2f45c6;
   --accent-foreground: #ffffff;
   --danger: #b42318;
-  --success: #17803d;
+  --success: #1d7a4b;
+  --chart-1: #16181e;
+  --chart-2: #2f45c6;
   --radius: 14px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -20px rgba(15, 23, 42, 0.18);
-  --nav-bg: #0b1220;
-  --nav-ink: #f8fafc;
-  --nav-muted: #94a3b8;
+  --shadow: 0 1px 2px rgba(11, 13, 18, 0.04), 0 12px 32px -24px rgba(11, 13, 18, 0.14);
+  --nav-bg: #0b0d12;
+  --nav-ink: #f4f2ec;
+  --nav-muted: rgba(244, 242, 236, 0.56);
   --nav-hover: #ffffff;
-  --nav-active: #93c5fd;
-  --nav-border: rgba(148, 163, 184, 0.12);
+  --nav-active: #ffffff;
+  --nav-border: rgba(244, 242, 236, 0.08);
   --nav-control-bg: #ffffff;
-  --nav-control-border: #e5e7eb;
-  --nav-cta-bg: #2563eb;
+  --nav-control-border: #e7e4dd;
+  --nav-cta-bg: #0b0d12;
   --nav-cta-ink: #ffffff;
   --nav-blur: none;
-  --nav-pill: #2563eb;
+  --nav-pill: rgba(244, 242, 236, 0.1);
   --nav-pill-ink: #ffffff;
-  --topbar-bg: rgba(255, 255, 255, 0.92);
-  --topbar-ink: #111827;
-  --topbar-muted: #6b7280;
-  --topbar-border: #e5e7eb;
+  --topbar-bg: rgba(246, 245, 241, 0.9);
+  --topbar-ink: #0b0d12;
+  --topbar-muted: #62636a;
+  --topbar-border: #e7e4dd;
   --shell-glow-a: transparent;
   --shell-glow-b: transparent;
-  --shell-start: #f4f6f9;
-  --shell-end: #f4f6f9;
+  --shell-start: #f6f5f1;
+  --shell-end: #f6f5f1;
   --shell-noise: 0;
-  --selection: rgba(37, 99, 235, 0.16);
+  --selection: rgba(47, 69, 198, 0.14);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --duration: 180ms;
   color-scheme: light;
@@ -63,129 +66,48 @@ html[data-nav="light"][data-theme="atelier"] {
 }
 
 html[data-theme="nocturne"] {
-  --background: #12151c;
-  --foreground: #ece7dc;
-  --card: #1b2029;
-  --card-foreground: #ece7dc;
-  --muted: #242a35;
-  --muted-foreground: #b4ae9f;
-  --border: rgba(236, 231, 220, 0.1);
-  --ring: rgba(196, 165, 116, 0.28);
-  --primary: #ece7dc;
-  --primary-foreground: #12151c;
-  --accent: #c4a574;
-  --accent-foreground: #16120c;
-  --danger: #e07a6a;
-  --success: #8fbe9a;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 28px 56px -30px rgba(0, 0, 0, 0.72);
-  --nav-ink: #f3eee4;
-  --nav-muted: rgba(243, 238, 228, 0.62);
+  /* Veyro dark */
+  --background: #0b0d12;
+  --foreground: #f1efe9;
+  --card: #14161c;
+  --card-foreground: #f1efe9;
+  --muted: #1c1f26;
+  --muted-foreground: #9c9da4;
+  --border: rgba(241, 239, 233, 0.08);
+  --ring: rgba(142, 156, 255, 0.28);
+  --primary: #f1efe9;
+  --primary-foreground: #0b0d12;
+  --accent: #8e9cff;
+  --accent-foreground: #0b0d12;
+  --danger: #f08a76;
+  --success: #6fcb94;
+  --chart-1: #e9e7e1;
+  --chart-2: #8e9cff;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 24px 48px -28px rgba(0, 0, 0, 0.7);
+  --nav-bg: #08090c;
+  --nav-ink: #f1efe9;
+  --nav-muted: rgba(241, 239, 233, 0.55);
   --nav-hover: #ffffff;
-  --nav-active: #c4a574;
-  --nav-border: rgba(196, 165, 116, 0.16);
+  --nav-active: #ffffff;
+  --nav-border: rgba(241, 239, 233, 0.06);
   --nav-control-bg: rgba(255, 255, 255, 0.05);
-  --nav-control-border: rgba(196, 165, 116, 0.22);
-  --nav-cta-bg: #c4a574;
-  --nav-cta-ink: #16120c;
-  --nav-bg: rgba(13, 16, 22, 0.92);
-  --nav-blur: blur(20px) saturate(1.2);
-  --nav-pill: color-mix(in srgb, var(--accent) 28%, transparent);
-  --nav-pill-ink: #f3eee4;
+  --nav-control-border: rgba(241, 239, 233, 0.12);
+  --nav-cta-bg: #f1efe9;
+  --nav-cta-ink: #0b0d12;
+  --nav-blur: none;
+  --nav-pill: rgba(241, 239, 233, 0.09);
+  --nav-pill-ink: #ffffff;
   --topbar-bg: color-mix(in srgb, var(--card) 92%, transparent);
   --topbar-ink: var(--foreground);
   --topbar-muted: var(--muted-foreground);
   --topbar-border: var(--border);
-  --shell-glow-a: rgba(196, 165, 116, 0.08);
-  --shell-glow-b: rgba(0, 0, 0, 0.35);
-  --shell-start: #161920;
-  --shell-end: #12151c;
-  --shell-noise: 0.22;
-  --selection: rgba(196, 165, 116, 0.28);
+  --shell-glow-a: transparent;
+  --shell-glow-b: transparent;
+  --shell-start: #0b0d12;
+  --shell-end: #0b0d12;
+  --shell-noise: 0;
+  --selection: rgba(142, 156, 255, 0.25);
   color-scheme: dark;
-}
-
-html[data-theme="pergament"] {
-  --background: #f3eadc;
-  --foreground: #2b2118;
-  --card: #fff8ee;
-  --card-foreground: #2b2118;
-  --muted: #eadfcb;
-  --muted-foreground: #6d5b49;
-  --border: rgba(43, 33, 24, 0.1);
-  --ring: rgba(138, 59, 36, 0.2);
-  --primary: #2b2118;
-  --primary-foreground: #fff8ee;
-  --accent: #8a3b24;
-  --accent-foreground: #fff6ee;
-  --danger: #b42318;
-  --success: #3f6b4a;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 18px 40px -24px rgba(70, 42, 22, 0.28);
-  --nav-bg: rgba(58, 42, 32, 0.9);
-  --nav-ink: #f7efe3;
-  --nav-muted: rgba(247, 239, 227, 0.68);
-  --nav-hover: #ffffff;
-  --nav-active: #e6c3a3;
-  --nav-border: rgba(230, 195, 163, 0.16);
-  --nav-control-bg: rgba(255, 255, 255, 0.08);
-  --nav-control-border: rgba(230, 195, 163, 0.22);
-  --nav-cta-bg: #f7efe3;
-  --nav-cta-ink: #3a2a20;
-  --nav-blur: blur(20px) saturate(1.2);
-  --nav-pill: color-mix(in srgb, var(--accent) 22%, transparent);
-  --nav-pill-ink: #f7efe3;
-  --topbar-bg: color-mix(in srgb, var(--card) 92%, transparent);
-  --topbar-ink: var(--foreground);
-  --topbar-muted: var(--muted-foreground);
-  --topbar-border: var(--border);
-  color-scheme: light;
-  --shell-glow-a: rgba(180, 120, 70, 0.14);
-  --shell-glow-b: rgba(90, 50, 24, 0.06);
-  --shell-start: #f8f1e5;
-  --shell-end: #eadcc6;
-  --shell-noise: 0.2;
-  --selection: rgba(138, 59, 36, 0.18);
-}
-
-html[data-theme="orizont"] {
-  --background: #e8eef0;
-  --foreground: #163038;
-  --card: #f7fbfb;
-  --card-foreground: #163038;
-  --muted: #dce7e9;
-  --muted-foreground: #4d6670;
-  --border: rgba(22, 48, 56, 0.1);
-  --ring: rgba(15, 111, 115, 0.22);
-  --primary: #163038;
-  --primary-foreground: #f4fbfb;
-  --accent: #0f6f73;
-  --accent-foreground: #f4fbfb;
-  --danger: #b42318;
-  --success: #2f7a52;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 18px 40px -24px rgba(16, 48, 54, 0.2);
-  --nav-bg: rgba(12, 61, 66, 0.9);
-  --nav-ink: #eef8f8;
-  --nav-muted: rgba(238, 248, 248, 0.68);
-  --nav-hover: #ffffff;
-  --nav-active: #8fd4d2;
-  --nav-border: rgba(143, 212, 210, 0.16);
-  --nav-control-bg: rgba(255, 255, 255, 0.08);
-  --nav-control-border: rgba(143, 212, 210, 0.22);
-  --nav-cta-bg: #eef8f8;
-  --nav-cta-ink: #0c3d42;
-  --nav-blur: blur(20px) saturate(1.2);
-  --nav-pill: color-mix(in srgb, var(--accent) 22%, transparent);
-  --nav-pill-ink: #eef8f8;
-  --topbar-bg: color-mix(in srgb, var(--card) 92%, transparent);
-  --topbar-ink: var(--foreground);
-  --topbar-muted: var(--muted-foreground);
-  --topbar-border: var(--border);
-  color-scheme: light;
-  --shell-glow-a: rgba(15, 111, 115, 0.12);
-  --shell-glow-b: rgba(12, 61, 66, 0.06);
-  --shell-start: #f4f8f8;
-  --shell-end: #dde8ea;
-  --shell-noise: 0.14;
-  --selection: rgba(15, 111, 115, 0.2);
 }
 
 @theme inline {
@@ -207,7 +129,19 @@ html[data-theme="orizont"] {
   --shadow-elevated: var(--shadow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-instrument);
+  --font-display: var(--font-geist-sans);
+  /* Warm neutral gray scale (replaces Tailwind's cool gray everywhere it is used directly) */
+  --color-gray-50: #f7f6f3;
+  --color-gray-100: #efede8;
+  --color-gray-200: #e5e2db;
+  --color-gray-300: #d0ccc4;
+  --color-gray-400: #a5a29b;
+  --color-gray-500: #75767c;
+  --color-gray-600: #5c5d63;
+  --color-gray-700: #414248;
+  --color-gray-800: #27282d;
+  --color-gray-900: #16171b;
+  --color-gray-950: #0b0d12;
 }
 
 
@@ -220,7 +154,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: -0.014em;
+  letter-spacing: -0.011em;
+  font-variant-numeric: tabular-nums;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -231,9 +166,9 @@ body {
   }
 
   h1, h2 {
-    font-family: var(--font-display), ui-serif, Georgia, serif;
-    font-weight: 400;
-    letter-spacing: -0.034em;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.028em;
     text-wrap: balance;
   }
 
@@ -346,10 +281,52 @@ body {
   }
 
   .kicker {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.22em;
-    color: var(--accent);
+    letter-spacing: 0.06em;
+    color: var(--muted-foreground);
+  }
+
+  /* Type scale: page title, KPI figure, amounts */
+  .page-title {
+    font-size: 1.75rem;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.028em;
+  }
+
+  .kpi {
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: 2.125rem;
+    line-height: 1.1;
+    font-weight: 500;
+    letter-spacing: -0.035em;
+  }
+
+  .money {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .money-dec,
+  .money-cur {
+    color: var(--muted-foreground);
+  }
+
+  .money-cur {
+    font-weight: 500;
+  }
+
+  .money-lg .money-dec {
+    font-size: 0.58em;
+    letter-spacing: -0.01em;
+  }
+
+  .money-lg .money-cur {
+    font-size: 0.42em;
+    letter-spacing: 0.02em;
+    margin-left: 0.35em;
   }
 
   .app-shell:has(.app-sidebar) {
@@ -397,13 +374,7 @@ body {
   .app-shell:has(.app-sidebar) .brand {
     font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
     font-weight: 600;
-    letter-spacing: -0.032em;
-  }
-
-  .app-shell:has(.app-sidebar) .kicker {
-    letter-spacing: 0.08em;
-    color: var(--muted-foreground);
-    font-weight: 550;
+    letter-spacing: -0.028em;
   }
 
   .side-link,
@@ -1671,4 +1642,22 @@ body {
     animation: none;
     transition: none;
   }
+}
+
+/* Veyro: one typographic voice. Former serif display styles use Geist, upright. */
+.landing-h1,
+.landing-band h2,
+.landing-promises h2 {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.landing-h1-accent,
+.landing-note {
+  font-style: normal;
+}
+
+.landing-phone-total {
+  font-weight: 500;
+  letter-spacing: -0.03em;
 }
