@@ -368,6 +368,39 @@ body {
     color: var(--nav-muted);
   }
 
+  /* Segmented control (period pickers) */
+  .segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--card) 60%, var(--muted));
+  }
+  .segmented-btn {
+    border: 0;
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--duration) var(--ease), color var(--duration) var(--ease);
+  }
+  .segmented-btn:hover {
+    color: var(--foreground);
+  }
+  .segmented-btn[data-active="true"] {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .segmented-btn:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+
   /* Company switcher at the top of the sidebar (dark rail) */
   .company-switch {
     position: relative;
