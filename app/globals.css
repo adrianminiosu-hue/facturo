@@ -723,8 +723,8 @@ body {
     cursor: pointer;
   }
   .locale-switch-btn[data-active="true"] {
-    background: var(--accent);
-    color: var(--accent-foreground);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   .top-nav .nav-meta {
@@ -776,26 +776,28 @@ body {
     transform: translateY(0.5px) scale(0.985);
   }
 
+  /* Main actions in ink (paper in the dark theme); cobalt is kept for active states and links. */
   .btn-primary {
-    background: var(--accent);
-    color: var(--accent-foreground);
-    border-color: color-mix(in srgb, var(--accent) 78%, var(--foreground) 22%);
-    box-shadow: 0 1px 0 color-mix(in srgb, white 16%, transparent) inset;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+    box-shadow: 0 1px 0 color-mix(in srgb, white 10%, transparent) inset, 0 1px 2px rgba(11, 13, 18, 0.12);
   }
   .btn-primary:hover {
-    background: color-mix(in srgb, var(--accent) 88%, var(--foreground) 12%);
+    background: color-mix(in srgb, var(--primary) 86%, var(--background) 14%);
+    border-color: color-mix(in srgb, var(--primary) 86%, var(--background) 14%);
   }
   .btn-primary:focus-visible {
-    box-shadow: 0 1px 0 color-mix(in srgb, white 16%, transparent) inset, 0 0 0 4px var(--ring);
+    box-shadow: 0 0 0 4px var(--ring);
   }
 
   .btn-soft {
-    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    background: var(--muted);
     color: var(--foreground);
-    border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+    border-color: var(--border);
   }
   .btn-soft:hover {
-    background: color-mix(in srgb, var(--accent) 18%, var(--card));
+    background: color-mix(in srgb, var(--muted) 80%, var(--foreground) 6%);
   }
 
   .btn-outline {
@@ -805,7 +807,7 @@ body {
   }
   .btn-outline:hover {
     background: var(--muted);
-    border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
+    border-color: color-mix(in srgb, var(--border) 70%, var(--foreground) 22%);
   }
 
   .btn-success {
@@ -1132,13 +1134,13 @@ body {
 }
 
 .landing-btn-accent {
-  background: var(--accent);
-  color: var(--accent-foreground);
-  box-shadow: 0 10px 28px -12px var(--landing-glow), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 10px 24px -14px rgba(11, 13, 18, 0.5);
 }
 
 .landing-btn-accent:hover {
-  background: var(--landing-accent-hover);
+  background: color-mix(in srgb, var(--primary) 86%, var(--background) 14%);
 }
 
 .landing-btn-light {
