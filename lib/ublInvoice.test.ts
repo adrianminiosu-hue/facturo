@@ -42,7 +42,7 @@ describe('parseUblInvoice', () => {
   })
 
   it('refuses documents that are not invoices', () => {
-    expect(() => parseUblInvoice('<header xmlns="mfp:anaf"/>')).toThrow('nu este o factură')
+    expect(() => parseUblInvoice('<header xmlns="mfp:anaf"/>')).toThrow('nu este o factură UBL sau CII')
   })
 })
 

@@ -1,4 +1,5 @@
 import { at, kids, numAt, parseXml, textAt, type XmlNode } from '@/lib/xmlTree'
+import { isCiiDocument, parseCiiInvoice } from '@/lib/ciiInvoice'
 
 export type UblParty = {
   name: string
@@ -86,11 +87,15 @@ function taxTotalIn(root: XmlNode, currency: string) {
   return match ? numAt(match, 'TaxAmount') : 0
 }
 
-/** Reads a UBL 2.1 Invoice or CreditNote (CIUS-RO / EN 16931) as received from SPV. */
+/**
+ * Reads an invoice as received from SPV: UBL 2.1 Invoice / CreditNote or CII CrossIndustryInvoice
+ * (both CIUS-RO / EN 16931). The name stays for history; the result shape is the same for both.
+ */
 export function parseUblInvoice(xml: string): UblInvoice {
   const root = parseXml(xml)
+  if (isCiiDocument(root)) return parseCiiInvoice(root)
   if (root.name !== 'Invoice' && root.name !== 'CreditNote') {
-    throw new Error(`Documentul nu este o factură UBL (${root.name}).`)
+    throw new Error(`Documentul nu este o factură UBL sau CII (${root.name}).`)
   }
   const isCreditNote = root.name === 'CreditNote'
   const id = textAt(root, 'ID')

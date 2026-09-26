@@ -118,32 +118,36 @@ describe('importSpvPurchases (end to end with a fake ANAF and database)', () => 
     const calls = mockAnaf([
       { id: '3001', idSolicitare: '5001', files: [{ name: '5001.xml', text: fixture('ubl-invoice-fct0005.xml') }, { name: 'semnatura_5001.xml', text: fixture('anaf-semnatura.xml') }] },
       { id: '3002', idSolicitare: '5002', files: [{ name: '5002.xml', text: fixture('ubl-creditnote-eur.xml') }, { name: 'semnatura_5002.xml', text: fixture('anaf-semnatura.xml') }] },
-      { id: '3003', idSolicitare: '5003', files: [{ name: 'semnatura_5003.xml', text: fixture('anaf-semnatura.xml') }] }
+      { id: '3003', idSolicitare: '5003', files: [{ name: 'semnatura_5003.xml', text: fixture('anaf-semnatura.xml') }] },
+      { id: '3004', idSolicitare: '5004', files: [{ name: '5004.xml', text: fixture('cii-invoice-eur.xml') }, { name: 'semnatura_5004.xml', text: fixture('anaf-semnatura.xml') }] }
     ])
     const db = fakeDb()
 
     const first = await importSpvPurchases(db, opts(db))
-    expect(first.total).toBe(3)
-    expect(first.added).toBe(2)
+    expect(first.total).toBe(4)
+    expect(first.added).toBe(3)
     expect(first.failed).toEqual([{ messageId: '3003', error: 'Arhiva nu conține factura XML.' }])
     expect(calls.some(u => u.includes('/listaMesajePaginatieFactura') && u.includes('cif=12312343') && u.includes('filtru=P'))).toBe(true)
 
     const invoices = db.tables.invoices
-    expect(invoices).toHaveLength(2)
+    expect(invoices).toHaveLength(3)
     const invoice = invoices.find(r => r.efactura_index === '5001')!
     expect(invoice).toMatchObject({ direction: 'purchase', series: 'FCT', invoice_number: '0005', total: 108897.58, buyer_reference: '3001', efactura_status: 'accepted', company_id: 'company-1' })
     expect(invoice.efactura_signature).toMatchObject({ serial: '1234567890', signedAt: '2026-09-21T10:15:00Z' })
     const credit = invoices.find(r => r.efactura_index === '5002')!
     expect(credit).toMatchObject({ invoice_type_code: '381', currency: 'RON', exchange_rate: 5.0852, total: -615.31 })
     expect(db.tables.invoice_items.filter(i => i.invoice_id === credit.id)).toHaveLength(1)
+    const cii = invoices.find(r => r.efactura_index === '5004')!
+    expect(cii).toMatchObject({ series: 'LOG', invoice_number: '2026/0917', currency: 'RON', exchange_rate: 5.0851, total: 6152.97 })
+    expect(db.tables.invoice_items.filter(i => i.invoice_id === cii.id)).toHaveLength(2)
     expect(db.tables.clients.map(c => c.cui).sort()).toEqual(['12312343', '14399840'])
     expect(db.tables.clients.every(c => c.is_supplier === true)).toBe(true)
-    expect(db.uploads).toEqual(['u1/company-1/primite/3001.zip', 'u1/company-1/primite/3002.zip'])
+    expect(db.uploads).toEqual(['u1/company-1/primite/3001.zip', 'u1/company-1/primite/3002.zip', 'u1/company-1/primite/3004.zip'])
 
     const second = await importSpvPurchases(db, opts(db))
     expect(second.added).toBe(0)
-    expect(second.skipped).toBe(2)
-    expect(db.tables.invoices).toHaveLength(2)
+    expect(second.skipped).toBe(3)
+    expect(db.tables.invoices).toHaveLength(3)
   })
 
   it('reports ANAF errors instead of importing nothing silently', async () => {
