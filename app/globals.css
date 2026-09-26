@@ -148,6 +148,22 @@ html[data-theme="nocturne"] {
 html {
   background: var(--background);
   color-scheme: inherit;
+  /* Thin scrollbars in the theme's colours instead of the system's white ones (inherited everywhere). */
+  scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent) transparent;
+}
+
+:where(*) {
+  scrollbar-width: thin;
+}
+
+/* Dark sidebar: the scrollbar shows only while the pointer is over it. */
+.app-sidebar,
+.app-sidebar * {
+  scrollbar-color: transparent transparent;
+}
+.app-sidebar:hover,
+.app-sidebar:hover * {
+  scrollbar-color: color-mix(in srgb, var(--nav-ink) 24%, transparent) transparent;
 }
 
 body {
