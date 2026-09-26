@@ -70,7 +70,8 @@ function createMock(seed: Record<string, Row[]>): QueryClient & { tables: Record
     return api
   }
 
-  return { from, tables }
+  // The hand-written mock covers only the calls under test; cast to the client type they receive.
+  return { from, tables } as unknown as QueryClient & { tables: Record<string, Row[]> }
 }
 
 const owner = 'user-1'
