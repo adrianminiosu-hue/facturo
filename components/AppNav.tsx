@@ -1,4 +1,5 @@
 'use client'
+import Chevron from '@/components/Chevron'
 import { dashboardHref, visibleDashboardSlots } from '@/lib/dashboardSlots'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -89,7 +90,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             aria-expanded={dashboardOpen}
           >
             <span>{t('nav.dashboard')}</span>
-            <span className="side-caret" data-open={dashboardOpen}>▾</span>
+            <span className="side-caret" data-open={dashboardOpen}><Chevron /></span>
           </button>
           {dashboardOpen && (
             <div className="side-group">
@@ -109,7 +110,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             aria-expanded={invoicesOpen}
           >
             <span>{t('nav.invoices')}</span>
-            <span className="side-caret" data-open={invoicesOpen}>▾</span>
+            <span className="side-caret" data-open={invoicesOpen}><Chevron /></span>
           </button>
           {invoicesOpen && (
             <div className="side-group">
@@ -123,7 +124,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             <span className="flex items-center justify-between gap-2 w-full">
               <span>{t('nav.bank')}</span>
               {inboxCount > 0 && (
-                <span className="text-[10px] min-w-[1.25rem] text-center rounded-full bg-[color:var(--color-foreground)] text-[color:var(--color-background)] px-1">
+                <span className="text-xs min-w-[1.25rem] text-center rounded-full bg-[color:var(--color-foreground)] text-[color:var(--color-background)] px-1">
                   {inboxCount}
                 </span>
               )}
@@ -138,7 +139,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             aria-expanded={settingsOpen}
           >
             <span>{t('nav.settings')}</span>
-            <span className="side-caret" data-open={settingsOpen}>▾</span>
+            <span className="side-caret" data-open={settingsOpen}><Chevron /></span>
           </button>
           {settingsOpen && (
             <div className="side-group">

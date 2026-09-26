@@ -9,6 +9,7 @@ import { maskIban, paymentSourceKey } from '@/lib/bank/labels'
 import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
 import { authHeaders } from '@/lib/authHeaders'
+import Money from '@/components/Money'
 
 type Payment = {
   id: string
@@ -99,7 +100,7 @@ export default function InvoicePaymentsSection({
           {rows.map(row => (
             <div key={row.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm border-t border-gray-50 pt-3 first:border-0 first:pt-0">
               <div className="min-w-0">
-                <p className="font-medium">{formatRon(row.amount)} · {formatRoDate(row.paid_on)}</p>
+                <p className="font-medium"><Money value={row.amount} /> · {formatRoDate(row.paid_on)}</p>
                 <p className="text-xs text-[color:var(--color-muted-foreground)]">
                   {t(paymentSourceKey(row.source, row.method) as MessageKey)}
                   {row.counterpart_name ? ` · ${row.counterpart_name}` : ''}

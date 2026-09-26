@@ -316,7 +316,7 @@ body {
 
   .money-dec,
   .money-cur {
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, currentColor 58%, transparent);
   }
 
   .money-cur {
@@ -430,7 +430,7 @@ body {
   }
 
   .side-caret {
-    font-size: 10px;
+    display: inline-flex;
     opacity: 0.55;
     transform: rotate(-90deg);
     transition: transform 160ms var(--ease);
@@ -1666,3 +1666,17 @@ body {
   font-weight: 500;
   letter-spacing: -0.03em;
 }
+
+/* Dark theme: map the light utility colours still written in components onto the theme tokens. */
+html[data-theme="nocturne"] .bg-white { background-color: var(--card); }
+html[data-theme="nocturne"] .bg-gray-50,
+html[data-theme="nocturne"] .bg-gray-100 { background-color: var(--muted); }
+html[data-theme="nocturne"] .text-gray-900,
+html[data-theme="nocturne"] .text-gray-800 { color: var(--foreground); }
+html[data-theme="nocturne"] .text-gray-700,
+html[data-theme="nocturne"] .text-gray-600,
+html[data-theme="nocturne"] .text-gray-500,
+html[data-theme="nocturne"] .text-gray-400 { color: var(--muted-foreground); }
+html[data-theme="nocturne"] .border-gray-100,
+html[data-theme="nocturne"] .border-gray-200,
+html[data-theme="nocturne"] .border-gray-300 { border-color: var(--border); }

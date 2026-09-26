@@ -14,6 +14,7 @@ import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import type { SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
 import InvoicePaymentsSection from '@/components/InvoicePaymentsSection'
 import { useLocale } from '@/components/LocaleProvider'
+import Money from '@/components/Money'
 
 type Line = {
   id: string
@@ -83,7 +84,7 @@ export default function PurchaseInvoiceViewPage() {
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
             <p className="kicker mb-2">{t('pur.kicker')}</p>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">
+            <h2 className="page-title text-[color:var(--color-foreground)]">
               {invoice.series}{invoice.invoiceNumber}
             </h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
@@ -164,17 +165,17 @@ export default function PurchaseInvoiceViewPage() {
           <div className="flex flex-col items-end gap-1">
             <div className="flex justify-between w-72 text-sm">
               <span className="text-[color:var(--color-muted-foreground)]">{t('inv.base')}</span>
-              <span>{formatRon(totals.lineExtension)}</span>
+              <span><Money value={totals.lineExtension} /></span>
             </div>
             {totals.vatBreakdown.map(row => (
               <div key={row.rate} className="flex justify-between w-72 text-sm">
                 <span className="text-[color:var(--color-muted-foreground)]">{t('inv.vatOnly', { rate: row.rate })}</span>
-                <span>{formatRon(row.tax)}</span>
+                <span><Money value={row.tax} /></span>
               </div>
             ))}
             <div className="flex justify-between w-72 text-base font-bold pt-2 border-t border-gray-100">
               <span>{t('common.total')}</span>
-              <span>{formatRon(totals.taxInclusive)}</span>
+              <span><Money value={totals.taxInclusive} /></span>
             </div>
           </div>
         </div>

@@ -264,7 +264,7 @@ export default function NewInvoice() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.newTitle')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('inv.newTitle')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">{t('inv.newLead')}</p>
           </div>
           <Link href="/invoices" className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">

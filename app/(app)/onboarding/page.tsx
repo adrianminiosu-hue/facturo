@@ -263,7 +263,7 @@ export default function Onboarding() {
         {/* Step 1 — Company profile */}
         {step === 1 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
-            <h2 className="text-3xl text-gray-900 mb-1">{t('onb.companyTitle')}</h2>
+            <h2 className="page-title text-gray-900 mb-1">{t('onb.companyTitle')}</h2>
             <p className="text-gray-500 mb-8">{t('onb.companyLead')}</p>
 
             <div className="space-y-4">
@@ -405,7 +405,7 @@ export default function Onboarding() {
         {/* Step 2 — First client */}
         {step === 2 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-8">
-            <h2 className="text-3xl text-gray-900 mb-1">{t('onb.clientTitle')}</h2>
+            <h2 className="page-title text-gray-900 mb-1">{t('onb.clientTitle')}</h2>
             <p className="text-gray-500 mb-8">{t('onb.clientLead')}</p>
 
             <div className="space-y-4">
@@ -530,7 +530,7 @@ export default function Onboarding() {
             <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">🎉</span>
             </div>
-            <h2 className="text-3xl text-gray-900 mb-3">{t('onb.readyTitle')}</h2>
+            <h2 className="page-title text-gray-900 mb-3">{t('onb.readyTitle')}</h2>
             <p className="text-gray-500 mb-8 max-w-sm mx-auto">
               {t('onb.readyLead')}
             </p>

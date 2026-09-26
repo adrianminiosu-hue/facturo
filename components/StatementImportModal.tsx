@@ -120,7 +120,7 @@ export default function StatementImportModal({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="kicker mb-1 text-sky-700">{t('imp.kicker')}</p>
-              <h3 className="brand text-lg">{t('bank.import.title')}</h3>
+              <h3 className="text-lg font-semibold tracking-tight">{t('bank.import.title')}</h3>
               {companyName && (
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">{companyName}</p>
               )}
@@ -135,7 +135,7 @@ export default function StatementImportModal({
           </div>
           <div className="flex flex-wrap gap-1 mt-2">
             {['MT940', 'CAMT.053', 'CSV'].map(label => (
-              <span key={label} className="text-[10px] font-medium tracking-wide px-1.5 py-0.5 rounded-full bg-white/80 text-sky-800 border border-sky-100">
+              <span key={label} className="text-xs font-medium tracking-wide px-1.5 py-0.5 rounded-full bg-white/80 text-sky-800 border border-sky-100">
                 {label}
               </span>
             ))}
@@ -174,7 +174,7 @@ export default function StatementImportModal({
               </svg>
             </span>
             <p className="text-sm font-medium text-slate-800">{file?.name || t('bank.import.drop')}</p>
-            <p className="text-[11px] text-[color:var(--color-muted-foreground)] mt-0.5">{t('bank.import.formats')}</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-0.5">{t('bank.import.formats')}</p>
           </label>
         )}
 

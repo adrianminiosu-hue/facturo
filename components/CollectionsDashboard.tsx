@@ -144,13 +144,13 @@ export default function CollectionsDashboard() {
       <AppNav active="dashboard-4" />
       <div className="max-w-6xl mx-auto px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-4xl text-[color:var(--color-foreground)]">{t('nav.dashboard4')}</h2>
+          <h2 className="page-title text-[color:var(--color-foreground)]">{t('nav.dashboard4')}</h2>
           <p className="text-[color:var(--color-muted-foreground)] mt-2">{t('dash.collect.lead')}</p>
         </div>
 
         <div className="card p-6 mb-8 max-w-md">
           <p className="kicker mb-4">{t('dash.collect.avg')}</p>
-          <p className="text-4xl brand text-[color:var(--color-foreground)]">
+          <p className="kpi text-[color:var(--color-foreground)]">
             {average === null ? '—' : t('dash.collect.days', { n: formatDays(average) })}
           </p>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">

@@ -304,7 +304,7 @@ export default function EditInvoice() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.editTitle')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('inv.editTitle')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}{form.invoice_type_code === '381' ? ` · ${t(invoiceTypeKey('381'))}` : ''}</p>
           </div>
           <Link href={`/invoices/${invoiceId}`} className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">

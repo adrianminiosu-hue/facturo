@@ -2,6 +2,7 @@
 import { formatRon } from '@/lib/money'
 import type { computeInvoiceTotals } from '@/lib/invoiceMath'
 import { useLocale } from '@/components/LocaleProvider'
+import Money from '@/components/Money'
 
 type Totals = ReturnType<typeof computeInvoiceTotals>
 
@@ -51,7 +52,7 @@ export default function InvoiceTotalsFields({
         <div className="flex flex-col items-end gap-2">
           <div className="flex justify-between w-72">
             <span className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.lineBase')}</span>
-            <span className="text-sm font-medium">{formatRon(totals.lineExtension)}</span>
+            <span className="text-sm font-medium"><Money value={totals.lineExtension} /></span>
           </div>
           {totals.headerDiscount > 0 && (
             <div className="flex justify-between w-72">
@@ -64,12 +65,12 @@ export default function InvoiceTotalsFields({
               <span className="text-sm text-[color:var(--color-muted-foreground)]">
                 {t('inv.vatOn', { rate: row.rate, base: formatRon(row.taxable) })}
               </span>
-              <span className="text-sm font-medium">{formatRon(row.tax)}</span>
+              <span className="text-sm font-medium"><Money value={row.tax} /></span>
             </div>
           ))}
           <div className="flex justify-between w-72">
             <span className="text-sm text-[color:var(--color-muted-foreground)]">{t('inv.totalWithVat')}</span>
-            <span className="text-sm font-medium">{formatRon(totals.taxInclusive)}</span>
+            <span className="text-sm font-medium"><Money value={totals.taxInclusive} /></span>
           </div>
           {totals.prepaid > 0 && (
             <div className="flex justify-between w-72">
@@ -79,7 +80,7 @@ export default function InvoiceTotalsFields({
           )}
           <div className="flex justify-between w-72 pt-2 border-t border-gray-100">
             <span className="font-bold text-[color:var(--color-foreground)]">{t('inv.payable')}</span>
-            <span className="font-bold text-[color:var(--color-foreground)] text-lg">{formatRon(totals.payable)}</span>
+            <span className="font-bold text-[color:var(--color-foreground)] text-lg"><Money value={totals.payable} /></span>
           </div>
         </div>
       </div>

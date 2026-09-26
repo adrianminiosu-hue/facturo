@@ -17,6 +17,7 @@ import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import type { MessageKey } from '@/lib/messages'
+import Money from '@/components/Money'
 
 type Row = {
   id: string
@@ -244,7 +245,7 @@ export default function IncasariPage() {
         <div className="page-toolbar">
           <div>
             <p className="kicker mb-2">{t('rec.portfolio')}</p>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('rec.title')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('rec.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {t('rec.lead')}
             </p>
@@ -269,17 +270,17 @@ export default function IncasariPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           <div className="card p-6">
             <p className="kicker mb-3">{t('rec.weekRiskCard')}</p>
-            <p className="text-3xl brand">{ron(weekRisk)}</p>
+            <p className="kpi"><Money value={weekRisk} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('rec.weekRiskSub')}</p>
           </div>
           <div className="card p-6">
             <p className="kicker mb-3">{t('rec.overdueNow')}</p>
-            <p className={`text-3xl brand ${overdueAmt > 0 ? 'text-amber-800' : ''}`}>{ron(overdueAmt)}</p>
+            <p className={`kpi ${overdueAmt > 0 ? 'text-amber-800' : ''}`}><Money value={overdueAmt} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('rec.overdueSub')}</p>
           </div>
           <div className="card p-6">
             <p className="kicker mb-3">{t('rec.toCollect')}</p>
-            <p className="text-3xl brand">{ron(totalOpen)}</p>
+            <p className="kpi"><Money value={totalOpen} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">{t('rec.openCount', { count: openRows.length })}</p>
           </div>
         </div>
@@ -335,7 +336,7 @@ export default function IncasariPage() {
           <>
           <div className="card overflow-hidden">
             <div>
-              <div className="list-head grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1.5 border-b border-gray-50 items-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+              <div className="list-head grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_18rem] px-5 py-1.5 border-b border-gray-50 items-center text-xs uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
                 <span>{t('common.client')}</span>
                 <span>{t('rec.invoice')}</span>
                 <span>{t('rec.due')}</span>
@@ -345,7 +346,7 @@ export default function IncasariPage() {
                 <span className="text-right">{t('common.actions')}</span>
               </div>
               {paged.map((row, i) => (
-                <div key={row.id} className={`list-row list-row-incasari grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_minmax(14rem,auto)] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                <div key={row.id} className={`list-row list-row-incasari grid grid-cols-[minmax(9rem,1.2fr)_6.5rem_6.5rem_5.5rem_9.5rem_7rem_18rem] px-5 py-1 items-center gap-2 ${i !== paged.length - 1 ? 'border-b border-gray-50' : ''}`}>
                   <span className="list-cell-sub text-sm truncate">{row.clients?.company_name || '—'}</span>
                   <span className="list-cell-title text-sm font-medium">{row.series}{row.invoice_number}</span>
                   <span className="list-cell-meta text-sm text-[color:var(--color-muted-foreground)]">{formatRoDate(row.due_date)}</span>
@@ -353,9 +354,9 @@ export default function IncasariPage() {
                     {daysLabel(row.days, row.settled)}
                   </span>
                   <span className="list-cell-amount text-sm font-medium">
-                    {ron(row.rest)}
+                    <Money value={row.rest} />
                     {Number(row.amount_paid) > 0 && (
-                      <span className="block text-[11px] font-normal text-[color:var(--color-muted-foreground)]">
+                      <span className="block text-xs font-normal text-[color:var(--color-muted-foreground)]">
                         {t('rec.fromTotal', { amount: ron(Number(row.total)) })}
                         {bankPaid[row.id] && (
                           <span title={t('bank.badge.auto', { date: formatRoDate(bankPaid[row.id]) })}> · 🏦</span>
@@ -447,7 +448,7 @@ export default function IncasariPage() {
                       {p.booking_date || p.paid_on} · {p.counterparty_iban || p.counterpart_iban || p.description || p.notes || t('rec.xml940')}
                     </p>
                   </div>
-                  <p className="font-medium shrink-0">{ron(Number(p.amount))}</p>
+                  <p className="font-medium shrink-0"><Money value={Number(p.amount)} /></p>
                 </div>
               ))}
             </div>

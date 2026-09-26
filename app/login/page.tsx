@@ -39,7 +39,7 @@ export default function Login() {
       <div className="card p-10 w-full max-w-md">
         <p className="kicker mb-4">{t('auth.kicker')}</p>
         <div className="mb-8">
-          <h1 className="text-4xl text-[color:var(--color-foreground)]">{t('auth.welcome')}</h1>
+          <h1 className="page-title text-[color:var(--color-foreground)]">{t('auth.welcome')}</h1>
           <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">{t('auth.loginSubtitle')}</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">

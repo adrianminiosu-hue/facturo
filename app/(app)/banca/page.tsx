@@ -14,6 +14,7 @@ import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
 import { authHeaders } from '@/lib/authHeaders'
+import Money from '@/components/Money'
 
 type Tx = {
   id: string
@@ -216,7 +217,7 @@ function BancaPageInner() {
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="page-toolbar">
           <div>
-            <h2 className="text-3xl">{t('bank.title')}</h2>
+            <h2 className="page-title">{t('bank.title')}</h2>
             <p className="text-[color:var(--color-muted-foreground)] mt-1">{t('bank.lead')}</p>
           </div>
           <button type="button" className="btn btn-primary" onClick={() => setImportOpen(true)}>{t('rec.importStatement')}</button>
@@ -302,7 +303,7 @@ function BancaPageInner() {
                       )}
                     </div>
                     <div className="bank-row-actions flex items-center gap-2 shrink-0">
-                      <span className={tx.amount > 0 ? 'text-green-700 font-medium' : 'font-medium'}>{formatRon(tx.amount)}</span>
+                      <span className={tx.amount > 0 ? 'text-green-700 font-medium' : 'font-medium'}><Money value={tx.amount} /></span>
                       {tab === 'inbox' && (
                         <>
                           <button type="button" className="btn btn-success text-xs px-3 min-w-[5.75rem] bg-green-300 hover:bg-green-400 text-green-950 border-green-400" onClick={e => { e.stopPropagation(); confirmTx(tx) }}>{t('bank.action.confirm')}</button>

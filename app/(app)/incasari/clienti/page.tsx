@@ -1,4 +1,5 @@
 'use client'
+import Money from '@/components/Money'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -119,7 +120,7 @@ export default function ClientCollectionsPage() {
         <div className="page-toolbar">
           <div>
             <p className="kicker mb-2">{t('rec.portfolio')}</p>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cc.title')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('cc.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">{t('cc.lead')}</p>
           </div>
         </div>
@@ -128,22 +129,22 @@ export default function ClientCollectionsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="card p-5">
             <p className="kicker mb-2">{t('cc.kpiOpen')}</p>
-            <p className="text-2xl brand">{formatRon(totals.open)}</p>
+            <p className="kpi"><Money value={totals.open} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('cc.kpiOpenSub', { invoices: totals.invoices, clients: summaries.length })}</p>
           </div>
           <div className={`card p-5 ${totals.overdue > 0 ? 'bg-amber-50' : ''}`}>
             <p className="kicker mb-2">{t('cc.kpiOverdue')}</p>
-            <p className={`text-2xl brand ${totals.overdue > 0 ? 'text-amber-800' : ''}`}>{formatRon(totals.overdue)}</p>
+            <p className={`kpi ${totals.overdue > 0 ? 'text-amber-800' : ''}`}><Money value={totals.overdue} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('cc.kpiOverdueSub', { count: totals.lateClients })}</p>
           </div>
           <div className="card p-5">
             <p className="kicker mb-2">{t('cc.kpiWeek')}</p>
-            <p className="text-2xl brand text-green-800">{formatRon(totals.week)}</p>
+            <p className="kpi text-green-800"><Money value={totals.week} size="lg" /></p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('cc.kpiWeekSub')}</p>
           </div>
           <div className="card p-5">
             <p className="kicker mb-2">{t('cc.kpiDelay')}</p>
-            <p className="text-2xl brand">{totals.avg === null ? '—' : t('cc.days', { count: fmtDays(totals.avg) })}</p>
+            <p className="kpi">{totals.avg === null ? '—' : t('cc.days', { count: fmtDays(totals.avg) })}</p>
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
               {totals.avg === null ? t('cc.noData') : t('cc.kpiDelaySub', { count: totals.sample })}
             </p>
@@ -171,7 +172,7 @@ export default function ClientCollectionsPage() {
           <div className="card p-12 text-center text-[color:var(--color-muted-foreground)]">{t('cc.empty')}</div>
         ) : (
           <div className="card overflow-hidden">
-            <div className="hidden lg:grid grid-cols-[minmax(12rem,1.6fr)_8.5rem_9rem_8rem_9.5rem_minmax(10rem,1.3fr)_6rem] gap-3 px-5 py-2.5 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)] border-b border-gray-100">
+            <div className="hidden lg:grid grid-cols-[minmax(12rem,1.6fr)_8.5rem_9rem_8rem_9.5rem_minmax(10rem,1.3fr)_6rem] gap-3 px-5 py-2.5 text-xs uppercase tracking-wider text-[color:var(--color-muted-foreground)] border-b border-gray-100">
               <span>{t('cc.colClient')}</span>
               <span className="text-right">{t('cc.colOpen')}</span>
               <span className="text-right">{t('cc.colOverdue')}</span>
@@ -188,7 +189,7 @@ export default function ClientCollectionsPage() {
                     <div className="min-w-0">
                       <Link href={`/incasari/clienti/${s.clientId}`} className="block font-semibold truncate hover:underline">{c?.company_name || '—'}</Link>
                       {c?.anaf_flag && (
-                        <span className="inline-block text-[11px] font-semibold text-red-800 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 mr-2">
+                        <span className="inline-block text-xs font-semibold text-red-800 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 mr-2">
                           {c.anaf_flag === 'deregistered' ? t('cc.anafDeregisteredShort') : t('cc.anafInactive')}
                         </span>
                       )}
@@ -197,11 +198,11 @@ export default function ClientCollectionsPage() {
                     <span className="lg:hidden"><PaymentBehaviourBadge behaviour={s.behaviour} promise={s.nextPromise} /></span>
                   </div>
                   <div className="lg:text-right">
-                    <span className="lg:hidden block text-[11px] text-[color:var(--color-muted-foreground)]">{t('cc.colOpen')}</span>
-                    <span className="font-semibold">{formatRon(s.openAmount)}</span>
+                    <span className="lg:hidden block text-xs text-[color:var(--color-muted-foreground)]">{t('cc.colOpen')}</span>
+                    <span className="font-semibold"><Money value={s.openAmount} /></span>
                   </div>
                   <div className="text-right">
-                    <span className="lg:hidden block text-[11px] text-[color:var(--color-muted-foreground)]">{t('cc.colOverdue')}</span>
+                    <span className="lg:hidden block text-xs text-[color:var(--color-muted-foreground)]">{t('cc.colOverdue')}</span>
                     {s.overdueAmount > 0 ? (
                       <>
                         <span className={`block font-semibold ${s.behaviour === 'risk' ? 'text-red-700' : 'text-amber-800'}`}>{formatRon(s.overdueAmount)}</span>

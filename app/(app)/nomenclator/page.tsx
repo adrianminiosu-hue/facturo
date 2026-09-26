@@ -189,7 +189,7 @@ export default function NomenclatorPage() {
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cat.title')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('cat.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {t('cat.lead')}
             </p>

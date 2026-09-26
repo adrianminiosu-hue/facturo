@@ -1,4 +1,5 @@
 'use client'
+import Chevron from '@/components/Chevron'
 import DateField from '@/components/DateField'
 import { useEffect, useState } from 'react'
 import { INVOICE_TYPE_CODES, PAYMENT_MEANS_CODES } from '@/lib/efactura'
@@ -104,7 +105,7 @@ export default function InvoiceEfacturaFields({
         className="mt-4 text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] inline-flex items-center gap-1.5"
         aria-expanded={open}
       >
-        <span aria-hidden>{open ? '▾' : '▸'}</span>
+        <Chevron right={!open} />
         {t('inv.moreDetails')}
       </button>
 

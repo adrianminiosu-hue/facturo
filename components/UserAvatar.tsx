@@ -16,7 +16,7 @@ export default function UserAvatar({
   const [broken, setBroken] = useState(false)
   useEffect(() => { setBroken(false) }, [url])
 
-  const dim = size === 'lg' ? 'h-20 w-20 text-xl' : 'h-8 w-8 text-[11px]'
+  const dim = size === 'lg' ? 'h-20 w-20 text-xl' : 'h-8 w-8 text-xs'
   const initials = userInitials(name, email)
   if (url && !broken) {
     return (

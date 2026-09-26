@@ -537,7 +537,7 @@ export default function Clients() {
         {/* Header */}
         <div className="page-toolbar">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('cli.title')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('cli.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {search
                 ? t('cli.countFiltered', { count: filteredClients.length, total: clients.length })
@@ -876,7 +876,7 @@ export default function Clients() {
                     <p className="font-medium text-[color:var(--color-foreground)]">
                       {client.company_name}
                       {isSupplier(client) && (
-                        <span className="ml-2 align-middle text-[11px] font-medium text-[color:var(--color-muted-foreground)] border border-gray-200 rounded-full px-2 py-0.5">
+                        <span className="ml-2 align-middle text-xs font-medium text-[color:var(--color-muted-foreground)] border border-gray-200 rounded-full px-2 py-0.5">
                           {isCustomer(client) ? t('cli.badgeBoth') : t('cli.badgeSupplier')}
                         </span>
                       )}

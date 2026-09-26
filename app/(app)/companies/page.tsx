@@ -30,7 +30,7 @@ export default function CompaniesPage() {
       <AppNav active="companies" />
       <div className="max-w-5xl mx-auto px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('co.title')}</h2>
+          <h2 className="page-title text-[color:var(--color-foreground)]">{t('co.title')}</h2>
           <p className="mt-1 text-[color:var(--color-muted-foreground)]">
             {t('co.lead')}
           </p>

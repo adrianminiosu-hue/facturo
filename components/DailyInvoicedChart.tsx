@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { formatRoDate } from '@/lib/dates'
 import { formatAmount, formatRon } from '@/lib/money'
 import { useLocale } from '@/components/LocaleProvider'
+import Money from '@/components/Money'
 
 export type DailyAmount = {
   date: string
@@ -199,8 +200,8 @@ export default function DailyInvoicedChart({
         {active !== null && days[active] && (
           <div className="pointer-events-none absolute right-0 top-0 rounded-xl bg-[color:var(--foreground)] text-[color:var(--primary-foreground)] px-3 py-2 text-xs shadow-elevated">
             <p className="uppercase tracking-wider opacity-70">{formatRoDate(days[active].date)}</p>
-            <p className="mt-1">{t('chart.invoiced')} {formatRon(days[active].invoiced)}</p>
-            <p>{t('chart.collected')} {formatRon(days[active].collected)}</p>
+            <p className="mt-1">{t('chart.invoiced')} <Money value={days[active].invoiced} /></p>
+            <p>{t('chart.collected')} <Money value={days[active].collected} /></p>
           </div>
         )}
       </div>

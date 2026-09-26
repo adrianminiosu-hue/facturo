@@ -492,7 +492,7 @@ function SuggestionGroup({
   const { t } = useLocale()
   return (
     <div>
-      <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">{label}</p>
+      <p className="px-3 pt-2 pb-1 text-xs uppercase tracking-wider text-[color:var(--color-muted-foreground)]">{label}</p>
       {items.map((item, i) => {
         const active = highlight === offset + i
         return (

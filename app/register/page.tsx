@@ -60,7 +60,7 @@ export default function Register() {
       <div className="card p-10 w-full max-w-md">
         <p className="kicker mb-4">{t('auth.newAccount')}</p>
         <div className="mb-8">
-          <h1 className="text-4xl text-[color:var(--color-foreground)]">{t('auth.newAccountTitle')}</h1>
+          <h1 className="page-title text-[color:var(--color-foreground)]">{t('auth.newAccountTitle')}</h1>
           <p className="mt-2 text-sm text-[color:var(--color-muted-foreground)]">{t('auth.registerLead')}</p>
         </div>
         <form onSubmit={handleRegister} className="space-y-4">

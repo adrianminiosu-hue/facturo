@@ -182,7 +182,7 @@ export default function AccountPage() {
     <div className="app-shell">
       <AppNav active="account" />
       <div className="max-w-2xl mx-auto px-8 py-8">
-        <h2 className="text-3xl mb-2">{t('set.account')}</h2>
+        <h2 className="page-title mb-2">{t('set.account')}</h2>
         <p className="text-[color:var(--color-muted-foreground)] mb-8">{t('set.accountLead')}</p>
 
         <div className="card p-8 mb-6">

@@ -59,16 +59,16 @@ export default function PaySpeedChart({
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <p className="kicker mb-2">{t('dash.collect.trend')}</p>
-          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.collect.trendTitle')}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-[color:var(--color-foreground)]">{t('dash.collect.trendTitle')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('dash.collect.trendLead')}</p>
         </div>
-        <div className="flex items-center gap-4 text-[11px] uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
+        <div className="flex items-center gap-4 text-xs uppercase tracking-wider text-[color:var(--color-muted-foreground)]">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full bg-[#0e7490]" />
+            <span className="h-0.5 w-4 rounded-full bg-[color:var(--chart-1)]" />
             {t('chart.daysToPay')}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-4 border-t-2 border-dashed border-[#c2410c]" />
+            <span className="w-4 border-t-2 border-dashed border-[color:var(--chart-2)]" />
             {t('chart.avgDays')}
           </span>
         </div>
@@ -113,7 +113,7 @@ export default function PaySpeedChart({
               x2={width - pad.right}
               y1={avgY}
               y2={avgY}
-              stroke="#c2410c"
+              style={{ stroke: 'var(--chart-2)' }}
               strokeWidth="2"
               strokeDasharray="6 5"
               strokeLinecap="round"
@@ -126,13 +126,13 @@ export default function PaySpeedChart({
               x2={pad.left + active * slot + slot / 2}
               y1={pad.top}
               y2={baseY}
-              stroke="#0e1218"
+              stroke="currentColor"
               strokeOpacity="0.18"
             />
           )}
 
           {points.length > 1 && (
-            <path d={linePath(points)} fill="none" stroke="#0e7490" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={linePath(points)} fill="none" style={{ stroke: 'var(--chart-1)' }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           )}
 
           {days.map((day, i) => {
@@ -159,7 +159,7 @@ export default function PaySpeedChart({
                     cx={point.x}
                     cy={point.y}
                     r={active === i ? 5 : 3.2}
-                    fill="#0e7490"
+                    style={{ fill: 'var(--chart-1)' }}
                     stroke="#fff"
                     strokeWidth="1.5"
                   />

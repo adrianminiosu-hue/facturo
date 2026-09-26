@@ -92,7 +92,7 @@ export default function TeamPage() {
     <div className="app-shell">
       <AppNav active="team" />
       <div className="max-w-3xl mx-auto px-8 py-8">
-        <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('team.title')}</h2>
+        <h2 className="page-title text-[color:var(--color-foreground)]">{t('team.title')}</h2>
         <p className="mt-1 text-[color:var(--color-muted-foreground)] mb-8">
           {t('team.lead')}
         </p>

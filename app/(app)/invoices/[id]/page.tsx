@@ -217,7 +217,7 @@ export default function InvoiceViewPage() {
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
             <p className="kicker mb-2">{typeLabel}</p>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">
+            <h2 className="page-title text-[color:var(--color-foreground)]">
               {invoice.series}{invoice.invoice_number}
             </h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">

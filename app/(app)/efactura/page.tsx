@@ -93,7 +93,7 @@ export default function EfacturaSettingsPage() {
     <div className="app-shell">
       <AppNav active="efactura" />
       <div className="max-w-3xl mx-auto px-8 py-8">
-        <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('set.efacturaTitle')}</h2>
+        <h2 className="page-title text-[color:var(--color-foreground)]">{t('set.efacturaTitle')}</h2>
         <p className="mt-1 text-[color:var(--color-muted-foreground)] mb-8">
           {t('set.efacturaLead')}
         </p>

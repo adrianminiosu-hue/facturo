@@ -47,7 +47,7 @@ export default function ResetPassword() {
       <div className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="card p-10 w-full max-w-md">
           <p className="kicker mb-4">{t('auth.kicker')}</p>
-          <h1 className="text-4xl text-[color:var(--color-foreground)] mb-2">{t('auth.resetTitle')}</h1>
+          <h1 className="page-title text-[color:var(--color-foreground)] mb-2">{t('auth.resetTitle')}</h1>
           {!ready ? (
             <p className="text-sm text-[color:var(--color-muted-foreground)]">
               {t('auth.resetLead')}{' '}

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { calendarDateInBucharest } from '@/lib/dates'
 import { isCreditNote, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
+import Money from '@/components/Money'
 
 type InvoiceRow = {
   id: string
@@ -169,7 +170,7 @@ export default function SalesDashboard() {
       <AppNav active="dashboard-1" />
       <div className="max-w-6xl mx-auto px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-4xl text-[color:var(--color-foreground)]">{t('nav.dashboard1')}</h2>
+          <h2 className="page-title text-[color:var(--color-foreground)]">{t('nav.dashboard1')}</h2>
           <p className="text-[color:var(--color-muted-foreground)] mt-2">{t('dash.sales.lead')}</p>
         </div>
 
@@ -177,7 +178,7 @@ export default function SalesDashboard() {
           {cards.map(card => (
             <div key={card.key} className="card p-6">
               <p className="kicker mb-4">{card.title}</p>
-              <p className="text-4xl brand text-[color:var(--color-foreground)]">
+              <p className="kpi text-[color:var(--color-foreground)]">
                 {formatRon(card.amount).replace(' RON', '')}
               </p>
               <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
@@ -202,7 +203,7 @@ export default function SalesDashboard() {
 
         <div className="card p-6">
           <p className="kicker mb-2">{t('dash.clients')}</p>
-          <h3 className="brand text-xl text-[color:var(--color-foreground)]">{t('dash.sales.top5')}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-[color:var(--color-foreground)]">{t('dash.sales.top5')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1 mb-5">
             {t('dash.sales.top5Lead')}
           </p>
@@ -222,7 +223,7 @@ export default function SalesDashboard() {
                         <span className="text-[color:var(--color-muted-foreground)] tabular-nums mr-2">{i + 1}.</span>
                         {customer.name}
                       </p>
-                      <p className="text-sm font-medium tabular-nums whitespace-nowrap">{formatRon(customer.amount)}</p>
+                      <p className="text-sm font-medium tabular-nums whitespace-nowrap"><Money value={customer.amount} /></p>
                     </div>
                     <div className="h-1.5 rounded-full bg-[color:var(--muted)] overflow-hidden">
                       <div

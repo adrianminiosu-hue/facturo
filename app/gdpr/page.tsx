@@ -22,7 +22,7 @@ export default function GDPR() {
 
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-10">
-          <h1 className="text-4xl text-[color:var(--color-foreground)]">{t('gdpr.title')}</h1>
+          <h1 className="page-title text-[color:var(--color-foreground)]">{t('gdpr.title')}</h1>
           <p className="text-gray-500 mt-2">{t('gdpr.updated')}</p>
         </div>
 

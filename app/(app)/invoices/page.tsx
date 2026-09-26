@@ -17,6 +17,7 @@ import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForC
 import { alreadySentToSpv, canSendToEfactura, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import { outcomeKey } from '@/lib/uiLabels'
+import Money from '@/components/Money'
 
 interface Invoice {
   id: string
@@ -73,11 +74,11 @@ function invoiceRef(invoice: Invoice) {
   return `${invoice.series}${invoice.invoice_number}`
 }
 
-function InvoiceStatCard({ label, value }: { label: string; value: string | number }) {
+function InvoiceStatCard({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="card flex h-full min-h-[8.5rem] flex-col justify-between p-6">
-      <p className="text-sm leading-5 text-[color:var(--color-muted-foreground)]">{label}</p>
-      <p className="mt-3 text-[clamp(1.25rem,1.1vw+0.9rem,1.75rem)] font-bold leading-none tabular-nums whitespace-nowrap text-[color:var(--color-foreground)]">
+      <p className="kicker">{label}</p>
+      <p className="kpi mt-4 text-[color:var(--color-foreground)]">
         {value}
       </p>
     </div>
@@ -480,7 +481,7 @@ export default function Invoices() {
       <div className={`max-w-7xl mx-auto px-6 py-8 ${selectedCount > 0 ? 'pb-28' : ''}`}>
         <div className="page-toolbar">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('inv.title')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('inv.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {filtersActive
                 ? t('inv.countFiltered', { count: filteredInvoices.length, total: invoices.length })
@@ -496,8 +497,8 @@ export default function Invoices() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 items-stretch">
           <InvoiceStatCard label={t('inv.totalInvoices')} value={filteredInvoices.length} />
-          <InvoiceStatCard label={t('inv.totalValue')} value={formatRon(totalValue)} />
-          <InvoiceStatCard label={t('inv.monthValue')} value={formatRon(billedThisMonth)} />
+          <InvoiceStatCard label={t('inv.totalValue')} value={<Money value={totalValue} size="lg" />} />
+          <InvoiceStatCard label={t('inv.monthValue')} value={<Money value={billedThisMonth} size="lg" />} />
         </div>
 
         {loading ? (
@@ -643,14 +644,14 @@ export default function Invoices() {
                           {t(status.key)}
                         </span>
                         {isEfacturaProcessing(invoice) && (
-                          <p className="text-[10px] text-amber-700 mt-1 font-medium">{t('inv.anafWorking')}</p>
+                          <p className="text-xs text-amber-700 mt-1 font-medium">{t('inv.anafWorking')}</p>
                         )}
                         {invoice.efactura_index && alreadySentToSpv(invoice) && (
-                          <p className="text-[10px] text-[color:var(--color-muted-foreground)] mt-1 font-mono">#{invoice.efactura_index}</p>
+                          <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1 font-mono">#{invoice.efactura_index}</p>
                         )}
                       </span>
                       <span className="list-cell-amount text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
-                        {formatRon(invoice.total)}
+                        <Money value={invoice.total} />
                       </span>
                       <div className="list-cell-actions flex flex-wrap items-center justify-end gap-1.5">
                         {isDraftInvoice(invoice.status) && (

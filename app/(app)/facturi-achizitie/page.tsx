@@ -15,6 +15,7 @@ import type { SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
 import { paymentStatusKey } from '@/lib/bank/labels'
 import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
+import Money from '@/components/Money'
 
 const LIST_GRID = 'grid w-full grid-cols-[6.5rem_minmax(0,1fr)_7rem_8.5rem_7rem_8rem_minmax(10rem,auto)] gap-x-4 px-6'
 const PAGE_SIZE = 20
@@ -49,11 +50,11 @@ function paymentOf(invoice: SimulatedPurchaseInvoice) {
   return invoice.paymentStatus || 'unpaid'
 }
 
-function PurchaseStatCard({ label, value }: { label: string; value: string | number }) {
+function PurchaseStatCard({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="card flex h-full min-h-[8.5rem] flex-col justify-between p-6">
-      <p className="text-sm leading-5 text-[color:var(--color-muted-foreground)]">{label}</p>
-      <p className="mt-3 text-[clamp(1.25rem,1.1vw+0.9rem,1.75rem)] font-bold leading-none tabular-nums whitespace-nowrap text-[color:var(--color-foreground)]">
+      <p className="kicker">{label}</p>
+      <p className="kpi mt-4 text-[color:var(--color-foreground)]">
         {value}
       </p>
     </div>
@@ -195,7 +196,7 @@ export default function PurchaseInvoicesPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="page-toolbar">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{t('pur.title')}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{t('pur.title')}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {invoices.length === 0
                 ? t('pur.receivedLead')
@@ -222,8 +223,8 @@ export default function PurchaseInvoicesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 items-stretch">
           <PurchaseStatCard label={t('inv.totalInvoices')} value={filteredInvoices.length} />
-          <PurchaseStatCard label={t('inv.totalValue')} value={formatRon(totalValue)} />
-          <PurchaseStatCard label={t('pur.monthValue')} value={formatRon(billedThisMonth)} />
+          <PurchaseStatCard label={t('inv.totalValue')} value={<Money value={totalValue} size="lg" />} />
+          <PurchaseStatCard label={t('pur.monthValue')} value={<Money value={billedThisMonth} size="lg" />} />
         </div>
 
         {loading ? (
@@ -367,7 +368,7 @@ export default function PurchaseInvoicesPage() {
                     {t(paymentStatusKey(invoice.paymentStatus) as MessageKey)}
                   </span>
                   <span className="list-cell-amount text-sm font-medium text-[color:var(--color-foreground)] text-right whitespace-nowrap tabular-nums">
-                    {formatRon(invoice.total)}
+                    <Money value={invoice.total} />
                   </span>
                   <div className="list-cell-actions flex flex-wrap items-center justify-end gap-1.5">
                     <button

@@ -81,7 +81,7 @@ export default function DashboardWorkspace({ slot }: { slot: 1 | 2 | 3 | 4 | 5 }
       <div className="max-w-3xl mx-auto px-8 py-8">
         <div className="page-toolbar">
           <div>
-            <h2 className="text-3xl text-[color:var(--color-foreground)]">{draft.title || fallbackTitle}</h2>
+            <h2 className="page-title text-[color:var(--color-foreground)]">{draft.title || fallbackTitle}</h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">{t('dash.workspace.lead')}</p>
           </div>
         </div>

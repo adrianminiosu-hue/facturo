@@ -1,4 +1,5 @@
 'use client'
+import Chevron from '@/components/Chevron'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,6 +14,7 @@ import { isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { loadCollectionData } from '@/lib/collectionsData'
 import { expectedPayDate, summarizeClient, type ClientCollectionSummary } from '@/lib/clientCollections'
 import { buildForecast, FORECAST_WEEKS, type ForecastInflow, type ForecastOutflow, type ForecastWeek } from '@/lib/forecast'
+import Money from '@/components/Money'
 
 type PurchaseRow = {
   id: string
@@ -193,7 +195,7 @@ export default function ForecastDashboard() {
       <AppNav active="dashboard-3" />
       <div className="max-w-6xl mx-auto px-6 md:px-8 py-8">
         <div className="mb-6">
-          <h2 className="text-4xl text-[color:var(--color-foreground)]">{t('fc.title')}</h2>
+          <h2 className="page-title text-[color:var(--color-foreground)]">{t('fc.title')}</h2>
           <p className="text-[color:var(--color-muted-foreground)] mt-2">{t('fc.lead', { weeks: FORECAST_WEEKS })}</p>
         </div>
 
@@ -228,22 +230,22 @@ export default function ForecastDashboard() {
               </div>
               <div className="card p-5">
                 <p className="kicker mb-2">{t('fc.kpiIn')}</p>
-                <p className="text-2xl brand text-green-800">{formatRon(forecast.totalIn)}</p>
+                <p className="kpi text-green-800"><Money value={forecast.totalIn} size="lg" /></p>
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
                   {forecast.totalRiskIn > 0 ? t('fc.kpiInRisk', { amount: formatRon(forecast.totalRiskIn) }) : t('fc.kpiInSub')}
                 </p>
               </div>
               <div className="card p-5">
                 <p className="kicker mb-2">{t('fc.kpiOut')}</p>
-                <p className="text-2xl brand">{formatRon(forecast.totalOut)}</p>
+                <p className="kpi"><Money value={forecast.totalOut} size="lg" /></p>
                 <p className={`text-xs mt-1 ${forecast.overdueOut > 0 ? 'text-amber-800 font-medium' : 'text-[color:var(--color-muted-foreground)]'}`}>
                   {forecast.overdueOut > 0 ? t('fc.kpiOutOverdue', { amount: formatRon(forecast.overdueOut) }) : t('fc.kpiOutSub')}
                 </p>
               </div>
               <div className={`card p-5 ${forecast.firstNegative ? 'bg-red-50' : ''}`}>
                 <p className="kicker mb-2">{t('fc.kpiLowest')}</p>
-                <p className={`text-2xl brand ${forecast.lowest && forecast.lowest.closing < 0 ? 'text-red-800' : ''}`}>
-                  {forecast.lowest ? formatRon(forecast.lowest.closing) : '—'}
+                <p className={`kpi ${forecast.lowest && forecast.lowest.closing < 0 ? 'text-red-800' : ''}`}>
+                  {forecast.lowest ? <Money value={forecast.lowest.closing} size="lg" /> : '—'}
                 </p>
                 <p className={`text-xs mt-1 ${forecast.firstNegative ? 'text-red-800 font-medium' : 'text-[color:var(--color-muted-foreground)]'}`}>
                   {forecast.firstNegative
@@ -284,7 +286,7 @@ export default function ForecastDashboard() {
                 </div>
                 <div className="flex gap-1.5 mt-2">
                   {forecast.weeks.map(week => (
-                    <span key={week.index} className="flex-1 text-center text-[10px] text-[color:var(--color-muted-foreground)] truncate">
+                    <span key={week.index} className="flex-1 text-center text-xs text-[color:var(--color-muted-foreground)] truncate">
                       {week.index % 2 === 0 ? formatRoDate(week.start).slice(0, 5) : ''}
                     </span>
                   ))}
@@ -327,12 +329,12 @@ export default function ForecastDashboard() {
                       aria-expanded={expanded}
                     >
                       <span className="font-medium">
-                        {items ? (expanded ? '▾ ' : '▸ ') : '  '}{shortRange(week)}
+                        {items ? <Chevron right={!expanded} className="inline mr-1 -mt-0.5" /> : <span className="inline-block w-4" />}{shortRange(week)}
                         {week.index === 0 && <span className="text-xs text-[color:var(--color-muted-foreground)]"> · {t('fc.thisWeek')}</span>}
                       </span>
                       <span className="text-right tabular-nums text-green-800">
                         {week.inflow ? formatAmount(week.inflow) : '—'}
-                        {week.riskInflow > 0 && <span className="block text-[11px] text-amber-800">+{formatAmount(week.riskInflow)} {t('fc.risk')}</span>}
+                        {week.riskInflow > 0 && <span className="block text-xs text-amber-800">+{formatAmount(week.riskInflow)} {t('fc.risk')}</span>}
                       </span>
                       <span className="text-right tabular-nums">{week.outflow ? formatAmount(week.outflow) : '—'}</span>
                       <span className={`text-right tabular-nums ${week.net < 0 ? 'text-red-800' : ''}`}>{formatAmount(week.net)}</span>

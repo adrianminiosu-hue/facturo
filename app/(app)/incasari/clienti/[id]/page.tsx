@@ -1,4 +1,5 @@
 'use client'
+import Money from '@/components/Money'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -313,7 +314,7 @@ export default function ClientCollectionPage() {
           <>
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mt-4 mb-6">
               <div className="min-w-0">
-                <h2 className="text-3xl text-[color:var(--color-foreground)]">{client.company_name}</h2>
+                <h2 className="page-title text-[color:var(--color-foreground)]">{client.company_name}</h2>
                 <p className="text-sm text-[color:var(--color-muted-foreground)] mt-1">
                   {[
                     client.cui ? t('cc.cui', { cui: client.cui }) : '',
@@ -354,19 +355,19 @@ export default function ClientCollectionPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="card p-5">
                 <p className="kicker mb-2">{t('cc.kpiBalance')}</p>
-                <p className="text-2xl brand">{formatRon(summary.openAmount)}</p>
+                <p className="kpi"><Money value={summary.openAmount} size="lg" /></p>
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t(summary.openCount === 1 ? 'cc.openInvoicesOne' : 'cc.openInvoices', { count: summary.openCount })}</p>
               </div>
               <div className={`card p-5 ${summary.overdueAmount > 0 ? 'bg-amber-50' : ''}`}>
                 <p className="kicker mb-2">{t('cc.kpiOverdue')}</p>
-                <p className={`text-2xl brand ${summary.overdueAmount > 0 ? 'text-amber-800' : ''}`}>{formatRon(summary.overdueAmount)}</p>
+                <p className={`kpi ${summary.overdueAmount > 0 ? 'text-amber-800' : ''}`}><Money value={summary.overdueAmount} size="lg" /></p>
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
                   {oldestOverdue ? `${oldestOverdue.series}${oldestOverdue.invoice_number} · ${t('cc.overdueFor', { count: summary.oldestOverdueDays })}` : '—'}
                 </p>
               </div>
               <div className="card p-5">
                 <p className="kicker mb-2">{t('cc.kpiDelay')}</p>
-                <p className="text-2xl brand">{summary.averageDelay === null ? '—' : t('cc.days', { count: fmtDays(summary.averageDelay) })}</p>
+                <p className="kpi">{summary.averageDelay === null ? '—' : t('cc.days', { count: fmtDays(summary.averageDelay) })}</p>
                 <p className={`text-xs mt-1 ${summary.trend === 'worse' ? 'text-amber-800 font-medium' : 'text-[color:var(--color-muted-foreground)]'}`}>
                   {summary.averageDelay === null
                     ? t('cc.noData')
@@ -377,7 +378,7 @@ export default function ClientCollectionPage() {
               </div>
               <div className="card p-5">
                 <p className="kicker mb-2">{t('cc.kpiBilledYear', { year })}</p>
-                <p className="text-2xl brand">{formatRon(billedYearTotal)}</p>
+                <p className="kpi"><Money value={billedYearTotal} size="lg" /></p>
                 <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
                   {t(billedYear.length === 1 ? 'cc.kpiBilledYearSubOne' : 'cc.kpiBilledYearSub', { count: billedYear.length })}
                   {rank > 0 && ranking.length > 1 ? ` · ${rank === 1 ? t('cc.rankFirst') : t('cc.rankN', { n: rank })}` : ''}
@@ -409,7 +410,7 @@ export default function ClientCollectionPage() {
                       </div>
                       <div className="flex gap-3 mt-1">
                         {bars.map(({ inv }) => (
-                          <span key={inv.id} className="flex-1 text-center text-[10px] text-[color:var(--color-muted-foreground)] truncate">{inv.series}{inv.invoice_number}</span>
+                          <span key={inv.id} className="flex-1 text-center text-xs text-[color:var(--color-muted-foreground)] truncate">{inv.series}{inv.invoice_number}</span>
                         ))}
                       </div>
                       <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('cc.chartLegend', { days: LATE_AVERAGE_DAYS })}</p>
@@ -457,7 +458,7 @@ export default function ClientCollectionPage() {
                         <span className="block">{formatRoDate(inv.due_date)}</span>
                         {dueLabel(inv)}
                       </div>
-                      <span className="font-semibold md:text-right">{formatRon(inv.rest)}</span>
+                      <span className="font-semibold md:text-right"><Money value={inv.rest} /></span>
                       <span className="text-xs text-[color:var(--color-muted-foreground)]">{reminderInfo(inv)}</span>
                       <div className="col-span-2 md:col-span-1 flex gap-2 md:justify-end">
                         <button

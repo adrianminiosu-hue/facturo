@@ -98,7 +98,7 @@ export default function EfacturaStatsCard({ companyId }: { companyId?: string | 
         <>
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3 mb-6">
             <div>
-              <p className={`text-4xl font-semibold tabular-nums ${rateTone(stats.transferRate)}`}>{rateText(stats.transferRate)}</p>
+              <p className={`kpi ${rateTone(stats.transferRate)}`}>{rateText(stats.transferRate)}</p>
               <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('efs.transfer')} · {t('efs.transferHint')}</p>
             </div>
             {data?.now && (data.now.queued > 0 || data.now.awaitingAnaf > 0) && (

@@ -160,7 +160,7 @@ export default function PaymentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40" onClick={onClose}>
       <div className="card w-full max-w-lg p-7 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <p className="kicker mb-2">{t('pay.title')}</p>
-        <h3 className="brand text-2xl mb-1">{invoice.series}{invoice.invoice_number}</h3>
+        <h3 className="text-xl font-semibold tracking-tight mb-1">{invoice.series}{invoice.invoice_number}</h3>
         <p className="text-sm text-[color:var(--color-muted-foreground)] mb-5">
           {firmName ? `${firmName} · ` : ''}{invoice.clients?.company_name || t('common.client')}
         </p>
@@ -201,15 +201,15 @@ export default function PaymentModal({
 
         <div className="grid grid-cols-3 gap-3 mb-6 text-sm">
           <div className="rounded-xl bg-[color:var(--color-muted)] p-3">
-            <p className="text-[11px] uppercase tracking-wide text-[color:var(--color-muted-foreground)]">{t('common.total')}</p>
+            <p className="text-xs uppercase tracking-wide text-[color:var(--color-muted-foreground)]">{t('common.total')}</p>
             <p className="mt-1 font-medium">{ron(Number(invoice.total))}</p>
           </div>
           <div className="rounded-xl bg-[color:var(--color-muted)] p-3">
-            <p className="text-[11px] uppercase tracking-wide text-[color:var(--color-muted-foreground)]">{t('pay.already')}</p>
+            <p className="text-xs uppercase tracking-wide text-[color:var(--color-muted-foreground)]">{t('pay.already')}</p>
             <p className="mt-1 font-medium">{ron(Number(invoice.amount_paid || 0))}</p>
           </div>
           <div className="rounded-xl bg-[color:var(--color-muted)] p-3">
-            <p className="text-[11px] uppercase tracking-wide text-[color:var(--color-muted-foreground)]">{t('pay.rest')}</p>
+            <p className="text-xs uppercase tracking-wide text-[color:var(--color-muted-foreground)]">{t('pay.rest')}</p>
             <p className="mt-1 font-medium">{ron(rest)}</p>
           </div>
         </div>
