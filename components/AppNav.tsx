@@ -9,6 +9,7 @@ import { useCompany } from '@/components/CompanyProvider'
 import BrandLockup from '@/components/BrandLockup'
 import UserAvatar from '@/components/UserAvatar'
 import LocaleSwitch from '@/components/LocaleSwitch'
+import { displayUserName } from '@/lib/userDisplay'
 import { useLocale } from '@/components/LocaleProvider'
 
 const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator', 'efactura'] as const
@@ -203,7 +204,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
           <LocaleSwitch />
           <Link href="/account" className="flex items-center gap-2 min-w-0" title={userEmail || t('nav.account')}>
             <UserAvatar url={userAvatarUrl} name={userName} email={userEmail} />
-            <span className="nav-meta text-sm hidden md:inline truncate max-w-[14rem]">{userEmail}</span>
+            <span className="nav-meta text-sm hidden md:inline truncate max-w-[14rem]" title={userEmail || undefined}>{displayUserName(userName) || userEmail}</span>
           </Link>
           <button
             onClick={handleLogout}
