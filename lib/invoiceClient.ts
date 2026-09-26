@@ -79,6 +79,9 @@ export type SimulatedSpvUpload = {
   environment: string
   endpoint?: string
   executionStatus: string
+  /** ANAF did not answer: the invoice is in the retry queue. */
+  queued?: boolean
+  nextAttemptAt?: string | null
   indexIncarcare?: string
   stare?: string
   error?: string
@@ -94,7 +97,7 @@ export type SimulatedSpvUpload = {
   }
 }
 
-export type BulkSpvOutcome = 'accepted' | 'rejected' | 'skipped' | 'error' | 'processing'
+export type BulkSpvOutcome = 'accepted' | 'rejected' | 'skipped' | 'error' | 'processing' | 'queued'
 
 export type BulkSpvResultItem = {
   invoiceId: string
@@ -115,6 +118,38 @@ export async function uploadToEfactura(invoiceId: string, userId: string): Promi
 }
 
 export const simulateSpvUpload = uploadToEfactura
+
+/** Asks the server to refresh ANAF states and resend queued invoices. Returns how many invoices changed. */
+export async function syncEfactura(force = false): Promise<{ changed: number; throttled?: boolean; skipped?: string }> {
+  const res = await fetch(`/api/efactura/sync${force ? '?force=1' : ''}`, { method: 'POST', headers: await authHeaders() })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Sincronizarea e-Factura a eșuat.')
+  return { changed: Number(data.changed) || 0, throttled: !!data.throttled, skipped: data.skipped }
+}
+
+export type EfacturaStatsResponse = {
+  available: boolean
+  reason?: string
+  days?: number
+  now?: { queued: number; awaitingAnaf: number }
+  stats?: {
+    out: { sent: number; accepted: number; rejected: number; pending: number; acceptedFirstTry: number; recoveredAfterOutage: number; blockedBeforeSend: number; acceptanceRate: number | null }
+    in: { messages: number; imported: number; alreadyKnown: number; failed: number; importRate: number | null }
+    transferRate: number | null
+    outages: number
+    topErrors: Array<{ message: string; count: number }>
+  }
+  recent?: Array<{ invoice_ref?: string | null; direction: 'out' | 'in'; operation: string; outcome: string; message?: string | null; code?: string | null; trigger?: string; created_at: string }>
+}
+
+export async function loadEfacturaStats(days = 30, companyId?: string | null): Promise<EfacturaStatsResponse> {
+  const params = new URLSearchParams({ days: String(days) })
+  if (companyId) params.set('companyId', companyId)
+  const res = await fetch(`/api/efactura/stats?${params.toString()}`, { headers: await authHeaders() })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Statisticile e-Factura nu au putut fi încărcate.')
+  return data
+}
 
 export async function simulateSpvUploads(
   invoiceIds: string[],

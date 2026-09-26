@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runDueReminders } from '@/lib/dueReminders'
 import { runAnafRefresh } from '@/lib/anafRefresh'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { runEfacturaSync } from '@/lib/efacturaSync'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -31,10 +32,21 @@ async function handle(request: NextRequest) {
         anaf = { error: anafError instanceof Error ? anafError.message : 'ANAF refresh failed' }
       }
     }
+    // e-Factura: states ANAF has not answered yet + invoices waiting in the retry queue. Non-fatal as well.
+    let efactura: { checked: number; retried: number; partial: boolean; skipped?: string } | { error: string } | undefined
+    if (!dryRun) {
+      try {
+        const synced = await runEfacturaSync(supabaseAdmin(), { budgetMs: 25_000 })
+        efactura = { checked: synced.checked, retried: synced.retried, partial: synced.partial, skipped: synced.skipped }
+      } catch (syncError) {
+        efactura = { error: syncError instanceof Error ? syncError.message : 'e-Factura sync failed' }
+      }
+    }
     const report = await runDueReminders({ dryRun })
     return NextResponse.json({
       ok: true,
       anaf,
+      efactura,
       ...report,
       sent: report.results.filter(r => r.status === 'sent').length,
       skipped: report.results.filter(r => r.status === 'skipped').length,

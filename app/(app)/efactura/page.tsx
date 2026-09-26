@@ -11,6 +11,7 @@ import {
   type EfacturaConnection
 } from '@/lib/invoiceClient'
 import { useLocale } from '@/components/LocaleProvider'
+import EfacturaStatsCard from '@/components/EfacturaStatsCard'
 
 function formatExpiry(value?: string | null) {
   if (!value) return '—'
@@ -22,7 +23,7 @@ function formatExpiry(value?: string | null) {
 export default function EfacturaSettingsPage() {
   const router = useRouter()
   const { t } = useLocale()
-  const { userId, ownerUserId, isOwner, loading: companyLoading } = useCompany()
+  const { userId, ownerUserId, isOwner, company, loading: companyLoading } = useCompany()
   const [connection, setConnection] = useState<EfacturaConnection | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -167,6 +168,8 @@ export default function EfacturaSettingsPage() {
             <li>{t('set.step4')}</li>
           </ol>
         </div>
+
+        <EfacturaStatsCard companyId={company?.id} />
       </div>
     </div>
   )

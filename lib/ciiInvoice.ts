@@ -95,6 +95,7 @@ export function parseCiiInvoice(root: XmlNode): UblInvoice {
 
   const { series, number } = splitInvoiceId(id)
   return {
+    syntax: 'CII',
     typeCode,
     isCreditNote: typeCode === '381',
     id,

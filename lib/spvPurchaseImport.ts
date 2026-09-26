@@ -1,4 +1,5 @@
-import { anafFetch, descarcareMesaj } from '@/lib/anafEfactura'
+import { anafFetch, descarcareMesaj, isAnafUnavailable } from '@/lib/anafEfactura'
+import { logEfactura } from '@/lib/efacturaLog'
 import { anafEfacturaEnvironment } from '@/lib/anafOAuth'
 import { notesWithPurchaseMark } from '@/lib/invoiceStatus'
 import { invoicePartySnapshots } from '@/lib/invoicePersist'
@@ -66,8 +67,17 @@ export function parseMessageList(body: unknown): { messages: SpvMessage[]; total
 
 /** Received invoices of the last 60 days for a CIF, all pages. */
 export async function listReceivedInvoices(accessToken: string, cif: string) {
+  return listSpvMessages(accessToken, cif, { filter: 'P' })
+}
+
+/**
+ * SPV messages for a CIF, all pages. Filters: P = received invoices, T = sent invoices,
+ * E = errors, R = buyer messages. Window: from `startMs` (default 60 days back) to now.
+ */
+export async function listSpvMessages(accessToken: string, cif: string, opts: { filter: 'P' | 'T' | 'E' | 'R'; startMs?: number }) {
   const end = Date.now() - 60_000
-  const start = end - LOOKBACK_DAYS * 86400000 + 60_000
+  const oldest = end - LOOKBACK_DAYS * 86400000 + 60_000
+  const start = Math.min(end - 60_000, Math.max(oldest, opts.startMs ?? oldest))
   const all: SpvMessage[] = []
   for (let page = 1; page <= 50; page++) {
     const params = new URLSearchParams({
@@ -75,7 +85,7 @@ export async function listReceivedInvoices(accessToken: string, cif: string) {
       endTime: String(end),
       cif,
       pagina: String(page),
-      filtru: 'P'
+      filtru: opts.filter
     })
     const res = await anafFetch(`/listaMesajePaginatieFactura?${params.toString()}`, accessToken)
     const text = await res.text()
@@ -163,12 +173,22 @@ export async function importSpvPurchases(db: Db, opts: {
   ownerUserId: string
   companyId?: string | null
   buyer: PurchaseBuyer
+  trigger?: 'user' | 'job'
 }): Promise<SpvImportResult> {
   const cif = cuiDigits(String(opts.buyer.cui || ''))
   if (!cif) throw new Error('Completează CUI-ul firmei ca să poți importa facturile din SPV.')
 
-  const messages = (await listReceivedInvoices(opts.accessToken, cif))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const log = (entry: Omit<Parameters<typeof logEfactura>[1], 'userId' | 'companyId' | 'direction' | 'operation' | 'trigger'>) =>
+    logEfactura(db, { userId: opts.ownerUserId, companyId: opts.companyId, direction: 'in', operation: 'import', trigger: opts.trigger || 'user', ...entry })
+
+  let listed: SpvMessage[]
+  try {
+    listed = await listReceivedInvoices(opts.accessToken, cif)
+  } catch (error) {
+    await log({ outcome: isAnafUnavailable(error) ? 'unavailable' : 'error', code: 'LIST', message: error instanceof Error ? error.message : String(error) })
+    throw error
+  }
+  const messages = listed.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   const existing = await loadPurchaseRows(db, { ownerUserId: opts.ownerUserId, companyId: opts.companyId })
   const knownIndexes = new Set(existing.map(row => String(row.efactura_index || '')).filter(Boolean))
   const pending = messages.filter(m => !knownIndexes.has(m.idSolicitare))
@@ -184,6 +204,7 @@ export async function importSpvPurchases(db: Db, opts: {
   }
 
   for (const message of batch) {
+    const started = Date.now()
     try {
       const { zip, entries } = await descarcareMesaj(opts.accessToken, message.id)
       const xmlEntry = entries.find(e => /\.xml$/i.test(e.name) && !/^semnatura/i.test(e.name))
@@ -197,6 +218,7 @@ export async function importSpvPurchases(db: Db, opts: {
         `${row.series || ''}${row.invoice_number || ''}`.replace(/\s/g, '') === `${inv.series}${inv.number}`.replace(/\s/g, '')
       )
       if (duplicate) {
+        await log({ outcome: 'skipped', messageId: message.id, indexIncarcare: message.idSolicitare, invoiceRef: inv.id, code: 'DUPLICATE', message: 'Factura era deja înregistrată (același furnizor și număr).', durationMs: Date.now() - started })
         result.skipped += 1
         result.invoices.push(purchaseInvoiceFromRow({ invoice: duplicate, buyer: opts.buyer }))
         continue
@@ -260,9 +282,12 @@ export async function importSpvPurchases(db: Db, opts: {
       knownIndexes.add(message.idSolicitare)
       existing.push({ ...created, clients: supplier })
       result.added += 1
+      await log({ outcome: 'ok', invoiceId: created.id, messageId: message.id, indexIncarcare: message.idSolicitare, invoiceRef: inv.id, code: inv.syntax, durationMs: Date.now() - started })
       result.invoices.push(purchaseInvoiceFromRow({ invoice: created, items: itemRows, supplier, buyer: opts.buyer }))
     } catch (e) {
-      result.failed.push({ messageId: message.id, error: e instanceof Error ? e.message : String(e) })
+      const error = e instanceof Error ? e.message : String(e)
+      await log({ outcome: isAnafUnavailable(e) ? 'unavailable' : 'error', messageId: message.id, indexIncarcare: message.idSolicitare, message: error, durationMs: Date.now() - started })
+      result.failed.push({ messageId: message.id, error })
     }
   }
 

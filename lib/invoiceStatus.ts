@@ -37,6 +37,13 @@ export function isEfacturaProcessing(invoice: {
   return invoice.efactura_status === 'uploaded' || invoice.efactura_status === 'in_processing'
 }
 
+/** ANAF did not answer at upload: the invoice waits in the retry queue and is resent automatically. */
+export function isEfacturaQueued(invoice: {
+  efactura_status?: string | null
+}) {
+  return invoice.efactura_status === 'queued'
+}
+
 export function alreadySentToSpv(invoice: {
   status?: string | null
   efactura_status?: string | null
@@ -65,6 +72,9 @@ export function invoiceStatusAppearance(invoice: {
   }
   if (isEfacturaProcessing(invoice)) {
     return { key: 'status.anafProcessing' as const, label: 'În prelucrare ANAF', style: 'bg-amber-50 text-amber-800' }
+  }
+  if (isEfacturaQueued(invoice)) {
+    return { key: 'status.anafQueued' as const, label: 'În coadă ANAF', style: 'bg-amber-50 text-amber-800' }
   }
   // A rejected e-Factura is not a validly issued invoice: that outranks "paid" until it is corrected and resent.
   if (invoice.efactura_status === 'rejected') {

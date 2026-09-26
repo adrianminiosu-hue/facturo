@@ -7,7 +7,7 @@ import Link from 'next/link'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
 import InvoiceOverflow from '@/components/InvoiceOverflow'
-import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
+import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload, syncEfactura } from '@/lib/invoiceClient'
 import type { BulkSpvOutcome, BulkSpvResultItem, SimulatedSpvUpload } from '@/lib/invoiceClient'
 import { addDaysIso, calendarDateInBucharest, formatRoDate, startOfIsoWeek } from '@/lib/dates'
 import type { MessageKey } from '@/lib/messages'
@@ -89,7 +89,8 @@ const OUTCOME_STYLE: Record<BulkSpvOutcome, string> = {
   rejected: 'text-red-500',
   skipped: 'text-[color:var(--color-muted-foreground)]',
   error: 'text-red-500',
-  processing: 'text-amber-700'
+  processing: 'text-amber-700',
+  queued: 'text-amber-700'
 }
 
 export default function Invoices() {
@@ -127,6 +128,8 @@ export default function Invoices() {
     init()
   }, [company?.id, userId, companyLoading])
 
+  const efacturaSynced = useRef(false)
+
   const loadInvoices = async () => {
     let query = supabase
       .from('invoices')
@@ -138,6 +141,13 @@ export default function Invoices() {
       ((data || []) as Invoice[]).filter(inv => !isPurchaseInvoice(inv)).map(inv => ensureConvertedInvoiceAmounts(supabase, inv))
     )
     setInvoices(rows)
+    // Invoices waiting for ANAF (queued or not answered yet): refresh them in the background, once per visit.
+    if (!efacturaSynced.current && rows.some(inv => ['queued', 'uploaded', 'in_processing'].includes(String(inv.efactura_status)))) {
+      efacturaSynced.current = true
+      syncEfactura()
+        .then(result => { if (result.changed > 0) loadInvoices() })
+        .catch(() => { /* next visit tries again */ })
+    }
     const originals = rows
       .filter(inv => !isDraftInvoice(inv.status) && !isCreditNote(inv.invoice_type_code))
       .map(inv => inv.id)
@@ -177,7 +187,7 @@ export default function Invoices() {
     setSpvBusyId(invoice.id)
     try {
       const data = await simulateSpvUpload(invoice.id, userId)
-      if (data.executionStatus === '0') {
+      if (data.executionStatus === '0' || data.queued) {
         setInvoices(prev => prev.map(inv => inv.id === invoice.id ? {
           ...inv,
           status: data.invoicePatch?.status || inv.status,
@@ -389,7 +399,7 @@ export default function Invoices() {
         try {
           const data = await simulateSpvUpload(inv.id, userId)
           if (data.note) lastNote = data.note
-          if (data.executionStatus === '0') {
+          if (data.executionStatus === '0' || data.queued) {
             setInvoices(prev => prev.map(row => row.id === inv.id ? {
               ...row,
               status: data.invoicePatch?.status || row.status,
@@ -402,10 +412,12 @@ export default function Invoices() {
           results.push({
             invoiceId: inv.id,
             invoiceRef: data.invoiceRef || invoiceRef(inv),
-            outcome: data.executionStatus === '0'
-              ? (data.invoicePatch?.efactura_status === 'in_processing' || data.invoicePatch?.efactura_status === 'uploaded' ? 'processing' : 'accepted')
-              : 'rejected',
-            error: data.error
+            outcome: data.queued
+              ? 'queued'
+              : data.executionStatus === '0'
+                ? (data.invoicePatch?.efactura_status === 'in_processing' || data.invoicePatch?.efactura_status === 'uploaded' ? 'processing' : 'accepted')
+                : 'rejected',
+            error: data.queued ? data.note : data.error
           })
         } catch (e) {
           results.push({
@@ -831,8 +843,10 @@ export default function Invoices() {
                 <p className="text-sm font-mono break-all mb-4">{spvResult.endpoint}</p>
               </>
             )}
-            <p className={`text-sm font-medium mb-3 ${spvResult.executionStatus === '0' ? (spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'text-amber-700' : 'text-green-600') : 'text-red-600'}`}>
-              {spvResult.executionStatus === '0'
+            <p className={`text-sm font-medium mb-3 ${spvResult.queued ? 'text-amber-700' : spvResult.executionStatus === '0' ? (spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'text-amber-700' : 'text-green-600') : 'text-red-600'}`}>
+              {spvResult.queued
+                ? t('inv.queuedResult')
+                : spvResult.executionStatus === '0'
                 ? t(spvResult.invoicePatch?.efactura_status === 'in_processing' ? 'inv.processingIndex' : 'inv.acceptedIndex', {
                     index: spvResult.indexIncarcare || '—',
                     stare: spvResult.stare || '—'

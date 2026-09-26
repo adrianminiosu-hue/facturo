@@ -10,7 +10,7 @@ import InvoicePaymentsSection from '@/components/InvoicePaymentsSection'
 import PaymentModal from '@/components/PaymentModal'
 import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload, checkInvoiceAtAnaf } from '@/lib/invoiceClient'
-import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isEfacturaQueued, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey } from '@/lib/uiLabels'
 import { formatAmount, formatRon } from '@/lib/money'
@@ -248,13 +248,14 @@ export default function InvoiceViewPage() {
           <span className={`text-xs px-2 py-1 rounded-lg font-medium ${status.style}`}>{t(status.key)}</span>
           {invoice.efactura_status === 'rejected' && <span className="text-xs text-red-700">{t('inv.rejectedFix')}</span>}
           {isEfacturaProcessing(invoice) && <span className="text-xs text-amber-700">{t('inv.anafWorking')}</span>}
+          {isEfacturaQueued(invoice) && <span className="text-xs text-amber-700">{t('inv.anafQueued')}</span>}
           {invoice.efactura_index && (
             <span className="text-xs font-mono text-[color:var(--color-muted-foreground)]">index {invoice.efactura_index}</span>
           )}
           {hasStorno && <span className="text-xs text-[color:var(--color-muted-foreground)]">{t('inv.hasStorno')}</span>}
         </div>
         {invoice.efactura_error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-6">
+          <p className={`text-sm rounded-xl px-3 py-2 mb-6 border ${isEfacturaQueued(invoice) ? 'text-amber-800 bg-amber-50 border-amber-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
             {invoice.efactura_error}
           </p>
         )}

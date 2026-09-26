@@ -1,50 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { deflateRawSync } from 'node:zlib'
+import { makeZip } from './__fixtures__/makeZip'
 import { importSpvPurchases } from './spvPurchaseImport'
 
 const fixture = (name: string) => readFileSync(join(__dirname, '__fixtures__', name), 'utf8')
-
-/** Minimal ZIP writer (same layout ANAF's Java archives have: sizes in the central directory). */
-function makeZip(files: Array<{ name: string; text: string }>) {
-  const locals: Buffer[] = []
-  const centrals: Buffer[] = []
-  let offset = 0
-  for (const f of files) {
-    const name = Buffer.from(f.name)
-    const plain = Buffer.from(f.text)
-    const body = deflateRawSync(plain)
-    const local = Buffer.alloc(30)
-    local.writeUInt32LE(0x04034b50, 0)
-    local.writeUInt16LE(8, 8)
-    local.writeUInt16LE(name.length, 26)
-    locals.push(local, name, body)
-    const central = Buffer.alloc(46)
-    central.writeUInt32LE(0x02014b50, 0)
-    central.writeUInt16LE(8, 10)
-    central.writeUInt32LE(body.length, 20)
-    central.writeUInt32LE(plain.length, 24)
-    central.writeUInt16LE(name.length, 28)
-    central.writeUInt32LE(offset, 42)
-    centrals.push(central, name)
-    offset += 30 + name.length + body.length
-  }
-  const cd = Buffer.concat(centrals)
-  const eocd = Buffer.alloc(22)
-  eocd.writeUInt32LE(0x06054b50, 0)
-  eocd.writeUInt16LE(files.length, 8)
-  eocd.writeUInt16LE(files.length, 10)
-  eocd.writeUInt32LE(cd.length, 12)
-  eocd.writeUInt32LE(offset, 16)
-  return Buffer.concat([...locals, cd, eocd])
-}
 
 type Row = Record<string, any>
 
 /** In-memory stand-in for the Supabase client, covering the calls the import makes. */
 function fakeDb() {
-  const tables: Record<string, Row[]> = { invoices: [], clients: [], invoice_items: [] }
+  const tables: Record<string, Row[]> = { invoices: [], clients: [], invoice_items: [], efactura_log: [] }
   const uploads: string[] = []
   let seq = 0
   const query = (table: string) => {
@@ -144,6 +110,15 @@ describe('importSpvPurchases (end to end with a fake ANAF and database)', () => 
     expect(db.tables.clients.every(c => c.is_supplier === true)).toBe(true)
     expect(db.uploads).toEqual(['u1/company-1/primite/3001.zip', 'u1/company-1/primite/3002.zip', 'u1/company-1/primite/3004.zip'])
 
+    const journal = db.tables.efactura_log
+    expect(journal.map(r => [r.message_id, r.outcome, r.code])).toEqual([
+      ['3001', 'ok', 'UBL'],
+      ['3002', 'ok', 'UBL'],
+      ['3003', 'error', null],
+      ['3004', 'ok', 'CII']
+    ])
+    expect(journal.every(r => r.direction === 'in' && r.operation === 'import' && r.user_id === 'u1')).toBe(true)
+
     const second = await importSpvPurchases(db, opts(db))
     expect(second.added).toBe(0)
     expect(second.skipped).toBe(3)
@@ -154,5 +129,6 @@ describe('importSpvPurchases (end to end with a fake ANAF and database)', () => 
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ eroare: 'Nu aveti drept in SPV pentru CIF=12312343' }))))
     const db = fakeDb()
     await expect(importSpvPurchases(db, opts(db))).rejects.toThrow('Nu aveti drept')
+    expect(db.tables.efactura_log).toMatchObject([{ outcome: 'error', code: 'LIST' }])
   })
 })

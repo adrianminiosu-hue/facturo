@@ -24,6 +24,8 @@ export type UblLine = {
 }
 
 export type UblInvoice = {
+  /** Source syntax: UBL (Invoice / CreditNote) or CII (CrossIndustryInvoice). */
+  syntax: 'UBL' | 'CII'
   typeCode: string
   isCreditNote: boolean
   id: string
@@ -136,6 +138,7 @@ export function parseUblInvoice(xml: string): UblInvoice {
 
   const { series, number } = splitInvoiceId(id)
   return {
+    syntax: 'UBL',
     typeCode: textAt(root, isCreditNote ? 'CreditNoteTypeCode' : 'InvoiceTypeCode') || (isCreditNote ? '381' : '380'),
     isCreditNote,
     id,

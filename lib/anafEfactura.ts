@@ -77,16 +77,51 @@ function tokenError() {
   return `Tokenul ANAF a expirat sau nu este valid. Reconectează e-Factura (${anafEnvironmentLabel()}) din Setări.`
 }
 
-export async function anafFetch(path: string, accessToken: string, init?: RequestInit) {
-  const res = await fetch(`${anafEfacturaBase()}${path}`, {
-    ...init,
-    cache: 'no-store',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init?.headers || {})
+/**
+ * ANAF did not answer (network error, timeout, 5xx, 429): the request may be repeated later.
+ * Distinct from a rejection, which is final until the invoice is corrected.
+ */
+export class AnafUnavailableError extends Error {
+  readonly kind: 'network' | 'timeout' | 'server'
+  readonly status?: number
+  constructor(kind: 'network' | 'timeout' | 'server', message: string, status?: number) {
+    super(message)
+    this.name = 'AnafUnavailableError'
+    this.kind = kind
+    this.status = status
+  }
+}
+
+export function isAnafUnavailable(error: unknown): error is AnafUnavailableError {
+  return error instanceof AnafUnavailableError || (error instanceof Error && error.name === 'AnafUnavailableError')
+}
+
+export const ANAF_TIMEOUT_MS = 30_000
+
+export async function anafFetch(path: string, accessToken: string, init?: RequestInit & { timeoutMs?: number }) {
+  const { timeoutMs = ANAF_TIMEOUT_MS, ...rest } = init || {}
+  let res: Response
+  try {
+    res = await fetch(`${anafEfacturaBase()}${path}`, {
+      ...rest,
+      cache: 'no-store',
+      signal: rest.signal ?? AbortSignal.timeout(timeoutMs),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(rest.headers || {})
+      }
+    })
+  } catch (error) {
+    const name = error instanceof Error ? error.name : ''
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      throw new AnafUnavailableError('timeout', `ANAF nu a răspuns în ${Math.round(timeoutMs / 1000)} secunde.`)
     }
-  })
+    throw new AnafUnavailableError('network', `ANAF nu poate fi contactat (${error instanceof Error ? error.message : 'eroare de rețea'}).`)
+  }
   if (res.status === 401 || res.status === 403) throw new Error(tokenError())
+  if (res.status >= 500 || res.status === 429) {
+    throw new AnafUnavailableError('server', `ANAF este indisponibil momentan (HTTP ${res.status}).`, res.status)
+  }
   return res
 }
 
@@ -108,13 +143,15 @@ export async function uploadEfacturaXml(input: {
     body: input.xml
   })
   const text = await res.text()
-  if (!text.trim()) throw new Error(`ANAF nu a returnat un răspuns la încărcare (HTTP ${res.status}).`)
+  if (!text.trim()) throw new AnafUnavailableError('server', `ANAF nu a returnat un răspuns la încărcare (HTTP ${res.status}).`, res.status)
   return parseUploadResponse(text)
 }
 
 export async function stareMesaj(accessToken: string, indexIncarcare: string): Promise<AnafStareResult> {
   const res = await anafFetch(`/stareMesaj?id_incarcare=${encodeURIComponent(indexIncarcare)}`, accessToken)
-  return parseStareResponse(await res.text())
+  const text = await res.text()
+  if (!text.trim()) throw new AnafUnavailableError('server', `ANAF nu a returnat starea facturii (HTTP ${res.status}).`, res.status)
+  return parseStareResponse(text)
 }
 
 /** /descarcare returns a ZIP: the invoice XML + ANAF signature, or the error XML. JSON on failure. */
