@@ -329,14 +329,9 @@ body {
 
   .brand-veyro-wordmark {
     display: block;
-    height: calc(var(--brand-word) * 0.72);
+    height: calc(var(--brand-word) * 0.78);
     width: auto;
     color: inherit;
-  }
-
-  .brand-lockup-veyro .brand-byline {
-    margin-top: calc(var(--brand-byline-gap) + 0.14rem);
-    letter-spacing: 0.3em;
   }
 
   .brand-byline {

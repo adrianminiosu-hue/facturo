@@ -8,6 +8,7 @@ import { useLocale } from '@/components/LocaleProvider'
 import { supabase } from '@/lib/supabase'
 import { track } from '@/lib/landingTrack'
 import { legalCompany } from '@/config/company'
+import { BRAND } from '@/lib/brand'
 import PhoneMock from '@/components/landing/PhoneMock'
 import DesktopMock from '@/components/landing/DesktopMock'
 import { type LandingDevice } from '@/components/landing/DeviceSwitch'
@@ -133,7 +134,7 @@ export default function LandingPage() {
 
       <footer className="landing-footer landing-shell">
         <p>
-          © 2026 {legalCompany.name} · CUI {legalCompany.cui}
+          © 2026 {BRAND.name} · {legalCompany.name} · CUI {legalCompany.cui}
         </p>
         <nav aria-label={t('landing.legal')}>
           <Link href="/gdpr">{t('landing.privacy')}</Link>

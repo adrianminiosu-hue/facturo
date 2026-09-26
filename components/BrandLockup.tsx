@@ -12,10 +12,7 @@ export default function BrandLockup({
 }) {
   const inner = BRAND_ID === 'veyro' ? (
     <span className={`brand-lockup brand-lockup-veyro inline-flex items-center shrink-0${size === 'sm' ? ' brand-lockup-sm' : ''}`}>
-      <span className="flex flex-col items-start">
-        <VeyroWordmark className="brand-veyro-wordmark" />
-        <span className="brand-byline">BY FINSQUARE</span>
-      </span>
+      <VeyroWordmark className="brand-veyro-wordmark" />
     </span>
   ) : (
     <span className={`brand-lockup inline-flex items-center gap-2.5 shrink-0${size === 'sm' ? ' brand-lockup-sm' : ''}`}>
