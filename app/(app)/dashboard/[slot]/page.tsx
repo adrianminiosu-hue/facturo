@@ -4,6 +4,7 @@ import CollectionsDashboard from '@/components/CollectionsDashboard'
 import ForecastDashboard from '@/components/ForecastDashboard'
 import DashboardWorkspace from '@/components/DashboardWorkspace'
 import SalesDashboard from '@/components/SalesDashboard'
+import PurchasesDashboard from '@/components/PurchasesDashboard'
 import { slotFromParam, visibleDashboardSlots } from '@/lib/dashboardSlots'
 
 const SLOTS = [1, 2, 3, 4, 5] as const
@@ -24,6 +25,7 @@ export default function ExtraDashboardPage() {
     )
   }
   if (slot === 1) return <SalesDashboard />
+  if (slot === 2) return <PurchasesDashboard />
   if (slot === 3) return <ForecastDashboard />
   if (slot === 4) return <CollectionsDashboard />
   return <DashboardWorkspace slot={slot} />

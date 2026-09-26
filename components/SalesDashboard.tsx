@@ -9,6 +9,8 @@ import { getCurrentUser, supabase } from '@/lib/supabase'
 import { calendarDateInBucharest } from '@/lib/dates'
 import { isCreditNote, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatDecimal } from '@/lib/money'
+import { countWord } from '@/lib/i18n'
+import { isMessageKey } from '@/lib/messages'
 import Money from '@/components/Money'
 
 type InvoiceRow = {
@@ -164,7 +166,8 @@ export default function SalesDashboard() {
 
   const { current, change, days, collected, topCustomers } = view
   // Romanian: "10 zile", but "20 de zile" from 20 up.
-  const n = (value: number) => (locale === 'ro' && value >= 20 ? `${value} de` : String(value))
+  const n = (value: number) => countWord(value, locale)
+  const tc = (key: string, count: number) => (count === 1 && isMessageKey(`${key}One`) ? t(`${key}One`) : t(key, { count: n(count) }))
   const changeText = change === null ? null : `${change > 0 ? '+' : change < 0 ? '−' : ''}${formatDecimal(Math.abs(change), Math.abs(change) < 10 ? 1 : 0)}%`
   const changeTone = change === null || change === 0 ? 'text-[color:var(--color-muted-foreground)]' : change > 0 ? 'text-green-700' : 'text-red-700'
 
@@ -200,7 +203,7 @@ export default function SalesDashboard() {
             <div>
               <p className="kpi text-[color:var(--color-foreground)]"><Money value={current.amount} size="lg" /></p>
               <p className="text-sm text-[color:var(--color-muted-foreground)] mt-2">
-                {t('dash.sales.issuedCount', { count: current.count })}
+                {tc('dash.sales.issuedCount', current.count)}
                 {changeText && (
                   <>
                     {' · '}

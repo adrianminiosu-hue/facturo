@@ -27,13 +27,16 @@ export default function DailyInvoicedChart({
   title,
   kicker,
   emptyLabel,
-  chartId = 'daily'
+  chartId = 'daily',
+  labels
 }: {
   days: DailyAmount[]
   title?: string
   kicker?: string
   emptyLabel?: string
   chartId?: string
+  /** Series names when the chart is not sales (e.g. purchases: "Achiziționat" / "Plătit"). */
+  labels?: { first: string; second: string }
 }) {
   const { t, locale } = useLocale()
   const invoicedFill = `facturoBarInvoiced-${chartId}`
@@ -61,17 +64,19 @@ export default function DailyInvoicedChart({
           <p className="kicker mb-2">{kicker || t('dash.dailyVolume')}</p>
           <h3 className="text-lg font-semibold tracking-tight text-[color:var(--color-foreground)]">{title || t('dash.last15')}</h3>
           <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
-            {t('dash.invoicedCollected', { invoiced: formatRon(invoicedTotal), collected: formatRon(collectedTotal) })}
+            {labels
+              ? `${labels.first} ${formatRon(invoicedTotal)} · ${labels.second} ${formatRon(collectedTotal)}`
+              : t('dash.invoicedCollected', { invoiced: formatRon(invoicedTotal), collected: formatRon(collectedTotal) })}
           </p>
         </div>
         <div className="flex items-center gap-4 text-xs text-[color:var(--color-muted-foreground)]">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm bg-[color:var(--chart-1)]" />
-            {t('chart.invoiced')}
+            {labels?.first || t('chart.invoiced')}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm bg-[color:var(--chart-2)]" />
-            {t('chart.collections')}
+            {labels?.second || t('chart.collections')}
           </span>
         </div>
       </div>
@@ -138,7 +143,7 @@ export default function DailyInvoicedChart({
                   onMouseEnter={() => setActive(i)}
                   onMouseLeave={() => setActive(null)}
                 >
-                  <title>{t('chart.tooltip', { date: formatRoDate(day.date), invoiced: formatRon(day.invoiced), collected: formatRon(day.collected) })}</title>
+                  <title>{labels ? `${formatRoDate(day.date)} · ${labels.first} ${formatRon(day.invoiced)} · ${labels.second} ${formatRon(day.collected)}` : t('chart.tooltip', { date: formatRoDate(day.date), invoiced: formatRon(day.invoiced), collected: formatRon(day.collected) })}</title>
                 </rect>
                 {day.invoiced === 0 && (
                   <rect x={groupX} y={pad.top + innerH - 3} width={barW} height={3} rx={1.5} className="fill-[color:var(--muted)]" />
@@ -200,8 +205,8 @@ export default function DailyInvoicedChart({
         {active !== null && days[active] && (
           <div className="pointer-events-none absolute right-0 top-0 rounded-xl bg-[color:var(--foreground)] text-[color:var(--primary-foreground)] px-3 py-2 text-xs shadow-elevated">
             <p className="uppercase tracking-wider opacity-70">{formatRoDate(days[active].date)}</p>
-            <p className="mt-1">{t('chart.invoiced')} <Money value={days[active].invoiced} /></p>
-            <p>{t('chart.collected')} <Money value={days[active].collected} /></p>
+            <p className="mt-1">{labels?.first || t('chart.invoiced')} <Money value={days[active].invoiced} /></p>
+            <p>{labels?.second || t('chart.collected')} <Money value={days[active].collected} /></p>
           </div>
         )}
       </div>
