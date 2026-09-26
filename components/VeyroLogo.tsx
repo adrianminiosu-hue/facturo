@@ -1,33 +1,51 @@
 /**
- * Veyro logo, direction "Interval": a full left blade and a short, detached right blade.
- * Drawn on a 100-unit cap height; colour = currentColor, so it follows light and dark themes.
+ * Veyro logo, direction E ("ribbon V in the word"): a flat folded ribbon V in two cobalt tones,
+ * which is also the first letter of "Veyro". Letters "eyro" follow currentColor (ink or paper).
+ * Drawn on a 100-unit cap height; the wordmark is 366 × 130 (the "y" descends to 128).
  */
-type Props = { className?: string; style?: React.CSSProperties; title?: string }
+type Props = { className?: string; style?: React.CSSProperties; title?: string; mono?: boolean }
 
-const V_PATHS = (
-  <>
-    <polygon points="0,0 15,0 44.5,100 29.5,100" />
-    <polygon points="59,0 74,0 56,60 41,60" />
-  </>
-)
+export const VEYRO_RIBBON = { light: '#6C7BFF', deep: '#2F45C6' }
 
-export function VeyroMark({ className, style, title }: Props) {
+/** The ribbon V. `mono`: one colour (currentColor) with a channel between the blades, for print and stamps. */
+function RibbonV({ mono = false }: { mono?: boolean }) {
+  if (mono) {
+    return (
+      <g fill="currentColor">
+        <polygon points="0,0 30,0 64,100 34,100" />
+        <polygon points="70,0 100,0 67.1,91.4 52.5,48.6" />
+      </g>
+    )
+  }
   return (
-    <svg viewBox="0 0 74 100" className={className} style={style} fill="currentColor" role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true} focusable="false">
-      {V_PATHS}
+    <>
+      <polygon points="0,0 30,0 64,100 34,100" fill={VEYRO_RIBBON.light} />
+      <polygon points="70,0 100,0 64,100 34,100" fill={VEYRO_RIBBON.deep} />
+    </>
+  )
+}
+
+export function VeyroMark({ className, style, title, mono }: Props) {
+  return (
+    <svg viewBox="0 0 100 100" className={className} style={style} role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true} focusable="false">
+      <RibbonV mono={mono} />
     </svg>
   )
 }
 
-export function VeyroWordmark({ className, style, title = 'Veyro' }: Props) {
+export function VeyroWordmark({ className, style, title = 'Veyro', mono }: Props) {
   return (
-    <svg viewBox="0 0 388 100" className={className} style={style} fill="currentColor" role="img" aria-label={title} focusable="false">
-      {V_PATHS}
-      <path d="M85 0H139V13H98V43.5H134V56.5H98V87H139V100H85Z" />
-      <polygon points="148,0 163,0 182,36 201,0 216,0 188.5,53 188.5,100 175.5,100 175.5,53" />
-      <path fillRule="evenodd" d="M227 0H264A28.5 28.5 0 0 1 264 57H240V100H227Z M240 13H264A15.5 15.5 0 0 1 264 44H240Z" />
-      <polygon points="256,50 271,50 293,100 278,100" />
-      <path fillRule="evenodd" d="M345 0A43 50 0 1 1 344.99 0Z M345 13A30 37 0 1 0 345.01 13Z" />
+    <svg viewBox="0 0 366 130" className={className} style={style} role="img" aria-label={title} focusable="false">
+      <RibbonV mono={mono} />
+      <g fill="currentColor">
+        <polygon points="178,30 194,30 218.3,100 202.3,100" />
+        <polygon points="226,30 242,30 208,128 192,128" />
+      </g>
+      <g fill="none" stroke="currentColor" strokeWidth={15} strokeLinecap="butt" strokeLinejoin="miter">
+        <path d="M109.5 65H164.5A27.5 27.5 0 1 0 158.1 82.7" />
+        <path d="M253.5 100V30M253.5 62C253.5 42 264 36.5 288 36.5" />
+        <circle cx="331" cy="65" r="27.5" />
+      </g>
     </svg>
   )
 }

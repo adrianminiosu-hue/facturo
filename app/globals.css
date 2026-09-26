@@ -264,7 +264,8 @@ body {
 
   .brand-veyro-wordmark {
     display: block;
-    height: calc(var(--brand-word) * 0.78);
+    /* The wordmark is 130 units tall for a 100-unit cap (the "y" descends): same cap size as before. */
+    height: calc(var(--brand-word) * 0.9 * 1.3);
     width: auto;
     color: inherit;
   }
