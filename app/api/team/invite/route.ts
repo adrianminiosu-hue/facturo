@@ -3,6 +3,7 @@ import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { Resend } from 'resend'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { MAX_OPERATORS, isMissingPortfolioTableError, normalizeInviteEmail } from '@/lib/portfolio'
+import { BRAND } from '@/lib/brand'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -59,9 +60,9 @@ export async function POST(request: NextRequest) {
     const link = `${baseUrl}/invite/${insert.data.invite_token}`
     const ownerName = String(owner.user.user_metadata?.full_name || owner.user.email || 'Un coleg')
     const { error: mailError } = await resend.emails.send({
-      from: 'Facturo <onboarding@resend.dev>',
+      from: `${BRAND.name} <onboarding@resend.dev>`,
       to: [inviteEmail],
-      subject: `${ownerName} te-a invitat în Facturo`,
+      subject: `${ownerName} te-a invitat în ${BRAND.name}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
           <p style="color:#111">Bună,</p>

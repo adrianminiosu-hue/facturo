@@ -1,6 +1,7 @@
 'use client'
 import { useLocale } from '@/components/LocaleProvider'
 import { formatLandingLei, landingDemo } from '@/components/landing/PhoneMock'
+import { BRAND } from '@/lib/brand'
 
 export default function DesktopMock() {
   const { t } = useLocale()
@@ -13,7 +14,7 @@ export default function DesktopMock() {
           <span />
           <span />
         </span>
-        <span>facturo</span>
+        <span>{BRAND.name.toLowerCase()}</span>
       </div>
       <div className="landing-desk-body">
         <div className="landing-desk-rail" aria-hidden="true">

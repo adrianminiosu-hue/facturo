@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import FacturoMark from '@/components/FacturoMark'
+import { VeyroWordmark } from '@/components/VeyroLogo'
+import { BRAND_ID } from '@/lib/brand'
 
 export default function BrandLockup({
   href,
@@ -8,7 +10,14 @@ export default function BrandLockup({
   href?: string
   size?: 'sm' | 'md'
 }) {
-  const inner = (
+  const inner = BRAND_ID === 'veyro' ? (
+    <span className={`brand-lockup brand-lockup-veyro inline-flex items-center shrink-0${size === 'sm' ? ' brand-lockup-sm' : ''}`}>
+      <span className="flex flex-col items-start">
+        <VeyroWordmark className="brand-veyro-wordmark" />
+        <span className="brand-byline">BY FINSQUARE</span>
+      </span>
+    </span>
+  ) : (
     <span className={`brand-lockup inline-flex items-center gap-2.5 shrink-0${size === 'sm' ? ' brand-lockup-sm' : ''}`}>
       <span className="brand-mark">
         <FacturoMark className="h-full w-full" />

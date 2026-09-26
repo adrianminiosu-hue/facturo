@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import LandingPage from '@/components/landing/LandingPage'
 import { redirectIfAuthed } from '@/lib/redirectIfAuthed'
 import { siteUrl } from '@/config/company'
+import { BRAND } from '@/lib/brand'
 
-const title = 'Facturo — banii firmei tale, sub control'
+const title = `${BRAND.name} — banii firmei tale, sub control`
 const description = 'Vezi cine îți datorează, ce intră în cont săptămâna asta și primește-ți banii mai repede.'
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
     title,
     description,
     url: '/',
-    siteName: 'Facturo',
+    siteName: BRAND.name,
     locale: 'ro_RO',
     alternateLocale: 'en_GB',
     type: 'website'

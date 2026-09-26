@@ -1,3 +1,4 @@
+import { BRAND } from '@/lib/brand'
 /** ANAF public e-Factura XML validator: no certificate needed. FACT1 = invoice, FCN = credit note. */
 export const ANAF_VALIDATE_URL = 'https://webservicesp.anaf.ro/prod/FCTEL/rest/validare'
 
@@ -50,7 +51,7 @@ export function readableValidationErrors(messages: string[]) {
       const raw = part.match(/textEroare=([^;]+)/)?.[1] || part
       const text = raw.replace(/^\[[^\]]+\]\s*-?\s*/, '').split('#')[0].replace(/\s+/g, ' ').trim()
       if (code === 'ERRIdentif') out.push(`CUI: ${text}`)
-      else if (/SAXParseException|cvc-/.test(part)) out.push('Structura XML nu respectă schema UBL (eroare tehnică Facturo, nu de date).')
+      else if (/SAXParseException|cvc-/.test(part)) out.push(`Structura XML nu respectă schema UBL (eroare tehnică ${BRAND.name}, nu de date).`)
       else out.push(code ? `${code}: ${text}` : text)
     }
   }

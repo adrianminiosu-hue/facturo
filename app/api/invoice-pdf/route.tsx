@@ -13,6 +13,7 @@ import { computeInvoiceTotals, resolveExchangeRate } from '@/lib/invoiceMath'
 import { formatPartyCui, resolveParty } from '@/lib/partySnapshot'
 import { unitLabel } from '@/lib/efactura'
 import { countyNameFromCode } from '@/lib/romania'
+import { BRAND } from '@/lib/brand'
 Font.register({
   family: 'Roboto',
   fonts: [
@@ -352,7 +353,7 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
 
       {/* Footer */}
       <Text style={styles.footer}>
-        Generat de Facturo · facturo.ro · {profile?.email || ''}
+        Generat de {BRAND.name} · {BRAND.domain} · {profile?.email || ''}
       </Text>
     </Page>
   </Document>

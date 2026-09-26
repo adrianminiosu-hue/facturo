@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
+import { BRAND } from '@/lib/brand'
 
-export const alt = 'Facturo — banii firmei tale, sub control'
+export const alt = `${BRAND.name} — banii firmei tale, sub control`
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -20,7 +21,7 @@ export default function OpenGraphImage() {
         }}
       >
         <div style={{ fontSize: 22, letterSpacing: 3, textTransform: 'uppercase', color: '#4b5563' }}>
-          facturo
+          {BRAND.name}
         </div>
         <div style={{ fontSize: 72, lineHeight: 1.05, marginTop: 24 }}>
           Banii firmei tale,

@@ -327,6 +327,18 @@ body {
     color: inherit;
   }
 
+  .brand-veyro-wordmark {
+    display: block;
+    height: calc(var(--brand-word) * 0.72);
+    width: auto;
+    color: inherit;
+  }
+
+  .brand-lockup-veyro .brand-byline {
+    margin-top: calc(var(--brand-byline-gap) + 0.14rem);
+    letter-spacing: 0.3em;
+  }
+
   .brand-byline {
     margin-top: var(--brand-byline-gap);
     font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;

@@ -1,4 +1,5 @@
-export const messages: Record<'ro' | 'en', Record<string, string>> = {
+import { withBrand } from '@/lib/brand'
+const rawMessages: Record<'ro' | 'en', Record<string, string>> = {
   ro: {
     'nav.dashboard': 'Dashboard',
     'nav.dashboardMain': 'Principal',
@@ -2661,6 +2662,12 @@ export const messages: Record<'ro' | 'en', Record<string, string>> = {
     'cc.historyLess': 'Show less',
     'cc.suggestAction': 'Turn on recommended reminders'
   }
+}
+
+/** Copy is written with "Facturo"; the active brand's name is put in at load. */
+export const messages: Record<'ro' | 'en', Record<string, string>> = {
+  ro: Object.fromEntries(Object.entries(rawMessages.ro).map(([k, v]) => [k, withBrand(v)])),
+  en: Object.fromEntries(Object.entries(rawMessages.en).map(([k, v]) => [k, withBrand(v)]))
 }
 
 export type MessageKey = string

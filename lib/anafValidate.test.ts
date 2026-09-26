@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseValidationResponse, readableValidationErrors, validationStandard } from './anafValidate'
+import { BRAND } from './brand'
 
 describe('ANAF validator response', () => {
   it('reads ok / nok', () => {
@@ -19,7 +20,7 @@ describe('ANAF validator response', () => {
 
   it('reports schema errors as a Facturo problem, not a data problem', () => {
     const raw = "Fisierul transmis nu este valid. org.xml.sax.SAXParseException; lineNumber: 10; cvc-complex-type.2.4.a: Invalid content"
-    expect(readableValidationErrors([raw])[0]).toContain('eroare tehnică Facturo')
+    expect(readableValidationErrors([raw])[0]).toContain(`eroare tehnică ${BRAND.name}`)
   })
 
   it('uses FCN for credit notes', () => {

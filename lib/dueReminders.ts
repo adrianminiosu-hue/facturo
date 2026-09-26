@@ -8,6 +8,7 @@ import { OPEN_INVOICE_STATUSES, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
+import { BRAND } from '@/lib/brand'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -37,7 +38,7 @@ function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number,
   const ref = `${invoice.series}${invoice.invoice_number}`
   const outstanding = formatRon(remainingOf(invoice))
   const due = formatRoDate(invoice.due_date || invoice.issue_date)
-  const sellerName = seller?.company_name || 'Facturo'
+  const sellerName = seller?.company_name || BRAND.name
 
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 28px; color: #0e1218;">
@@ -81,7 +82,7 @@ function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number,
       </p>
       <p style="font-family: Arial, sans-serif; color: #5c6573;">Cu stimă,<br/>${sellerName}</p>
       <p style="font-family: Arial, sans-serif; color: #9aa5b4; font-size: 12px; margin-top: 28px;">
-        Mesaj automat Facturo · nu răspundeți la acest email dacă nu este necesar
+        Mesaj automat ${BRAND.name} · nu răspundeți la acest email dacă nu este necesar
       </p>
     </div>
   `
@@ -151,7 +152,7 @@ export async function sendInvoiceReminder(invoice: any, options: ReminderOptions
   const formal = (options.offsetDays ?? -daysUntil) >= FORMAL_NOTICE_OFFSET
 
   const { error: sendError } = await resend.emails.send({
-    from: `${seller?.company_name || 'Facturo'} <onboarding@resend.dev>`,
+    from: `${seller?.company_name || BRAND.name} <onboarding@resend.dev>`,
     to: [recipient],
     subject: `${formal ? 'Somație de plată' : 'Reminder de plată'} · factura ${invoiceRef} · ${formatRoDate(invoice.due_date || invoice.issue_date)}`,
     html: reminderHtml(invoice, client, seller, daysUntil, formal),

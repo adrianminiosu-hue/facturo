@@ -9,6 +9,7 @@ import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import Link from 'next/link'
 import { authHeaders } from '@/lib/authHeaders'
+import { BRAND } from '@/lib/brand'
 
 async function avatarRequest(
   method: 'POST' | 'DELETE',
@@ -143,7 +144,7 @@ export default function AccountPage() {
     const href = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = href
-    link.download = `facturo-export-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `${BRAND.id}-export-${new Date().toISOString().slice(0, 10)}.json`
     link.click()
     URL.revokeObjectURL(href)
     setBusy('')

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import "./globals.css";
+import { BRAND } from '@/lib/brand'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,8 +23,9 @@ const display = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Facturo",
+  title: BRAND.name,
   description: "Facturare modernă pentru afacerea ta.",
+  icons: { icon: BRAND.icon },
 };
 
 export const viewport = {

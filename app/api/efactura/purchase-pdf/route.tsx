@@ -7,6 +7,7 @@ import { findSimulatedPurchaseInvoice, type PurchaseBuyer, type SimulatedPurchas
 import { loadRegisteredPurchaseInvoice, purchaseInvoiceFromRow } from '@/lib/purchaseInvoicePersist'
 import { formatRoDate } from '@/lib/dates'
 import { formatAmount, formatRon } from '@/lib/money'
+import { BRAND } from '@/lib/brand'
 
 Font.register({
   family: 'Roboto',
@@ -252,7 +253,7 @@ function PurchaseInvoicePDF({ invoice }: { invoice: SimulatedPurchaseInvoice }) 
         </View>
 
         <Text style={styles.footer}>
-          Document descărcat din e-Factura SPV (simulare test ANAF) · Facturo
+          Document descărcat din e-Factura SPV (simulare test ANAF) · {BRAND.name}
         </Text>
       </Page>
     </Document>

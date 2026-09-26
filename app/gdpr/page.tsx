@@ -3,6 +3,7 @@ import Link from 'next/link'
 import BrandLockup from '@/components/BrandLockup'
 import LocaleSwitch from '@/components/LocaleSwitch'
 import { useLocale } from '@/components/LocaleProvider'
+import { BRAND } from '@/lib/brand'
 
 export default function GDPR() {
   const { t } = useLocale()
@@ -175,7 +176,7 @@ export default function GDPR() {
               {t('gdpr.contact')}
             </p>
             <div className="mt-3 bg-gray-50 rounded-xl p-4">
-              <p className="text-sm font-medium text-gray-900">Facturo</p>
+              <p className="text-sm font-medium text-gray-900">{BRAND.name}</p>
               <p className="text-sm text-gray-500">{t('gdpr.contactNote')}</p>
             </div>
           </div>

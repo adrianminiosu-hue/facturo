@@ -6,6 +6,7 @@ import { loadSeller } from '@/lib/loadSeller'
 import { formatRon } from '@/lib/money'
 import { billedTotal } from '@/lib/invoiceMath'
 import { getInvoiceForActor } from '@/lib/portfolio'
+import { BRAND } from '@/lib/brand'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const { data, error } = await resend.emails.send({
-      from: `${profile?.company_name || 'Facturo'} <onboarding@resend.dev>`,
+      from: `${profile?.company_name || BRAND.name} <onboarding@resend.dev>`,
       to: [client.email],
       subject: `Factură ${invoice.series}${invoice.invoice_number} - ${profile?.company_name || ''}`,
       html: `
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
           <p style="color: #9ca3af; font-size: 12px;">
             ${profile?.company_name || ''} · ${profile?.email || ''} · ${profile?.phone || ''}
           </p>
-          <p style="color: #d1d5db; font-size: 11px;">Factură generată cu Facturo · facturo.ro</p>
+          <p style="color: #d1d5db; font-size: 11px;">Factură generată cu ${BRAND.name} · ${BRAND.domain}</p>
         </div>
       `,
       attachments: [
