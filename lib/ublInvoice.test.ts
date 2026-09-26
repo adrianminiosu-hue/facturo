@@ -23,6 +23,18 @@ describe('parseUblInvoice', () => {
     expect(inv.lines[0]).toMatchObject({ description: 'Servicii consultanta IT', quantity: 3, unitCode: 'H87', unitPrice: 23000, net: 69000, vatRate: 21, vatCategory: 'S' })
     expect(inv.totals).toEqual({ net: 89998, vat: 18899.58, total: 108897.58, prepaid: 0, payable: 108897.58 })
     expect(inv.notes).toEqual(['Plata prin virament bancar.'])
+    expect(inv.payeeIbans).toEqual([])
+  })
+
+  it('reads the supplier accounts from PaymentMeans (IBAN-shaped only, deduplicated)', () => {
+    const xml = fixture('ubl-invoice-fct0005.xml').replace(
+      '<cac:TaxTotal>',
+      '<cac:PaymentMeans><cbc:PaymentMeansCode>42</cbc:PaymentMeansCode><cac:PayeeFinancialAccount><cbc:ID>RO49 AAAA 1B31 0075 9384 0000</cbc:ID></cac:PayeeFinancialAccount></cac:PaymentMeans>' +
+      '<cac:PaymentMeans><cbc:PaymentMeansCode>42</cbc:PaymentMeansCode><cac:PayeeFinancialAccount><cbc:ID>RO49AAAA1B31007593840000</cbc:ID></cac:PayeeFinancialAccount></cac:PaymentMeans>' +
+      '<cac:PaymentMeans><cbc:PaymentMeansCode>10</cbc:PaymentMeansCode><cac:PayeeFinancialAccount><cbc:ID>CASA</cbc:ID></cac:PayeeFinancialAccount></cac:PaymentMeans>' +
+      '<cac:TaxTotal>'
+    )
+    expect(parseUblInvoice(xml).payeeIbans).toEqual(['RO49AAAA1B31007593840000'])
   })
 
   it('reads a supplier credit note in EUR with VAT stated in RON', () => {

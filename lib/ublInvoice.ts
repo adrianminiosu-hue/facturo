@@ -47,6 +47,19 @@ export type UblInvoice = {
     payable: number
   }
   notes: string[]
+  /** The supplier's accounts where payment is expected (PaymentMeans), IBAN-shaped, deduplicated. */
+  payeeIbans: string[]
+}
+
+/** Keeps IBAN-shaped values only (compact, upper case, deduplicated). */
+export function ibanList(values: string[]) {
+  const out: string[] = []
+  for (const value of values) {
+    const compact = String(value || '').replace(/[\s-]/g, '').toUpperCase()
+    if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(compact)) continue
+    if (!out.includes(compact)) out.push(compact)
+  }
+  return out
 }
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -158,7 +171,8 @@ export function parseUblInvoice(xml: string): UblInvoice {
       prepaid: numAt(totalsNode, 'PrepaidAmount'),
       payable: numAt(totalsNode, 'PayableAmount')
     },
-    notes: kids(root, 'Note').map(n => n.text.trim()).filter(Boolean)
+    notes: kids(root, 'Note').map(n => n.text.trim()).filter(Boolean),
+    payeeIbans: ibanList(kids(root, 'PaymentMeans').map(pm => textAt(pm, 'PayeeFinancialAccount/ID')))
   }
 }
 

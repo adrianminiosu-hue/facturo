@@ -14,6 +14,7 @@ import { formatPartyCui, resolveParty } from '@/lib/partySnapshot'
 import { unitLabel } from '@/lib/efactura'
 import { countyNameFromCode } from '@/lib/romania'
 import { BRAND } from '@/lib/brand'
+import { PAYMENT_REFERENCE_HINT, paymentReference } from '@/lib/paymentReference'
 Font.register({
   family: 'Roboto',
   fonts: [
@@ -176,6 +177,24 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#f9fafb',
     borderRadius: 4
+  },
+  payBox: {
+    marginTop: 24,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 4
+  },
+  payLine: {
+    fontSize: 9,
+    color: '#374151',
+    marginBottom: 2
+  },
+  payRef: {
+    fontSize: 11,
+    fontFamily: 'Roboto', fontWeight: 'bold',
+    color: '#111111',
+    marginTop: 4
   },
   notesLabel: {
     fontSize: 8,
@@ -342,6 +361,17 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
           </View>
         )}
       </View>
+
+      {/* Payment details: the reference is what lets the bank statement match this invoice by itself */}
+      {invoice.invoice_type_code !== '381' && (
+        <View style={styles.payBox} wrap={false}>
+          <Text style={styles.notesLabel}>Date de plată</Text>
+          <Text style={styles.payLine}>Beneficiar: {profile?.company_name || '—'}</Text>
+          {profile?.iban && <Text style={styles.payLine}>IBAN: {profile.iban}{profile?.bank_name ? ` · ${profile.bank_name}` : ''}</Text>}
+          <Text style={styles.payRef}>Referință plată: {paymentReference(invoice)}</Text>
+          <Text style={styles.notesText}>{PAYMENT_REFERENCE_HINT}</Text>
+        </View>
+      )}
 
       {/* Notes */}
       {pdfNotes && (

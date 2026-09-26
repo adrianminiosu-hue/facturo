@@ -12,6 +12,7 @@ import {
   purchaseInvoiceFromRow
 } from '@/lib/purchaseInvoicePersist'
 import type { PurchaseBuyer, SimulatedPurchaseInvoice } from '@/lib/efacturaPurchaseImport'
+import { rememberSupplierIbans } from '@/lib/supplierIbans'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -232,6 +233,14 @@ export async function importSpvPurchases(db: Db, opts: {
         supplierCui: inv.supplier.cui,
         supplierAddress: [inv.supplier.address, inv.supplier.city].filter(Boolean).join(', ')
       })
+      // Its IBAN lets the bank matcher recognise the outgoing payment later. Never blocks the import.
+      await rememberSupplierIbans(db, {
+        supplier,
+        ibans: inv.payeeIbans,
+        ownerUserId: opts.ownerUserId,
+        companyId: opts.companyId,
+        currency: inv.currency
+      }).catch(() => 0)
 
       const amounts = purchaseAmounts(inv)
       const zipPath = await archiveZip(db, `${opts.ownerUserId}/${opts.companyId || 'profil'}/primite/${message.id}.zip`, zip)

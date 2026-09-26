@@ -15,6 +15,8 @@ import { useLocale } from '@/components/LocaleProvider'
 import type { MessageKey } from '@/lib/messages'
 import { authHeaders } from '@/lib/authHeaders'
 import Money from '@/components/Money'
+import { matchStats } from '@/lib/bank/matchStats'
+import { countWord } from '@/lib/i18n'
 
 type Tx = {
   id: string
@@ -57,6 +59,7 @@ type PaymentRow = {
   invoice_id: string
   amount: number
   bank_transaction_id?: string | null
+  match_rule?: string | null
 }
 
 function paidOf(invoiceId: string, invoice: InvoiceOpt, payments: PaymentRow[]) {
@@ -79,7 +82,7 @@ function canLink(invoice: InvoiceOpt, payments: PaymentRow[]) {
 function BancaPageInner() {
   const router = useRouter()
   const search = useSearchParams()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
   const [tab, setTab] = useState<'inbox' | 'all'>(() => search.get('tab') === 'all' ? 'all' : 'inbox')
   const [txs, setTxs] = useState<Tx[]>([])
@@ -109,7 +112,7 @@ function BancaPageInner() {
       txQuery,
       supabase.from('bank_match_suggestions').select('bank_transaction_id, invoice_id, amount, confidence, rule').eq('company_id', company.id),
       supabase.from('invoices').select('id, series, invoice_number, client_id, total, amount_paid, prepaid_amount, direction, notes, exchange_rate, subtotal, invoice_items(quantity, unit_price, tva_rate, total), clients(company_name)').eq('company_id', company.id),
-      supabase.from('invoice_payments').select('invoice_id, amount, bank_transaction_id').eq('company_id', company.id),
+      supabase.from('invoice_payments').select('invoice_id, amount, bank_transaction_id, match_rule').eq('company_id', company.id),
       supabase.from('bank_accounts').select('id, iban').eq('company_id', company.id)
     ])
     setTxs((txRes.data || []) as Tx[])
@@ -131,6 +134,12 @@ function BancaPageInner() {
       else load()
     })
   }, [companyLoading, userId, company?.id])
+
+  const stats = useMemo(() => matchStats(
+    txs.filter(tx => (!accountId || tx.bank_account_id === accountId) && (dir === 'all' || (dir === 'in' ? tx.amount > 0 : tx.amount < 0))),
+    payments
+  ), [txs, payments, accountId, dir])
+  const pct = (rate: number | null) => rate === null ? '—' : `${Math.round(rate * 100)}%`
 
   const inbox = useMemo(
     () => txs.filter(tx => tx.match_status === 'suggested' || tx.match_status === 'unmatched'),
@@ -233,6 +242,28 @@ function BancaPageInner() {
           <span className="btn btn-outline opacity-50 cursor-not-allowed">{t('bank.tab.overview')} · {t('bank.soon')}</span>
           <span className="btn btn-outline opacity-50 cursor-not-allowed">{t('bank.tab.accounts')} · {t('bank.soon')}</span>
         </div>
+
+        {stats.total > 0 && (
+          <div className="mb-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="card p-4">
+                <p className="kicker mb-2">{t('bank.stats.auto')}</p>
+                <p className="kpi">{pct(stats.autoRate)}</p>
+              </div>
+              <div className="card p-4">
+                <p className="kicker mb-2">{t('bank.stats.clicked')}</p>
+                <p className="kpi">{pct(stats.total ? stats.confirmed / stats.total : null)}</p>
+              </div>
+              <button type="button" className="card p-4 text-left" onClick={() => setTab('inbox')}>
+                <p className="kicker mb-2">{t('bank.stats.pending')}</p>
+                <p className="kpi">{stats.pending}</p>
+              </button>
+            </div>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
+              {stats.total === 1 ? t('bank.stats.hintOne') : t('bank.stats.hint', { count: countWord(stats.total, locale) })}
+            </p>
+          </div>
+        )}
 
         <div className="filter-bar mb-4">
           <select className="select" value={dir} onChange={e => setDir(e.target.value as 'all' | 'in' | 'out')}>

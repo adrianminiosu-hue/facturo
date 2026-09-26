@@ -1,5 +1,5 @@
 import { at, kids, numAt, textAt, type XmlNode } from '@/lib/xmlTree'
-import { cuiDigits, splitInvoiceId, type UblInvoice, type UblLine, type UblParty } from '@/lib/ublInvoice'
+import { cuiDigits, ibanList, splitInvoiceId, type UblInvoice, type UblLine, type UblParty } from '@/lib/ublInvoice'
 
 /**
  * Reads a UN/CEFACT Cross Industry Invoice (CII D16B, EN 16931 / CIUS-RO), the second syntax
@@ -115,6 +115,10 @@ export function parseCiiInvoice(root: XmlNode): UblInvoice {
       prepaid: amountIn(summary, 'TotalPrepaidAmount', currency),
       payable: amountIn(summary, 'DuePayableAmount', currency)
     },
-    notes: kids(doc, 'IncludedNote').map(n => textAt(n, 'Content')).filter(Boolean)
+    notes: kids(doc, 'IncludedNote').map(n => textAt(n, 'Content')).filter(Boolean),
+    payeeIbans: ibanList(kids(settlement, 'SpecifiedTradeSettlementPaymentMeans').flatMap(pm => [
+      textAt(pm, 'PayeePartyCreditorFinancialAccount/IBANID'),
+      textAt(pm, 'PayeePartyCreditorFinancialAccount/ProprietaryID')
+    ]))
   }
 }

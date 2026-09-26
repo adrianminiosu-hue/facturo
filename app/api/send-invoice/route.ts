@@ -7,6 +7,7 @@ import { formatRon } from '@/lib/money'
 import { billedTotal } from '@/lib/invoiceMath'
 import { getInvoiceForActor } from '@/lib/portfolio'
 import { BRAND } from '@/lib/brand'
+import { PAYMENT_REFERENCE_HINT, paymentReference } from '@/lib/paymentReference'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -83,7 +84,8 @@ export async function POST(request: NextRequest) {
             <p style="margin: 4px 0; color: #666666; font-size: 14px;">Beneficiar: ${profile.company_name}</p>
             <p style="margin: 4px 0; color: #666666; font-size: 14px;">IBAN: ${profile.iban}</p>
             ${profile.bank_name ? `<p style="margin: 4px 0; color: #666666; font-size: 14px;">Bancă: ${profile.bank_name}</p>` : ''}
-            <p style="margin: 4px 0; color: #666666; font-size: 14px;">Referință: ${invoice.series}${invoice.invoice_number}</p>
+            <p style="margin: 8px 0 4px; color: #111111; font-size: 15px;">Referință plată: <strong>${paymentReference(invoice)}</strong></p>
+            <p style="margin: 0; color: #666666; font-size: 13px;">${PAYMENT_REFERENCE_HINT}</p>
           </div>
           ` : ''}
           <p style="color: #666666;">Factura este atașată acestui email în format PDF.</p>

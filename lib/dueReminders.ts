@@ -9,6 +9,7 @@ import { formatRon } from '@/lib/money'
 import { remainingOf } from '@/lib/invoiceMath'
 import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import { BRAND } from '@/lib/brand'
+import { PAYMENT_REFERENCE_HINT, paymentReference } from '@/lib/paymentReference'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -35,7 +36,7 @@ function reminderHeadline(daysUntil: number) {
 }
 
 function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number, formal = false) {
-  const ref = `${invoice.series}${invoice.invoice_number}`
+  const ref = paymentReference(invoice)
   const outstanding = formatRon(remainingOf(invoice))
   const due = formatRoDate(invoice.due_date || invoice.issue_date)
   const sellerName = seller?.company_name || BRAND.name
@@ -74,7 +75,8 @@ function reminderHtml(invoice: any, client: any, seller: any, daysUntil: number,
         <p style="margin: 4px 0;">Beneficiar: ${sellerName}</p>
         <p style="margin: 4px 0;">IBAN: ${seller.iban}</p>
         ${seller.bank_name ? `<p style="margin: 4px 0;">Bancă: ${seller.bank_name}</p>` : ''}
-        <p style="margin: 4px 0;">Referință: ${ref}</p>
+        <p style="margin: 8px 0 4px; color: #0e1218;">Referință plată: <strong>${ref}</strong></p>
+        <p style="margin: 0; font-size: 13px;">${PAYMENT_REFERENCE_HINT}</p>
       </div>
       ` : ''}
       <p style="font-family: Arial, sans-serif; color: #5c6573; line-height: 1.6; margin-top: 24px;">
