@@ -296,9 +296,14 @@ body {
     letter-spacing: -0.028em;
   }
 
+  /* KPI cards size their figure to the card: it never runs out of a narrow card. */
+  .card:has(.kpi) {
+    container-type: inline-size;
+  }
+
   .kpi {
     font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-    font-size: 2.125rem;
+    font-size: clamp(1.5rem, 14.5cqi, 2.125rem);
     line-height: 1.1;
     font-weight: 500;
     letter-spacing: -0.035em;
