@@ -7,7 +7,8 @@ import { useLocale } from '@/components/LocaleProvider'
 import { unitMessageKey, vatCategoryKey } from '@/lib/uiLabels'
 import { formatAmount, formatRon } from '@/lib/money'
 import { computeInvoiceTotals, roundMoney, vatRateOptions } from '@/lib/invoiceMath'
-import { BNR_FX_URL, parseExchangeRate, type InvoiceFxValue } from '@/lib/invoiceFx'
+import { BNR_FX_URL, formatFxRate, parseExchangeRate, type InvoiceFxValue } from '@/lib/invoiceFx'
+import { fetchBnrRate, type BnrRate } from '@/lib/invoiceClient'
 import { formatRoDate, lastBankingDayBefore } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
 import { useCompany } from '@/components/CompanyProvider'
@@ -89,6 +90,12 @@ export default function InvoiceLineItems({
   const [highlight, setHighlight] = useState(0)
   const [savingIndex, setSavingIndex] = useState<number | null>(null)
   const [rateText, setRateText] = useState(fx?.rate ? String(fx.rate) : '')
+  // BNR rate: filled automatically unless the user typed one (an invoice being edited keeps its rate).
+  const [autoRate, setAutoRate] = useState(!(fx?.rate && fx.rate > 0))
+  const [bnr, setBnr] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; info?: BnrRate; error?: string }>({ status: 'idle' })
+  const [bnrNonce, setBnrNonce] = useState(0)
+  const fxRef = useRef(fx)
+  fxRef.current = fx
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const reloadCatalog = async () => {
@@ -112,6 +119,25 @@ export default function InvoiceLineItems({
     if (parseExchangeRate(rateText) === fx.rate) return
     setRateText(fx.rate ? String(fx.rate) : '')
   }, [fx?.enabled, fx?.rate, rateText])
+
+  useEffect(() => {
+    const current = fxRef.current
+    if (!current?.enabled || current.source !== 'BNR' || !autoRate || !taxPointDate || !onFxChange) return
+    let cancelled = false
+    setBnr({ status: 'loading' })
+    fetchBnrRate(taxPointDate, 'EUR')
+      .then(info => {
+        if (cancelled) return
+        setBnr({ status: 'ok', info })
+        setRateText(formatFxRate(info.rate))
+        const latest = fxRef.current
+        if (latest) onFxChange({ ...latest, rate: info.rate, date: info.publishedOn, source: 'BNR' })
+      })
+      .catch(error => {
+        if (!cancelled) setBnr({ status: 'error', error: error instanceof Error ? error.message : String(error) })
+      })
+    return () => { cancelled = true }
+  }, [fx?.enabled, fx?.source, taxPointDate, autoRate, bnrNonce])
 
   useEffect(() => {
     const onPointer = (event: MouseEvent) => {
@@ -242,6 +268,7 @@ export default function InvoiceLineItems({
                       value={rateText}
                       onChange={e => {
                         setRateText(e.target.value)
+                        setAutoRate(false)
                         onFxChange({ ...fx, rate: parseExchangeRate(e.target.value) })
                       }}
                       className="input"
@@ -282,9 +309,35 @@ export default function InvoiceLineItems({
               {fx.source === 'BNR' && fx.rate > 0 && (String(rateText).split(/[.,]/)[1] || '').length < 4 && (
                 <p className="text-xs text-amber-800 mt-2">{t('inv.fxDecimals')}</p>
               )}
-              <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
-                {t('inv.fxBnrHelp', { date: formatRoDate(taxPointDate || fx.date || '') })}
-              </p>
+              {fx.source === 'BNR' && (
+                <div className="text-xs mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {!autoRate ? (
+                    <span className="text-[color:var(--color-muted-foreground)]">{t('inv.fxManual')}</span>
+                  ) : bnr.status === 'loading' ? (
+                    <span className="text-[color:var(--color-muted-foreground)]">{t('inv.fxLoading')}</span>
+                  ) : bnr.status === 'ok' && bnr.info ? (
+                    <span className="text-[color:var(--color-muted-foreground)]">
+                      {t('inv.fxAutoOk', {
+                        rate: formatFxRate(bnr.info.rate),
+                        published: formatRoDate(bnr.info.publishedOn),
+                        date: formatRoDate(bnr.info.forDate)
+                      })}
+                      {bnr.info.provisional && <span className="block text-amber-800 mt-0.5">{t('inv.fxProvisional')}</span>}
+                    </span>
+                  ) : bnr.status === 'error' ? (
+                    <span className="text-amber-800">{bnr.error} {t('inv.fxTypeIt')}</span>
+                  ) : null}
+                  {(!autoRate || bnr.status === 'error') && (
+                    <button
+                      type="button"
+                      className="font-medium text-[color:var(--color-foreground)] underline underline-offset-2"
+                      onClick={() => { setAutoRate(true); setBnrNonce(v => v + 1) }}
+                    >
+                      {t('inv.fxFetch')}
+                    </button>
+                  )}
+                </div>
+              )}
               <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('inv.fxMentionHint')}</p>
             </div>
           )}

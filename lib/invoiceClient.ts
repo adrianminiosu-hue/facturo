@@ -119,6 +119,17 @@ export async function uploadToEfactura(invoiceId: string, userId: string): Promi
 
 export const simulateSpvUpload = uploadToEfactura
 
+export type BnrRate = { rate: number; publishedOn: string; currency: string; source: 'BNR'; forDate: string; provisional: boolean }
+
+/** BNR rate for an invoice: the last one published before `date` (the VAT date). */
+export async function fetchBnrRate(date: string, currency = 'EUR'): Promise<BnrRate> {
+  const params = new URLSearchParams({ date, currency })
+  const res = await fetch(`/api/fx/bnr?${params.toString()}`, { headers: await authHeaders() })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Cursul BNR nu a putut fi preluat.')
+  return data
+}
+
 /** Asks the server to refresh ANAF states and resend queued invoices. Returns how many invoices changed. */
 export async function syncEfactura(force = false): Promise<{ changed: number; throttled?: boolean; skipped?: string }> {
   const res = await fetch(`/api/efactura/sync${force ? '?force=1' : ''}`, { method: 'POST', headers: await authHeaders() })
