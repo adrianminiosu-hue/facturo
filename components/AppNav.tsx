@@ -201,11 +201,11 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <LocaleSwitch />
           <Link href="/account" className="flex items-center gap-2 min-w-0" title={userEmail || t('nav.account')}>
             <UserAvatar url={userAvatarUrl} name={userName} email={userEmail} />
             <span className="nav-meta text-sm hidden md:inline truncate max-w-[14rem]" title={userEmail || undefined}>{displayUserName(userName) || userEmail}</span>
           </Link>
+          <LocaleSwitch />
           <button
             onClick={handleLogout}
             className="nav-meta text-sm transition top-nav-logout"
