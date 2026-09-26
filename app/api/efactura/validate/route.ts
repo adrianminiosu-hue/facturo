@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { authenticatedUserId, unauthorized } from '@/lib/serverAuth'
 import { getInvoiceForActor } from '@/lib/portfolio'
 import { buildInvoiceXml } from '@/lib/efacturaXmlBuild'
-import { validateEfacturaXml } from '@/lib/anafValidate'
+import { readableValidationErrors, validateEfacturaXml } from '@/lib/anafValidate'
 
 export const runtime = 'nodejs'
 
@@ -23,9 +23,16 @@ export async function GET(request: NextRequest) {
   try {
     const { xml } = await buildInvoiceXml(supabase, invoice)
     const result = await validateEfacturaXml(xml, invoice.invoice_type_code)
-    return NextResponse.json({ invoiceRef: `${invoice.series}${invoice.invoice_number}`, ok: result.ok, messages: result.messages, traceId: result.traceId })
+    return NextResponse.json({
+      invoiceRef: `${invoice.series}${invoice.invoice_number}`,
+      ok: result.ok,
+      errors: readableValidationErrors(result.messages),
+      messages: result.messages,
+      traceId: result.traceId
+    })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Validarea a eșuat' }, { status: 502 })
+    // Missing data is reported by the XML builder before ANAF is called.
+    return NextResponse.json({ invoiceRef: `${invoice.series}${invoice.invoice_number}`, ok: false, errors: [e instanceof Error ? e.message : 'Validarea a eșuat'] })
   }
 }
 

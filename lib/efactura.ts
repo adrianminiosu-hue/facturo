@@ -7,7 +7,6 @@ export { roundMoney }
 
 export const INVOICE_TYPE_CODES = [
   { code: '380', label: 'Factură' },
-  { code: '386', label: 'Factură avans' },
   { code: '381', label: 'Notă de creditare' },
   { code: '384', label: 'Factură corectată' },
   { code: '389', label: 'Autofactură' },
@@ -147,12 +146,12 @@ export function missingEfacturaFields(input: {
   if (!seller.cui) missing.push('CUI furnizor')
   if (!seller.address) missing.push('Adresă furnizor')
   if (!seller.city) missing.push('Localitate / sector furnizor')
-  if (!seller.county_code) missing.push('Județ furnizor (cod ISO)')
+  if (!seller.county_code && (seller.country || 'RO').toUpperCase() === 'RO') missing.push('Județ furnizor (cod ISO)')
   if (!buyer.company_name) missing.push('Denumire client')
   if (!buyer.cui) missing.push('CUI client')
   if (!buyer.address) missing.push('Adresă client')
   if (!buyer.city) missing.push('Localitate / sector client')
-  if (!buyer.county_code) missing.push('Județ client (cod ISO)')
+  if (!buyer.county_code && (buyer.country || 'RO').toUpperCase() === 'RO') missing.push('Județ client (cod ISO)')
   if (buyer.is_public_institution && !invoice.buyer_reference) {
     missing.push('Referință cumpărător (obligatorie pentru instituții publice)')
   }
@@ -214,17 +213,26 @@ function contactXml(party: EfacturaParty) {
     </cac:Contact>`
 }
 
-function partyXml(party: EfacturaParty, role: 'seller' | 'buyer') {
-  const vatRegistered = party.vat_registered !== false
-  const cuiDigits = (party.cui || '').replace(/\D/g, '')
-  const vatId = vatRegistered ? `RO${cuiDigits}` : ''
-  const endpoint = cuiDigits
+function partyXml(party: EfacturaParty, role: 'seller' | 'buyer', opts: { omitVatId?: boolean } = {}) {
+  const country = (party.country || 'RO').toUpperCase()
+  const rawId = String(party.cui || '').replace(/\s/g, '').toUpperCase()
+  const foreign = country !== 'RO'
+  // Foreign parties keep their own VAT id (DE123456789); Romanian CUIs get the RO prefix.
+  const cuiDigits = foreign ? rawId : rawId.replace(/\D/g, '')
+  const vatRegistered = party.vat_registered !== false && !opts.omitVatId
+  const vatId = !vatRegistered ? '' : foreign ? (/^[A-Z]{2}/.test(rawId) ? rawId : `${country}${rawId}`) : `RO${cuiDigits}`
+  const endpoint = cuiDigits && !foreign
     ? `<cbc:EndpointID schemeID="9947">${xmlEscape(cuiDigits)}</cbc:EndpointID>`
     : party.email
       ? `<cbc:EndpointID schemeID="EM">${xmlEscape(party.email)}</cbc:EndpointID>`
       : ''
+  // ANAF identifies the buyer's legal id (BT-47) as a Romanian CUI: for a foreign buyer it expects
+  // 13 zeros there, with the buyer's own id in PartyIdentification (BT-46). Checked on ANAF's validator.
+  const foreignBuyer = role === 'buyer' && foreign
+  const legalId = foreignBuyer ? '0000000000000' : cuiDigits
   return `<cac:Party>
       ${endpoint}
+      ${foreignBuyer && rawId ? `<cac:PartyIdentification>${el('cbc:ID', rawId)}</cac:PartyIdentification>` : ''}
       <cac:PartyName>${el('cbc:Name', party.company_name)}</cac:PartyName>
       ${postalAddress(party)}
       ${vatRegistered && vatId ? `<cac:PartyTaxScheme>
@@ -233,7 +241,7 @@ function partyXml(party: EfacturaParty, role: 'seller' | 'buyer') {
       </cac:PartyTaxScheme>` : ''}
       <cac:PartyLegalEntity>
         ${el('cbc:RegistrationName', party.company_name)}
-        ${el('cbc:CompanyID', cuiDigits)}
+        ${el('cbc:CompanyID', legalId)}
         ${role === 'seller' ? el('cbc:CompanyLegalForm', party.reg_com) : ''}
       </cac:PartyLegalEntity>
       ${contactXml(party)}
@@ -278,17 +286,19 @@ export function generateEfacturaXml(input: {
     return { item, computed, category }
   })
 
-  const taxMap = new Map<string, { category: string; rate: number; taxable: number; tax: number; reason?: string }>()
+  const taxMap = new Map<string, { category: string; rate: number; net: number; taxable: number; tax: number; reason?: string }>()
   const factor = totals.lineExtension !== 0 ? totals.subtotal / totals.lineExtension : 1
   for (const line of lines) {
     const key = `${line.category}:${line.item.tva_rate}`
     const current = taxMap.get(key) || {
       category: line.category,
       rate: Number(line.item.tva_rate),
+      net: 0,
       taxable: 0,
       tax: 0,
       reason: line.item.vat_exemption_reason || undefined
     }
+    current.net = roundMoney(current.net + line.computed.net)
     current.taxable = roundMoney(current.taxable + roundMoney(line.computed.net * factor))
     current.tax = roundMoney(current.tax + roundMoney(line.computed.vat * factor))
     taxMap.set(key, current)
@@ -299,11 +309,45 @@ export function generateEfacturaXml(input: {
         ${el('cbc:TaxAmount', group.tax.toFixed(2), { currencyID: currency })}
         <cac:TaxCategory>
           ${el('cbc:ID', group.category)}
-          ${el('cbc:Percent', group.rate.toFixed(2))}
+          ${group.category === 'O' ? '' : el('cbc:Percent', group.rate.toFixed(2))}
           ${group.reason ? el('cbc:TaxExemptionReason', group.reason) : ''}
           <cac:TaxScheme>${el('cbc:ID', 'VAT')}</cac:TaxScheme>
         </cac:TaxCategory>
       </cac:TaxSubtotal>`).join('\n')
+
+  const hasOutOfScope = lines.some(line => line.category === 'O')
+  // Intra-community supply (K) needs the delivery date and the full deliver-to address (BR-IC-11/12, BR-RO-180..211).
+  const intraCommunity = lines.some(line => line.category === 'K')
+  const deliveryDate = invoice.delivery_date || (intraCommunity ? invoice.issue_date : '')
+  const buyerCountry = (buyer.country || 'RO').toUpperCase()
+  const deliveryXml = deliveryDate ? `  <cac:Delivery>
+    ${el('cbc:ActualDeliveryDate', deliveryDate)}
+    ${intraCommunity ? `<cac:DeliveryLocation>
+      <cac:Address>
+        ${el('cbc:StreetName', buyer.address)}
+        ${el('cbc:CityName', buyer.city)}
+        ${el('cbc:PostalZone', buyer.postal_code)}
+        ${el('cbc:CountrySubentity', buyer.county_code || buyer.city)}
+        <cac:Country>${el('cbc:IdentificationCode', buyerCountry)}</cac:Country>
+      </cac:Address>
+    </cac:DeliveryLocation>` : ''}
+  </cac:Delivery>` : ''
+  const groups = [...taxMap.values()]
+  const allowanceTotal = roundMoney(groups.reduce((sum, g) => sum + roundMoney(g.net - g.taxable), 0))
+  const documentAllowances = totals.headerDiscount > 0
+    ? groups
+        .filter(g => Math.abs(g.net - g.taxable) > 0.004)
+        .map(g => `  <cac:AllowanceCharge>
+    ${el('cbc:ChargeIndicator', 'false')}
+    ${el('cbc:AllowanceChargeReason', 'Discount document')}
+    ${el('cbc:Amount', roundMoney(g.net - g.taxable).toFixed(2), { currencyID: currency })}
+    <cac:TaxCategory>
+      ${el('cbc:ID', g.category)}
+      ${g.category === 'O' ? '' : el('cbc:Percent', g.rate.toFixed(2))}
+      <cac:TaxScheme>${el('cbc:ID', 'VAT')}</cac:TaxScheme>
+    </cac:TaxCategory>
+  </cac:AllowanceCharge>`).join('\n')
+    : ''
 
   const lineTag = credit ? 'CreditNoteLine' : 'InvoiceLine'
   const qtyTag = credit ? 'CreditedQuantity' : 'InvoicedQuantity'
@@ -316,8 +360,7 @@ export function generateEfacturaXml(input: {
       ${el('cbc:Name', line.item.description)}
       <cac:ClassifiedTaxCategory>
         ${el('cbc:ID', line.category)}
-        ${el('cbc:Percent', Number(line.item.tva_rate).toFixed(2))}
-        ${line.item.vat_exemption_reason ? el('cbc:TaxExemptionReason', line.item.vat_exemption_reason) : ''}
+        ${line.category === 'O' ? '' : el('cbc:Percent', Number(line.item.tva_rate).toFixed(2))}
         <cac:TaxScheme>${el('cbc:ID', 'VAT')}</cac:TaxScheme>
       </cac:ClassifiedTaxCategory>
     </cac:Item>
@@ -345,10 +388,14 @@ export function generateEfacturaXml(input: {
   ${el('cbc:ProfileID', 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0')}
   ${el('cbc:ID', invoiceId)}
   ${el('cbc:IssueDate', invoice.issue_date)}
-  ${credit ? '' : el('cbc:DueDate', dueDate)}
+  ${credit
+    ? `${el('cbc:TaxPointDate', taxPoint)}
+  ${el(`cbc:${typeEl}`, typeCode)}
+  ${notes ? el('cbc:Note', notes) : ''}`
+    : `${el('cbc:DueDate', dueDate)}
   ${el(`cbc:${typeEl}`, typeCode)}
   ${notes ? el('cbc:Note', notes) : ''}
-  ${el('cbc:TaxPointDate', taxPoint)}
+  ${el('cbc:TaxPointDate', taxPoint)}`}
   ${el('cbc:DocumentCurrencyCode', currency)}
   ${invoice.buyer_reference ? el('cbc:BuyerReference', invoice.buyer_reference) : ''}
   ${(invoice.period_start || invoice.period_end) ? `<cac:InvoicePeriod>
@@ -363,14 +410,12 @@ export function generateEfacturaXml(input: {
     </cac:InvoiceDocumentReference>
   </cac:BillingReference>` : ''}
   <cac:AccountingSupplierParty>
-    ${partyXml(seller, 'seller')}
+    ${partyXml(seller, 'seller', { omitVatId: hasOutOfScope })}
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
-    ${partyXml(buyer, 'buyer')}
+    ${partyXml(buyer, 'buyer', { omitVatId: hasOutOfScope })}
   </cac:AccountingCustomerParty>
-  ${invoice.delivery_date ? `<cac:Delivery>
-    ${el('cbc:ActualDeliveryDate', invoice.delivery_date)}
-  </cac:Delivery>` : ''}
+${deliveryXml}
   <cac:PaymentMeans>
     ${el('cbc:PaymentMeansCode', paymentCode)}
     ${seller.iban ? `<cac:PayeeFinancialAccount>
@@ -382,16 +427,16 @@ export function generateEfacturaXml(input: {
   <cac:PaymentTerms>
     ${el('cbc:Note', notes || `Plata până la ${dueDate}`)}
   </cac:PaymentTerms>
-  ${allowanceXml(totals.headerDiscount, currency, 'Discount document')}
+${documentAllowances}
   <cac:TaxTotal>
     ${el('cbc:TaxAmount', totals.tvaAmount.toFixed(2), { currencyID: currency })}
 ${taxSubtotals}
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
     ${el('cbc:LineExtensionAmount', totals.lineExtension.toFixed(2), { currencyID: currency })}
-    ${totals.headerDiscount > 0 ? el('cbc:AllowanceTotalAmount', totals.headerDiscount.toFixed(2), { currencyID: currency }) : ''}
     ${el('cbc:TaxExclusiveAmount', totals.subtotal.toFixed(2), { currencyID: currency })}
     ${el('cbc:TaxInclusiveAmount', totals.taxInclusive.toFixed(2), { currencyID: currency })}
+    ${totals.headerDiscount > 0 ? el('cbc:AllowanceTotalAmount', allowanceTotal.toFixed(2), { currencyID: currency }) : ''}
     ${totals.prepaid > 0 ? el('cbc:PrepaidAmount', totals.prepaid.toFixed(2), { currencyID: currency }) : ''}
     ${el('cbc:PayableAmount', totals.payable.toFixed(2), { currencyID: currency })}
   </cac:LegalMonetaryTotal>

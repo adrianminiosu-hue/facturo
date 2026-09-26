@@ -21,6 +21,7 @@ import { alreadySentToSpv, isDraftInvoice, isEfacturaProcessing, ALREADY_SENT_TO
 import { persistEfacturaState, persistSpvAccepted } from '@/lib/spvPersist'
 import { getInvoiceForActor } from '@/lib/portfolio'
 import { buildInvoiceXml } from '@/lib/efacturaXmlBuild'
+import { readableValidationErrors, validateEfacturaXml } from '@/lib/anafValidate'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -266,26 +267,36 @@ async function processOne(
   }
 
   if (xmlError) {
-    const invoicePatch = await persistEfacturaState(supabase, invoice, {
-      efactura_status: 'rejected',
-      efactura_error: xmlError,
-      efactura_environment: anafEfacturaEnvironment()
-    })
+    // Missing data found before sending: nothing reached ANAF, so the invoice is not marked as rejected.
+    const error = `Factura nu a fost trimisă: ${xmlError}`
     return {
       invoiceId,
       invoiceRef,
-      outcome: 'rejected',
-      error: xmlError,
-      body: {
-        simulated: false,
-        environment: anafEfacturaEnvironment(),
+      outcome: 'error',
+      error,
+      httpStatus: 422,
+      body: { code: 'MISSING_DATA', error, invoiceRef, simulated: false }
+    }
+  }
+
+  // Check the XML with ANAF's public validator first: an invalid invoice is not sent, and the user
+  // sees what to fix. If the validator itself is unreachable, the upload goes ahead (ANAF validates it anyway).
+  try {
+    const check = await validateEfacturaXml(xml, invoice.invoice_type_code)
+    if (!check.ok) {
+      const errors = readableValidationErrors(check.messages)
+      const error = `Factura nu a fost trimisă: nu trece validarea ANAF. ${errors.join(' · ')}`
+      return {
+        invoiceId,
         invoiceRef,
-        executionStatus: '1',
-        error: xmlError,
-        note: sentNote(),
-        invoicePatch
+        outcome: 'error',
+        error,
+        httpStatus: 422,
+        body: { code: 'ANAF_VALIDATION', error, errors, invoiceRef, simulated: false }
       }
     }
+  } catch (validationError) {
+    console.warn('ANAF validator unreachable, uploading anyway:', validationError instanceof Error ? validationError.message : validationError)
   }
 
   const uploaded = await uploadEfacturaXml({

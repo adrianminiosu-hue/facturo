@@ -37,3 +37,22 @@ export async function validateEfacturaXml(xml: string, invoiceTypeCode?: string 
     clearTimeout(timer)
   }
 }
+
+/**
+ * ANAF's messages are long technical strings ("tipAssert=...; codEroare=BR-RO-110; ... textEroare=[BR-RO-110]-Daca ... #If ...").
+ * Keeps the rule code and the Romanian explanation only.
+ */
+export function readableValidationErrors(messages: string[]) {
+  const out: string[] = []
+  for (const message of messages) {
+    for (const part of message.split(' || ')) {
+      const code = part.match(/codEroare=([^;]+)/)?.[1]?.trim()
+      const raw = part.match(/textEroare=([^;]+)/)?.[1] || part
+      const text = raw.replace(/^\[[^\]]+\]\s*-?\s*/, '').split('#')[0].replace(/\s+/g, ' ').trim()
+      if (code === 'ERRIdentif') out.push(`CUI: ${text}`)
+      else if (/SAXParseException|cvc-/.test(part)) out.push('Structura XML nu respectă schema UBL (eroare tehnică Facturo, nu de date).')
+      else out.push(code ? `${code}: ${text}` : text)
+    }
+  }
+  return [...new Set(out)].filter(Boolean)
+}

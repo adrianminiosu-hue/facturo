@@ -9,7 +9,7 @@ import InvoiceOverflow from '@/components/InvoiceOverflow'
 import InvoicePaymentsSection from '@/components/InvoicePaymentsSection'
 import PaymentModal from '@/components/PaymentModal'
 import { formatRoDate } from '@/lib/dates'
-import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload } from '@/lib/invoiceClient'
+import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload, checkInvoiceAtAnaf } from '@/lib/invoiceClient'
 import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey } from '@/lib/uiLabels'
@@ -306,6 +306,17 @@ export default function InvoiceViewPage() {
           )}
           <InvoiceOverflow
             actions={[
+              {
+                label: t('inv.anafCheck'),
+                onClick: async () => {
+                  try {
+                    const result = await checkInvoiceAtAnaf(invoice.id)
+                    alert(result.ok ? t('inv.anafCheckOk') : `${t('inv.anafCheckFail')}\n\n• ${result.errors.join('\n• ')}`)
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : String(e))
+                  }
+                }
+              },
               {
                 label: t('inv.xmlLabel'),
                 onClick: async () => {

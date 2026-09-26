@@ -54,6 +54,14 @@ export async function downloadEfacturaArchive(invoiceId: string, filename: strin
   URL.revokeObjectURL(href)
 }
 
+/** Runs the invoice XML through ANAF's public validator. Nothing is sent to SPV. */
+export async function checkInvoiceAtAnaf(invoiceId: string): Promise<{ ok: boolean; errors: string[] }> {
+  const res = await fetch(`/api/efactura/validate?id=${encodeURIComponent(invoiceId)}`, { headers: await authHeaders() })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok && !Array.isArray(data.errors)) throw new Error(data.error || 'Validatorul ANAF nu a răspuns.')
+  return { ok: !!data.ok, errors: data.errors || [] }
+}
+
 export async function sendInvoiceEmail(invoiceId: string, userId: string) {
   const res = await fetch('/api/send-invoice', {
     method: 'POST',
