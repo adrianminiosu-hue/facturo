@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCompany } from '@/components/CompanyProvider'
 import BrandLockup from '@/components/BrandLockup'
+import CompanySwitcher from '@/components/CompanySwitcher'
 import UserAvatar from '@/components/UserAvatar'
 import LocaleSwitch from '@/components/LocaleSwitch'
 import { displayUserName } from '@/lib/userDisplay'
@@ -83,6 +84,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
         <div className="side-brand">
           <BrandLockup href="/dashboard" />
         </div>
+        <CompanySwitcher />
         <nav className="flex-1 min-h-0 overflow-auto flex flex-col gap-0.5">
           <button
             type="button"
@@ -187,7 +189,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
               }
               setActiveCompanyId(e.target.value)
             }}
-            className="select"
+            className="select top-company-select"
             title={t('nav.activeCompany')}
           >
             {companies.length === 0 && <option value="">{t('nav.noCompany')}</option>}
@@ -197,7 +199,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             <option value="__new">{t('nav.newCompany')}</option>
           </select>
           {!isOwner && (
-            <span className="nav-meta text-xs uppercase tracking-wider">{t('nav.operator')}</span>
+            <span className="nav-meta text-xs uppercase tracking-wider top-company-select">{t('nav.operator')}</span>
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">

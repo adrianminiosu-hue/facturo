@@ -368,6 +368,143 @@ body {
     color: var(--nav-muted);
   }
 
+  /* Company switcher at the top of the sidebar (dark rail) */
+  .company-switch {
+    position: relative;
+    margin: 0 0 0.9rem;
+  }
+  .company-switch-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.55rem;
+    border: 1px solid var(--nav-border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--nav-ink) 5%, transparent);
+    color: var(--nav-ink);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+  }
+  .company-switch-btn:hover,
+  .company-switch-btn[aria-expanded="true"] {
+    background: color-mix(in srgb, var(--nav-ink) 9%, transparent);
+    border-color: color-mix(in srgb, var(--nav-ink) 16%, transparent);
+  }
+  .company-switch-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--nav-ink) 40%, transparent);
+    outline-offset: 2px;
+  }
+  .company-switch-tile {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 8px;
+    background: var(--nav-ink);
+    color: var(--nav-bg);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+  }
+  .company-switch-tile-sm {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    font-size: 10px;
+    background: var(--muted);
+    color: var(--foreground);
+  }
+  .company-switch-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .company-switch-name {
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .company-switch-role {
+    font-size: 12px;
+    line-height: 1.25;
+    color: var(--nav-muted);
+  }
+  .company-switch-caret {
+    flex: 0 0 auto;
+    color: var(--nav-muted);
+    transition: transform 160ms var(--ease);
+  }
+  .company-switch-btn[aria-expanded="true"] .company-switch-caret {
+    transform: rotate(180deg);
+  }
+  .company-switch-menu {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    padding: 0.3rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: 0 18px 40px -18px rgba(11, 13, 18, 0.45), 0 2px 6px rgba(11, 13, 18, 0.08);
+    max-height: 22rem;
+    overflow: auto;
+  }
+  .company-switch-option {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.45rem 0.5rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .company-switch-option:hover,
+  .company-switch-option:focus-visible {
+    background: var(--muted);
+    outline: none;
+  }
+  .company-switch-option[aria-selected="true"] {
+    font-weight: 550;
+  }
+  .company-switch-option-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .company-switch-sep {
+    height: 1px;
+    margin: 0.3rem 0.2rem;
+    background: var(--border);
+  }
+  .company-switch-new {
+    color: var(--muted-foreground);
+  }
+
+  /* The sidebar holds the company switcher on wide screens; the top bar keeps it on phones. */
+  @media (min-width: 861px) {
+    .top-nav .top-company-select {
+      display: none;
+    }
+  }
+
   .side-brand {
     padding: 0.15rem 0.45rem 1.15rem;
     margin-bottom: 0.55rem;
