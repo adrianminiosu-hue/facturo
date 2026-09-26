@@ -116,6 +116,7 @@ function baseSeed() {
     invoice_payments: [] as Row[],
     bank_match_suggestions: [] as Row[],
     bank_match_rules: [] as Row[],
+    clients: [{ id: 'c1', iban: 'RO49AAAA1B31007593840000' }] as Row[],
     portfolio_members: [] as Row[]
   }
 }
@@ -265,5 +266,27 @@ describe('undoMatch / confirmMatch', () => {
     expect(client.tables.bank_match_rules).toHaveLength(1)
     expect(client.tables.bank_match_rules[0].counterparty_iban).toBe('RO11BBBB1B31007593840099')
     expect(client.tables.bank_match_rules[0].created_from_payment_id).toBeTruthy()
+  })
+
+  it('learns the payer IBAN when a payment is auto-applied by its invoice reference', async () => {
+    const seed = baseSeed()
+    seed.bank_transactions[0].counterparty_iban = 'RO11BBBB1B31007593840099'
+    const client = createMock(seed)
+    const context = await loadMatchContext(client, companyId, owner)
+    const result = await applyMatchWithContext(client, { transactionId: 'tx-1', actorUserId: owner, context })
+    expect(result.applied).toBe(true)
+    expect(client.tables.bank_match_rules).toHaveLength(1)
+    expect(client.tables.bank_match_rules[0].client_id).toBe('c1')
+    expect(client.tables.bank_match_rules[0].counterparty_iban).toBe('RO11BBBB1B31007593840099')
+    expect(context.rules.some(rule => rule.counterparty_iban === 'RO11BBBB1B31007593840099')).toBe(true)
+  })
+
+  it('does not learn an IBAN the client already has', async () => {
+    const seed = baseSeed()
+    seed.client_bank_accounts = []
+    const client = createMock(seed)
+    await applyMatch(client, { transactionId: 'tx-1', actorUserId: owner })
+    expect(client.tables.invoice_payments).toHaveLength(1)
+    expect(client.tables.bank_match_rules).toHaveLength(0)
   })
 })

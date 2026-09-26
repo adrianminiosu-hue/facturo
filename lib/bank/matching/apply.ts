@@ -337,6 +337,52 @@ async function writeAllocations(
   return ((insert.data || []) as Array<{ id?: string }>).map(row => row.id).filter((id): id is string => !!id)
 }
 
+/**
+ * Remembers which client an IBAN belongs to, so the next payment from it is recognised without a reference.
+ * Only when the IBAN is not already on the client. Returns the new rule, or null.
+ */
+async function learnCounterparty(
+  client: QueryClient,
+  opts: { transaction: BankTransactionRow; clientId: string; actorUserId: string; paymentId: string | null }
+): Promise<LearnedRule | null> {
+  const { transaction, clientId } = opts
+  const iban = normalizeIban(transaction.counterparty_iban)
+  if (!iban) return null
+  const { data: clientRow } = await client.from('clients').select('iban').eq('id', clientId).maybeSingle()
+  const { data: banks } = await client.from('client_bank_accounts').select('iban').eq('client_id', clientId)
+  const known = [(clientRow as { iban?: string | null } | null)?.iban, ...((banks || []) as Array<{ iban?: string }>).map(row => row.iban)]
+    .some(value => sameIban(value, iban))
+  if (known) return null
+  const { data: existing } = await client
+    .from('bank_match_rules')
+    .select('id')
+    .eq('company_id', transaction.company_id)
+    .eq('client_id', clientId)
+    .eq('counterparty_iban', iban)
+    .maybeSingle()
+  if (existing) return null
+  const tenant = await tenantWriteVerified(client, {
+    userId: transaction.user_id,
+    companyId: transaction.company_id,
+    createdBy: opts.actorUserId
+  })
+  const rule: LearnedRule = {
+    client_id: clientId,
+    counterparty_iban: iban,
+    counterparty_name_norm: normalizePartyName(transaction.counterparty_name) || null
+  }
+  const insert = await client.from('bank_match_rules').insert({
+    ...tenant,
+    ...rule,
+    created_from_payment_id: opts.paymentId
+  })
+  if (insert?.error) return null
+  return rule
+}
+
+/** Rules whose evidence is the invoice itself: safe to learn the payer's IBAN from. */
+const LEARN_FROM_RULES = new Set<string>([RULE.invoiceRef, RULE.invoiceRefMulti])
+
 export type MatchContext = {
   open: MatchInvoice[]
   linkable: LinkableInvoice[]
@@ -493,13 +539,27 @@ export async function applyMatchWithContext(
 
   if (autoApply && candidate && candidate.auto) {
     try {
-      await writeAllocations(client, {
+      const paymentIds = await writeAllocations(client, {
         transaction,
         allocations: candidate.allocations,
         confidence: candidate.confidence,
         rule: candidate.rule,
         actorUserId: opts.actorUserId
       })
+      const clientIds = new Set(candidate.allocations.map(allocation =>
+        opts.context.open.find(row => row.id === allocation.invoiceId)?.client_id || null
+      ))
+      const [clientId] = [...clientIds]
+      if (LEARN_FROM_RULES.has(candidate.rule) && clientIds.size === 1 && clientId) {
+        // Learning is a bonus: a failure here must not undo a payment that was booked correctly.
+        const learned = await learnCounterparty(client, {
+          transaction,
+          clientId,
+          actorUserId: opts.actorUserId,
+          paymentId: paymentIds[0] || null
+        }).catch(() => null)
+        if (learned) opts.context.rules.push(learned)
+      }
       consumeAllocations(opts.context, candidate.allocations)
       const status = candidate.overpayment_bani > 0 ? 'partially_matched' : 'matched'
       await client.from('bank_transactions').update({ match_status: status }).eq('id', transaction.id)
@@ -707,40 +767,20 @@ export async function confirmMatch(
   await client.from('bank_match_suggestions').delete().eq('bank_transaction_id', transaction.id)
 
   const firstInvoiceId = opts.allocations[0]?.invoiceId
-  const iban = normalizeIban(transaction.counterparty_iban)
-  if (opts.learnIban !== false && iban && firstInvoiceId) {
+  if (opts.learnIban !== false && firstInvoiceId) {
     const { data: invoice } = await client
       .from('invoices')
-      .select('client_id, clients(iban)')
+      .select('client_id')
       .eq('id', firstInvoiceId)
       .maybeSingle()
-    const invoiceRow = invoice as { client_id?: string | null; clients?: InvoiceClientRel | InvoiceClientRel[] | null } | null
-    const clientId = invoiceRow?.client_id
+    const clientId = (invoice as { client_id?: string | null } | null)?.client_id
     if (clientId) {
-      const { data: banks } = await client.from('client_bank_accounts').select('iban').eq('client_id', clientId)
-      const known = [asClient(invoiceRow?.clients).iban, ...((banks || []) as Array<{ iban?: string }>).map(row => row.iban)]
-        .some(value => sameIban(value, iban))
-      const { data: existing } = await client
-        .from('bank_match_rules')
-        .select('id')
-        .eq('company_id', transaction.company_id)
-        .eq('client_id', clientId)
-        .eq('counterparty_iban', iban)
-        .maybeSingle()
-      if (!known && !existing) {
-        const tenant = await tenantWriteVerified(client, {
-          userId: transaction.user_id,
-          companyId: transaction.company_id,
-          createdBy: opts.actorUserId
-        })
-        await client.from('bank_match_rules').insert({
-          ...tenant,
-          client_id: clientId,
-          counterparty_iban: iban,
-          counterparty_name_norm: normalizePartyName(transaction.counterparty_name) || null,
-          created_from_payment_id: paymentIds[0] || null
-        })
-      }
+      await learnCounterparty(client, {
+        transaction,
+        clientId,
+        actorUserId: opts.actorUserId,
+        paymentId: paymentIds[0] || null
+      })
     }
   }
   await logBankMatchEvent(client, {
