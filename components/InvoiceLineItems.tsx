@@ -353,10 +353,10 @@ export default function InvoiceLineItems({
           const showMenu = openIndex === index && suggestions.length > 0
 
           return (
-            <div key={index} className="border border-gray-100 rounded-xl p-3">
-              <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-12 md:col-span-3 relative">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.description')}</label>}
+            <div key={index} className="line-row border border-gray-100 rounded-xl p-3">
+              <div className="line-grid grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-12 relative min-w-0">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>{t('inv.description')}</label>
                   <input
                     type="text"
                     value={item.description}
@@ -412,8 +412,8 @@ export default function InvoiceLineItems({
                     </div>
                   )}
                 </div>
-                <div className="col-span-4 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.qty')}</label>}
+                <div className="col-span-4">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>{t('inv.qty')}</label>
                   <input
                     type="number"
                     value={item.quantity}
@@ -422,20 +422,20 @@ export default function InvoiceLineItems({
                     min="0"
                   />
                 </div>
-                <div className="col-span-8 md:col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.unit')}</label>}
+                <div className="col-span-8">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>{t('inv.unit')}</label>
                   <select
                     value={item.unit_code}
                     onChange={e => updateItem(index, 'unit_code', e.target.value)}
-                    className="input bg-white px-3 py-2.5"
+                    className="input px-3 py-2.5"
                   >
                     {UNIT_CODES.map(unit => (
                       <option key={unit.code} value={unit.code}>{unitMessageKey(unit.code) ? t(unitMessageKey(unit.code)!) : unit.label}</option>
                     ))}
                   </select>
                 </div>
-                <div className="col-span-4 md:col-span-2">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{fx?.enabled ? t('inv.unitPriceEur') : t('inv.unitPrice')}</label>}
+                <div className="col-span-4">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>{fx?.enabled ? t('inv.unitPriceEur') : t('inv.unitPrice')}</label>
                   <input
                     type="number"
                     value={item.unit_price}
@@ -447,8 +447,8 @@ export default function InvoiceLineItems({
                     <span className="block text-xs text-[color:var(--color-muted-foreground)] mt-1">= {formatRon(roundMoney(item.unit_price * fx.rate))}</span>
                   )}
                 </div>
-                <div className="col-span-4 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.discount')}</label>}
+                <div className="col-span-4">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>{t('inv.discount')}</label>
                   <input
                     type="number"
                     value={item.discount_percent}
@@ -458,27 +458,29 @@ export default function InvoiceLineItems({
                     max="100"
                   />
                 </div>
-                <div className="col-span-4 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">{t('inv.vat')}</label>}
+                <div className="col-span-4">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>{t('inv.vat')}</label>
                   <select
                     value={item.tva_rate}
                     onChange={e => updateItem(index, 'tva_rate', parseFloat(e.target.value))}
-                    className="input bg-white px-3 py-2.5"
+                    className="input pl-3 pr-7 py-2.5"
                   >
                     {vatRateOptions(item.tva_rate).map(rate => (
                       <option key={rate} value={rate}>{rate}%</option>
                     ))}
                   </select>
                 </div>
-                <div className="col-span-3 md:col-span-1">
-                  {index === 0 && <label className="block text-xs text-gray-500 mb-1">Total</label>}
-                  <p className="text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{formatAmount(priced.lines[index]?.total || 0)}</p>
+                <div className="col-span-10 line-total">
+                  <label className={`line-label ${index === 0 ? '' : 'line-label-repeat'} block text-xs text-gray-500 mb-1`}>Total</label>
+                  <p className="money text-sm font-medium text-[color:var(--color-foreground)] py-2.5">{formatAmount(priced.lines[index]?.total || 0)}</p>
                 </div>
-                <div className="col-span-1">
-                  {index === 0 && <div className="mb-1 h-4"></div>}
+                <div className="col-span-2 text-right">
+                  <div className={`line-label ${index === 0 ? '' : 'line-label-repeat'} mb-1 h-4`}></div>
                   <button
+                    type="button"
                     onClick={() => removeItem(index)}
-                    className="text-red-400 hover:text-red-600 transition text-lg leading-none py-2.5"
+                    aria-label={t('common.delete')}
+                    className="text-red-400 hover:text-red-600 transition text-lg leading-none py-2.5 px-1"
                   >
                     ×
                   </button>

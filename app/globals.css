@@ -1907,3 +1907,26 @@ html[data-theme="nocturne"] .text-gray-400 { color: var(--muted-foreground); }
 html[data-theme="nocturne"] .border-gray-100,
 html[data-theme="nocturne"] .border-gray-200,
 html[data-theme="nocturne"] .border-gray-300 { border-color: var(--border); }
+
+/* Invoice line items: stacked on narrow cards, one aligned row when the card is wide enough.
+   Driven by the card's own width (not the viewport), so the sidebar never squeezes the VAT column. */
+.line-row {
+  container-type: inline-size;
+}
+.line-total .money {
+  font-variant-numeric: tabular-nums;
+}
+@container (min-width: 46rem) {
+  .line-row .line-grid {
+    grid-template-columns: minmax(7rem, 1fr) 4rem 7rem 6.5rem 4rem 5.5rem 6.5rem 1.5rem;
+  }
+  .line-row .line-grid > * {
+    grid-column: auto;
+  }
+  .line-row .line-label-repeat {
+    display: none;
+  }
+  .line-row .line-total {
+    text-align: right;
+  }
+}
