@@ -1,6 +1,6 @@
-/** Live: 1 Vânzări, 2 Achiziții, 3 Forecast, 4 Urmărire încasări. Draft: 5 Situație e-Factura. */
+/** Live: 1 Vânzări, 2 Achiziții, 3 Forecast, 4 Urmărire încasări. No drafts: e-Factura has its own page (/efactura). */
 export const LIVE_DASHBOARD_SLOTS = [1, 2, 3, 4] as const
-export const DRAFT_DASHBOARD_SLOTS = [5] as const
+export const DRAFT_DASHBOARD_SLOTS: readonly number[] = []
 
 /** Drafts show on localhost, or anywhere NEXT_PUBLIC_SHOW_DRAFT_DASHBOARDS=1; never by default in production. */
 export function showDraftDashboards() {
