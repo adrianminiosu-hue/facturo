@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import BrandLockup from '@/components/BrandLockup'
+import LocaleSwitch from '@/components/LocaleSwitch'
 import { supabase } from '@/lib/supabase'
 import { applyLocale, interpolate, localeTag, persistLocaleLocal, type Locale } from '@/lib/i18n'
 import { messages } from '@/lib/messages'
@@ -125,14 +126,15 @@ function WeekFeed() {
   )
 }
 
-/** Links to the same page in the other language. */
-function LangLinks() {
+/** RO/EN flags, as in the app: switching goes to the same page in the other language (/ or /en). */
+function LangSwitch() {
   const lang = useContext(LandingLang)
+  const router = useRouter()
   return (
-    <nav className="lp-lang" aria-label="Language / Limba">
-      <Link href="/" hrefLang="ro" lang="ro" aria-current={lang === 'ro' ? 'page' : undefined}>RO</Link>
-      <Link href="/en" hrefLang="en" lang="en" aria-current={lang === 'en' ? 'page' : undefined}>EN</Link>
-    </nav>
+    <LocaleSwitch
+      value={lang}
+      onSelect={next => router.push(`${next === 'en' ? '/en' : '/'}${window.location.search}`)}
+    />
   )
 }
 
@@ -175,7 +177,7 @@ function Landing() {
             <a href="#pentru-cine">{t('lp.nav.who')}</a>
           </nav>
           <div className="lp-header-actions">
-            <LangLinks />
+            <LangSwitch />
             <Link href="/login" className="lp-link" onClick={() => persistLocaleLocal(lang)}>{t('landing.signIn')}</Link>
             <SignupLink position="header" className="lp-btn lp-btn-small">{t('lp.cta')}</SignupLink>
           </div>
@@ -287,7 +289,7 @@ function Landing() {
           <Link href="/termeni">{t('landing.terms')}</Link>
           <Link href="/contact">{t('landing.contact')}</Link>
         </nav>
-        <LangLinks />
+        <LangSwitch />
       </footer>
     </div>
   )

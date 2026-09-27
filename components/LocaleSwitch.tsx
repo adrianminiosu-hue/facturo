@@ -37,9 +37,15 @@ const OPTIONS: { id: Locale; name: string; Flag: () => React.ReactElement }[] = 
   { id: 'en', name: 'English', Flag: FlagGB }
 ]
 
-/** Language slider: two round flags, the active one sits on a thumb that slides between them. */
-export default function LocaleSwitch() {
-  const { locale, setLocale, t } = useLocale()
+/**
+ * Language slider: two round flags, the active one sits on a thumb that slides between them.
+ * By default it changes the app language; with `value` and `onSelect` the caller decides
+ * (the landing page navigates between / and /en instead).
+ */
+export default function LocaleSwitch({ value, onSelect }: { value?: Locale; onSelect?: (locale: Locale) => void } = {}) {
+  const { locale: appLocale, setLocale, t } = useLocale()
+  const locale = value ?? appLocale
+  const choose = onSelect ?? setLocale
 
   return (
     <div className="locale-switch" role="radiogroup" aria-label={t('nav.language')} data-locale={locale}>
@@ -54,7 +60,7 @@ export default function LocaleSwitch() {
           title={name}
           className="locale-switch-btn"
           data-active={locale === id}
-          onClick={() => setLocale(id)}
+          onClick={() => { if (id !== locale) choose(id) }}
         >
           <span className="locale-flag"><Flag /></span>
         </button>
