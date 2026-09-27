@@ -4,8 +4,8 @@ import { redirectIfAuthed } from '@/lib/redirectIfAuthed'
 import { siteUrl } from '@/config/company'
 import { BRAND } from '@/lib/brand'
 
-const title = `${BRAND.name} — banii firmei tale, sub control`
-const description = 'Vezi cine îți datorează, ce intră în cont săptămâna asta și primește-ți banii mai repede.'
+const title = `${BRAND.name} — fiecare factură, urmărită până intră banii`
+const description = 'Trimite factura la ANAF, amintește clientului când întârzie, leagă plata din extras de factura ei și află dimineața ce ai de făcut.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -26,7 +26,9 @@ export const metadata: Metadata = {
   }
 }
 
-export default async function Home() {
-  await redirectIfAuthed()
+/** `/?preview` shows the landing page even when signed in (to review it from the app). */
+export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams
+  if (!('preview' in params)) await redirectIfAuthed()
   return <LandingPage />
 }
