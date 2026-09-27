@@ -143,6 +143,8 @@ export type EfacturaStatsResponse = {
   reason?: string
   days?: number
   now?: { queued: number; awaitingAnaf: number }
+  /** Last time the app imported received invoices / checked statuses at ANAF (any period). */
+  last?: { import: string | null; check: string | null }
   stats?: {
     out: { sent: number; accepted: number; rejected: number; pending: number; acceptedFirstTry: number; recoveredAfterOutage: number; blockedBeforeSend: number; acceptanceRate: number | null }
     in: { messages: number; imported: number; alreadyKnown: number; failed: number; importRate: number | null }

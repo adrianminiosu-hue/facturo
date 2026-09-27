@@ -45,8 +45,18 @@ export async function GET(request: NextRequest) {
     else now.awaitingAnaf += 1
   }
 
+  // When the app last spoke to ANAF, whatever the period: an import of received invoices, a status check.
+  const lastOf = async (operation: 'import' | 'status') => {
+    let q = db.from('efactura_log').select('created_at').in('user_id', ownerUserIds).eq('operation', operation)
+    if (companyId) q = q.eq('company_id', companyId)
+    const res = await q.order('created_at', { ascending: false }).limit(1)
+    return ((res.data || []) as Array<{ created_at: string }>)[0]?.created_at || null
+  }
+  const [lastImport, lastCheck] = await Promise.all([lastOf('import'), lastOf('status')])
+
   return NextResponse.json({
     available: true,
+    last: { import: lastImport, check: lastCheck },
     days,
     stats: summarizeEfacturaLog(rows),
     now,
