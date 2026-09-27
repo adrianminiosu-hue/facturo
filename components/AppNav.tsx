@@ -13,7 +13,7 @@ import LocaleSwitch from '@/components/LocaleSwitch'
 import { displayUserName } from '@/lib/userDisplay'
 import { useLocale } from '@/components/LocaleProvider'
 
-const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator', 'efactura'] as const
+const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator'] as const
 const DASHBOARD_SLOTS = visibleDashboardSlots()
 
 export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
@@ -22,6 +22,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
   const { t } = useLocale()
   const { userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
   const [inboxCount, setInboxCount] = useState(0)
+  const [rejectedCount, setRejectedCount] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const dashboardActive = active === 'dashboard' || active.startsWith('dashboard-')
   const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
@@ -65,6 +66,22 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
       .then(({ count, error }) => {
         if (cancelled) return
         setInboxCount(error ? 0 : count || 0)
+      })
+    return () => { cancelled = true }
+  }, [company?.id, active])
+
+  // Invoices ANAF rejected: they do not count as issued until fixed, so the menu flags them.
+  useEffect(() => {
+    if (!company?.id) return
+    let cancelled = false
+    supabase
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', company.id)
+      .eq('efactura_status', 'rejected')
+      .then(({ count, error }) => {
+        if (cancelled) return
+        setRejectedCount(error ? 0 : count || 0)
       })
     return () => { cancelled = true }
   }, [company?.id, active])
@@ -122,6 +139,16 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             </div>
           )}
 
+          <Link href="/efactura" className={sideClass(active === 'efactura')}>
+            <span className="flex items-center justify-between gap-2 w-full">
+              <span>{t('nav.efactura')}</span>
+              {rejectedCount > 0 && (
+                <span className="text-xs min-w-[1.25rem] text-center rounded-full bg-red-600 text-white px-1" title={t('efd.stage.rejected')}>
+                  {rejectedCount}
+                </span>
+              )}
+            </span>
+          </Link>
           <Link href="/incasari" className={sideClass(active === 'receivables')}>{t('nav.receivables')}</Link>
           <Link href="/banca" className={sideClass(active === 'banca')}>
             <span className="flex items-center justify-between gap-2 w-full">
@@ -148,7 +175,6 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             <div className="side-group">
               <Link href="/profile" className={subClass(active === 'profile')}>{t('nav.companyProfile')}</Link>
               <Link href="/nomenclator" className={subClass(active === 'nomenclator')}>{t('nav.catalog')}</Link>
-              <Link href="/efactura" className={subClass(active === 'efactura')}>{t('nav.efactura')}</Link>
               <Link href="/companies" className={subClass(active === 'companies')}>{t('nav.companies')}</Link>
               <Link href="/team" className={subClass(active === 'team')}>{t('nav.team')}</Link>
               <Link href="/account" className={subClass(active === 'account')}>{t('nav.account')}</Link>

@@ -1521,7 +1521,7 @@ const rawMessages: Record<'ro' | 'en', Record<string, string>> = {
     'nav.settings': 'Settings',
     'nav.companyProfile': 'Company profile',
     'nav.catalog': 'Item catalog',
-    'nav.efactura': 'e-Invoice TEST',
+    'nav.efactura': 'e-Invoice',
     'nav.companies': 'Companies',
     'nav.team': 'Team',
     'nav.account': 'Account',
