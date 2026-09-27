@@ -30,6 +30,7 @@ type Tone = 'done' | 'warn' | 'good'
 function InvoiceJourney() {
   const { t } = useLocale()
   const steps: Array<{ key: string; tone: Tone }> = [
+    { key: 'client', tone: 'done' },
     { key: 'issued', tone: 'done' },
     { key: 'anaf', tone: 'done' },
     { key: 'due', tone: 'warn' },
@@ -112,7 +113,7 @@ export default function LandingPage() {
   const loop = ['anaf', 'client', 'bank', 'next'] as const
   const questions = ['q1', 'q2', 'q3', 'q4'] as const
   const fit = ['fit1', 'fit2', 'fit3', 'fit4'] as const
-  const included = ['inc1', 'inc2', 'inc3', 'inc4', 'inc5', 'inc6'] as const
+  const included = ['inc0', 'inc1', 'inc2', 'inc3', 'inc4', 'inc5'] as const
 
   return (
     <div className="lp">
@@ -215,6 +216,7 @@ export default function LandingPage() {
               </li>
             ))}
           </ul>
+          <p className="lp-inc-more">{t('lp.inc.more')}</p>
         </section>
 
         {/* 7. Close */}

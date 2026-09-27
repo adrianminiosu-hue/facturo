@@ -547,6 +547,13 @@
   color: var(--lp-muted);
 }
 
+.lp-inc-more {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.92rem;
+  color: var(--lp-muted);
+}
+
 /* Closing band */
 .lp-band {
   margin: 1rem 0 4rem;
