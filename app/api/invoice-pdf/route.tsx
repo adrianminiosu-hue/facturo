@@ -178,8 +178,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderRadius: 4
   },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start'
+  },
   payBox: {
-    marginTop: 24,
+    marginTop: 16,
+    width: 250,
     padding: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
@@ -320,58 +326,59 @@ const InvoicePDF = ({ invoice, items, client, profile }: any) => {
         </View>
       ))}
 
-      {/* Totals */}
-      <View style={styles.totalsSection}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Bază</Text>
-          <Text style={styles.totalValue}>{formatRon(totals.lineExtension)}</Text>
+      {/* Payment details (left) and totals (right): the reference lets the bank statement match this invoice by itself */}
+      <View style={styles.bottomRow} wrap={false}>
+        {invoice.invoice_type_code !== '381' && (
+          <View style={styles.payBox}>
+            <Text style={styles.notesLabel}>Date de plată</Text>
+            <Text style={styles.payLine}>Beneficiar: {profile?.company_name || '—'}</Text>
+            {profile?.iban && <Text style={styles.payLine}>IBAN: {profile.iban}{profile?.bank_name ? ` · ${profile.bank_name}` : ''}</Text>}
+            <Text style={styles.payRef}>Referință plată: {paymentReference(invoice)}</Text>
+            <Text style={styles.notesText}>{PAYMENT_REFERENCE_HINT}</Text>
+          </View>
+        )}
+        {invoice.invoice_type_code === '381' && <View />}
+        <View style={styles.totalsSection}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Bază</Text>
+            <Text style={styles.totalValue}>{formatRon(totals.lineExtension)}</Text>
+          </View>
+          {totals.headerDiscount > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Discount</Text>
+              <Text style={styles.totalValue}>-{formatRon(totals.headerDiscount)}</Text>
+            </View>
+          )}
+          {totals.vatBreakdown.map(row => (
+            <View key={row.rate} style={styles.totalRow}>
+              <Text style={styles.totalLabel}>TVA {row.rate}%</Text>
+              <Text style={styles.totalValue}>{formatRon(row.tax)}</Text>
+            </View>
+          ))}
+          {fxRate > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Curs</Text>
+              <Text style={styles.totalValue}>{fxRateLine(fxRate, invoice.exchange_rate_source, invoice.exchange_rate_date)}</Text>
+            </View>
+          )}
+          <View style={styles.grandTotalRow}>
+            <Text style={styles.grandTotalLabel}>TOTAL</Text>
+            <Text style={styles.grandTotalValue}>{formatRon(totals.taxInclusive)}</Text>
+          </View>
+          {totals.prepaid > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Avans</Text>
+              <Text style={styles.totalValue}>-{formatRon(totals.prepaid)}</Text>
+            </View>
+          )}
+          {totals.prepaid > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.grandTotalLabel}>De plată</Text>
+              <Text style={styles.grandTotalValue}>{formatRon(totals.payable)}</Text>
+            </View>
+          )}
         </View>
-        {totals.headerDiscount > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Discount</Text>
-            <Text style={styles.totalValue}>-{formatRon(totals.headerDiscount)}</Text>
-          </View>
-        )}
-        {totals.vatBreakdown.map(row => (
-          <View key={row.rate} style={styles.totalRow}>
-            <Text style={styles.totalLabel}>TVA {row.rate}%</Text>
-            <Text style={styles.totalValue}>{formatRon(row.tax)}</Text>
-          </View>
-        ))}
-        {fxRate > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Curs</Text>
-            <Text style={styles.totalValue}>{fxRateLine(fxRate, invoice.exchange_rate_source, invoice.exchange_rate_date)}</Text>
-          </View>
-        )}
-        <View style={styles.grandTotalRow}>
-          <Text style={styles.grandTotalLabel}>TOTAL</Text>
-          <Text style={styles.grandTotalValue}>{formatRon(totals.taxInclusive)}</Text>
-        </View>
-        {totals.prepaid > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Avans</Text>
-            <Text style={styles.totalValue}>-{formatRon(totals.prepaid)}</Text>
-          </View>
-        )}
-        {totals.prepaid > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.grandTotalLabel}>De plată</Text>
-            <Text style={styles.grandTotalValue}>{formatRon(totals.payable)}</Text>
-          </View>
-        )}
       </View>
-
-      {/* Payment details: the reference is what lets the bank statement match this invoice by itself */}
-      {invoice.invoice_type_code !== '381' && (
-        <View style={styles.payBox} wrap={false}>
-          <Text style={styles.notesLabel}>Date de plată</Text>
-          <Text style={styles.payLine}>Beneficiar: {profile?.company_name || '—'}</Text>
-          {profile?.iban && <Text style={styles.payLine}>IBAN: {profile.iban}{profile?.bank_name ? ` · ${profile.bank_name}` : ''}</Text>}
-          <Text style={styles.payRef}>Referință plată: {paymentReference(invoice)}</Text>
-          <Text style={styles.notesText}>{PAYMENT_REFERENCE_HINT}</Text>
-        </View>
-      )}
 
       {/* Notes */}
       {pdfNotes && (
