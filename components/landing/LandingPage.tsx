@@ -1,11 +1,11 @@
 'use client'
-import { useEffect } from 'react'
+import { createContext, useContext, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import BrandLockup from '@/components/BrandLockup'
-import LocaleSwitch from '@/components/LocaleSwitch'
-import { useLocale } from '@/components/LocaleProvider'
 import { supabase } from '@/lib/supabase'
+import { applyLocale, interpolate, localeTag, persistLocaleLocal, type Locale } from '@/lib/i18n'
+import { messages } from '@/lib/messages'
 import { track } from '@/lib/landingTrack'
 import { legalCompany } from '@/config/company'
 import { BRAND } from '@/lib/brand'
@@ -16,9 +16,33 @@ import './landing.css'
  * money there are four moments (ANAF, the client, the bank, what comes next); Veyro watches each one.
  */
 
+/** The page language comes from the URL (/ = Romanian, /en = English), not from the visitor's saved preference. */
+const LandingLang = createContext<Locale>('ro')
+
+function useLandingT() {
+  const lang = useContext(LandingLang)
+  return (key: string, vars?: Record<string, string | number>) =>
+    interpolate(messages[lang][key] || messages.ro[key] || key, vars)
+}
+
+function useMoney() {
+  const lang = useContext(LandingLang)
+  const format = new Intl.NumberFormat(localeTag(lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (value: number) => format.format(value)
+}
+
 function SignupLink({ position, className, children }: { position: string; className: string; children: React.ReactNode }) {
+  const lang = useContext(LandingLang)
   return (
-    <Link href="/register" className={className} onClick={() => track('cta_signup_click', { position })}>
+    <Link
+      href="/register"
+      className={className}
+      onClick={() => {
+        // The app opens in the language the visitor chose on the landing page.
+        persistLocaleLocal(lang)
+        track('cta_signup_click', { position, lang })
+      }}
+    >
       {children}
     </Link>
   )
@@ -28,7 +52,8 @@ type Tone = 'done' | 'warn' | 'good'
 
 /** One invoice, followed from issue to money in the bank: the headline, shown. */
 function InvoiceJourney() {
-  const { t } = useLocale()
+  const t = useLandingT()
+  const money = useMoney()
   const steps: Array<{ key: string; tone: Tone }> = [
     { key: 'client', tone: 'done' },
     { key: 'issued', tone: 'done' },
@@ -43,7 +68,7 @@ function InvoiceJourney() {
           <p className="lp-journey-ref">FCT0032</p>
           <p className="lp-journey-client">Siemens S.R.L.</p>
         </div>
-        <p className="lp-journey-amount">61.710,00 <span>lei</span></p>
+        <p className="lp-journey-amount">{money(61710)} <span>{t('lp.cur')}</span></p>
       </div>
       <ol className="lp-journey-steps">
         {steps.map((step, index) => (
@@ -68,13 +93,14 @@ function InvoiceJourney() {
 
 /** A Monday morning in the app: what changed since Friday and what comes up. */
 function WeekFeed() {
-  const { t } = useLocale()
-  const rows: Array<{ day?: string; tone: 'good' | 'bad' | 'warn' | 'neutral'; key: string; amount?: string; action?: string }> = [
-    { day: 'lp.week.today', tone: 'good', key: 'lp.week.paid', amount: '45.210,00' },
-    { tone: 'warn', key: 'lp.week.suppliers', amount: '2.100,00', action: 'lp.week.pay' },
+  const t = useLandingT()
+  const money = useMoney()
+  const rows: Array<{ day?: string; tone: 'good' | 'bad' | 'warn' | 'neutral'; key: string; amount?: number; action?: string }> = [
+    { day: 'lp.week.today', tone: 'good', key: 'lp.week.paid', amount: 45210 },
+    { tone: 'warn', key: 'lp.week.suppliers', amount: 2100, action: 'lp.week.pay' },
     { tone: 'bad', key: 'lp.week.rejected', action: 'lp.week.fix' },
     { day: 'lp.week.friday', tone: 'neutral', key: 'lp.week.reminder' },
-    { tone: 'neutral', key: 'lp.week.received', amount: '5.320,00' }
+    { tone: 'neutral', key: 'lp.week.received', amount: 5320 }
   ]
   return (
     <div className="lp-feed" aria-label={t('lp.week.aria')}>
@@ -89,7 +115,7 @@ function WeekFeed() {
             <div className="lp-feed-line">
               <span className="lp-feed-dot" data-tone={row.tone} aria-hidden="true" />
               <p className="lp-feed-text">{t(row.key)}</p>
-              {row.amount && <p className="lp-feed-amount">{row.amount} <span>lei</span></p>}
+              {row.amount && <p className="lp-feed-amount">{money(row.amount)} <span>{t('lp.cur')}</span></p>}
               {row.action && <span className="lp-feed-action">{t(row.action)}</span>}
             </div>
           </li>
@@ -99,9 +125,33 @@ function WeekFeed() {
   )
 }
 
-export default function LandingPage() {
-  const { t } = useLocale()
+/** Links to the same page in the other language. */
+function LangLinks() {
+  const lang = useContext(LandingLang)
+  return (
+    <nav className="lp-lang" aria-label="Language / Limba">
+      <Link href="/" hrefLang="ro" lang="ro" aria-current={lang === 'ro' ? 'page' : undefined}>RO</Link>
+      <Link href="/en" hrefLang="en" lang="en" aria-current={lang === 'en' ? 'page' : undefined}>EN</Link>
+    </nav>
+  )
+}
+
+export default function LandingPage({ lang = 'ro' }: { lang?: Locale }) {
+  return (
+    <LandingLang.Provider value={lang}>
+      <Landing />
+    </LandingLang.Provider>
+  )
+}
+
+function Landing() {
+  const lang = useContext(LandingLang)
+  const t = useLandingT()
   const router = useRouter()
+
+  useEffect(() => {
+    applyLocale(lang)
+  }, [lang])
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has('preview')) return
@@ -119,13 +169,14 @@ export default function LandingPage() {
     <div className="lp">
       <header className="lp-header">
         <div className="lp-shell lp-header-row">
-          <BrandLockup href="/" />
+          <BrandLockup href={lang === 'en' ? '/en' : '/'} />
           <nav className="lp-nav" aria-label={t('lp.nav.aria')}>
             <a href="#cum-functioneaza">{t('lp.nav.how')}</a>
             <a href="#pentru-cine">{t('lp.nav.who')}</a>
           </nav>
           <div className="lp-header-actions">
-            <Link href="/login" className="lp-link">{t('landing.signIn')}</Link>
+            <LangLinks />
+            <Link href="/login" className="lp-link" onClick={() => persistLocaleLocal(lang)}>{t('landing.signIn')}</Link>
             <SignupLink position="header" className="lp-btn lp-btn-small">{t('lp.cta')}</SignupLink>
           </div>
         </div>
@@ -236,7 +287,7 @@ export default function LandingPage() {
           <Link href="/termeni">{t('landing.terms')}</Link>
           <Link href="/contact">{t('landing.contact')}</Link>
         </nav>
-        <LocaleSwitch />
+        <LangLinks />
       </footer>
     </div>
   )

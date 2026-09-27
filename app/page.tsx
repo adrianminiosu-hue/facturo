@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description,
   alternates: {
     canonical: '/',
-    languages: { ro: '/', en: '/' }
+    languages: { ro: '/', en: '/en' }
   },
   openGraph: {
     title,
@@ -30,5 +30,5 @@ export const metadata: Metadata = {
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams
   if (!('preview' in params)) await redirectIfAuthed()
-  return <LandingPage />
+  return <LandingPage lang="ro" />
 }

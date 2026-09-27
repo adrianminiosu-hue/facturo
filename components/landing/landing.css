@@ -72,6 +72,25 @@
   color: var(--lp-ink);
 }
 
+.lp-lang {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--lp-line);
+  border-radius: 9px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.lp-lang a {
+  padding: 0.2rem 0.5rem;
+  border-radius: 7px;
+  color: var(--lp-muted);
+}
+.lp-lang a[aria-current='page'] {
+  background: var(--lp-ink);
+  color: #fff;
+}
+
 /* Buttons */
 .lp-btn {
   display: inline-flex;
