@@ -147,6 +147,17 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
             </div>
           )}
 
+          <Link href="/notificari" className={sideClass(active === 'notifications')}>
+            <span className="flex items-center justify-between gap-2 w-full">
+              <span>{t('nav.notifications')}</span>
+              {unread > 0 && (
+                <span className="text-xs min-w-[1.25rem] text-center rounded-full bg-red-600 text-white px-1">
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </span>
+          </Link>
+
           <button
             type="button"
             onClick={() => setInvoicesOpen(v => !v)}
