@@ -12,17 +12,20 @@ import UserAvatar from '@/components/UserAvatar'
 import LocaleSwitch from '@/components/LocaleSwitch'
 import { displayUserName } from '@/lib/userDisplay'
 import { useLocale } from '@/components/LocaleProvider'
+import { unreadCount } from '@/lib/notifications'
+import { loadNotifications, notificationsSeenAt, onNotificationsSeen } from '@/lib/notificationsClient'
 
 const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator'] as const
 const DASHBOARD_SLOTS = visibleDashboardSlots()
 
-export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' }) {
+export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' | 'notifications' }) {
   const router = useRouter()
   const pathname = usePathname()
   const { t } = useLocale()
-  const { userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
+  const { userId, ownerUserId, userEmail, userName, userAvatarUrl, companies, company, setActiveCompanyId, createCompany, isOwner } = useCompany()
   const [inboxCount, setInboxCount] = useState(0)
   const [rejectedCount, setRejectedCount] = useState(0)
+  const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const dashboardActive = active === 'dashboard' || active.startsWith('dashboard-')
   const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
@@ -69,6 +72,27 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
       })
     return () => { cancelled = true }
   }, [company?.id, active])
+
+  // New notifications since this user last opened the page (shared, cached load; cleared when the page marks them seen).
+  useEffect(() => {
+    if (!company?.id || !userId) return
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const [built, seen] = await Promise.all([loadNotifications(company.id, ownerUserId || userId, userId), notificationsSeenAt()])
+        // On the notifications page everything is being marked seen: never show a stale count there.
+        if (!cancelled) setUnread(active === 'notifications' ? 0 : unreadCount(built.feed, seen))
+      } catch {
+        if (!cancelled) setUnread(0)
+      }
+    }
+    refresh()
+    const stop = onNotificationsSeen(() => { if (!cancelled) setUnread(0) })
+    return () => {
+      cancelled = true
+      stop()
+    }
+  }, [company?.id, userId, ownerUserId, active])
 
   // Invoices ANAF rejected: they do not count as issued until fixed, so the menu flags them.
   useEffect(() => {
@@ -229,6 +253,18 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          <Link
+            href="/notificari"
+            className={`nav-bell${active === 'notifications' ? ' is-active' : ''}`}
+            aria-label={unread ? `${t('nav.notifications')}: ${unread}` : t('nav.notifications')}
+            title={t('nav.notifications')}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M9 2.5a4.5 4.5 0 0 0-4.5 4.5v2.6L3.2 12.2h11.6l-1.3-2.6V7A4.5 4.5 0 0 0 9 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+              <path d="M7.2 14.5a1.9 1.9 0 0 0 3.6 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            {unread > 0 && <span className="nav-bell-count">{unread > 99 ? '99+' : unread}</span>}
+          </Link>
           <Link href="/account" className="flex items-center gap-2 min-w-0" title={userEmail || t('nav.account')}>
             <UserAvatar url={userAvatarUrl} name={userName} email={userEmail} />
             <span className="nav-meta text-sm hidden md:inline truncate max-w-[14rem]" title={userEmail || undefined}>{displayUserName(userName) || userEmail}</span>

@@ -1968,3 +1968,37 @@ html[data-theme="nocturne"] .border-gray-300 { border-color: var(--border); }
   outline: none;
   box-shadow: 0 0 0 3px var(--ring);
 }
+
+/* Header bell: links to Notificări, with the count of what is new since the last visit. */
+.nav-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  transition: color var(--duration, 160ms) var(--ease, ease), background var(--duration, 160ms) var(--ease, ease);
+}
+.nav-bell:hover,
+.nav-bell.is-active {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+.nav-bell-count {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.05rem;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--background);
+}
