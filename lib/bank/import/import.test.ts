@@ -224,4 +224,50 @@ describe('importStatement', () => {
     })
     expect(result).toMatchObject({ needsIbanConfirm: true, foreignIban: 'RO77OTHR1B31007593840000' })
   })
+
+  describe('sure matches follow the company setting', () => {
+    const invoiceRow = {
+      id: 'inv-26',
+      user_id: owner,
+      company_id: companyId,
+      series: 'FCT',
+      invoice_number: '0026',
+      client_id: 'c1',
+      issue_date: '2026-09-01',
+      due_date: '2026-09-16',
+      total: 100,
+      amount_paid: 0,
+      prepaid_amount: 0,
+      status: 'sent',
+      currency: 'RON',
+      invoice_type_code: '380',
+      direction: 'issued',
+      notes: null,
+      clients: { company_name: 'Client SRL', cui: 'RO123', iban: '' }
+    }
+    const xml = `<?xml version="1.0"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02"><BkToCstmrStmt><Stmt><Acct><Id><IBAN>${companyIban}</IBAN></Id></Acct><Ntry><Amt Ccy="RON">100.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><BookgDt><Dt>2026-09-21</Dt></BookgDt><AcctSvcrRef>P26</AcctSvcrRef><NtryDtls><TxDtls><RltdPties><Dbtr><Nm>Client SRL</Nm></Dbtr><DbtrAcct><Id><IBAN>RO11BBBB1B31007593840099</IBAN></Id></DbtrAcct></RltdPties><RmtInf><Ustrd>PLATA FACTURA FCT0026</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry></Stmt></BkToCstmrStmt></Document>`
+
+    async function run(autoApply?: boolean) {
+      const client = seed()
+      if (autoApply !== undefined) client.tables.companies[0].bank_auto_apply = autoApply
+      client.tables.invoices.push({ ...invoiceRow })
+      await importStatement(client, { actorUserId: owner, userId: owner, companyId, fileName: 'p.xml', bytes: new TextEncoder().encode(xml) })
+      return client
+    }
+
+    it('proposes only, when the setting is off or missing', async () => {
+      for (const client of [await run(false), await run()]) {
+        expect(client.tables.invoice_payments).toHaveLength(0)
+        expect(client.tables.bank_match_suggestions).toHaveLength(1)
+        expect(client.tables.bank_transactions[0].match_status).toBe('suggested')
+      }
+    })
+
+    it('books the payment when the setting is on', async () => {
+      const client = await run(true)
+      expect(client.tables.invoice_payments).toHaveLength(1)
+      expect(client.tables.invoice_payments[0].invoice_id).toBe('inv-26')
+      expect(client.tables.bank_transactions[0].match_status).toBe('matched')
+    })
+  })
 })

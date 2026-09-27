@@ -75,6 +75,8 @@ export async function importStatement(
   const company = await getCompanyForActor(client, opts.companyId, opts.actorUserId)
   if (!company) throw new Error('Firma nu a fost găsită.')
   const ownerUserId = String(company.user_id)
+  // Sure matches (>= 90) are booked without a click only when the company turned it on; otherwise all are proposals.
+  const autoApply = company.bank_auto_apply === true
   await tenantWriteVerified(client, { userId: ownerUserId, companyId: opts.companyId, createdBy: opts.actorUserId })
 
   const format = detectFormat(opts.fileName, new TextDecoder('utf-8').decode(opts.bytes.slice(0, 4000)))
@@ -177,7 +179,7 @@ export async function importStatement(
             actorUserId: opts.actorUserId,
             transaction: existing.data as never,
             context,
-            autoApply: false
+            autoApply
           })
           if (result.applied) autoMatched += 1
           else if (result.status === 'suggested') toConfirm += 1
@@ -227,7 +229,7 @@ export async function importStatement(
         actorUserId: opts.actorUserId,
         transaction: row as never,
         context,
-        autoApply: false
+        autoApply
       })
       if (result.applied) autoMatched += 1
       else toConfirm += 1

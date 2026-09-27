@@ -83,7 +83,7 @@ function BancaPageInner() {
   const router = useRouter()
   const search = useSearchParams()
   const { t, locale } = useLocale()
-  const { userId, company, ownerUserId, loading: companyLoading } = useCompany()
+  const { userId, company, ownerUserId, isOwner, loading: companyLoading } = useCompany()
   const [tab, setTab] = useState<'inbox' | 'all'>(() => search.get('tab') === 'all' ? 'all' : 'inbox')
   const [txs, setTxs] = useState<Tx[]>([])
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -100,6 +100,9 @@ function BancaPageInner() {
   const [pickId, setPickId] = useState('')
   const [pickAlloc, setPickAlloc] = useState<Array<{ invoiceId: string; amount: string }>>([{ invoiceId: '', amount: '' }])
   const [loading, setLoading] = useState(true)
+  // null = the database does not have the setting yet (migration 20260930_bank_auto_apply not applied)
+  const [autoApply, setAutoApply] = useState<boolean | null>(null)
+  const [savingAuto, setSavingAuto] = useState(false)
 
   const load = async () => {
     if (!company?.id) {
@@ -120,6 +123,8 @@ function BancaPageInner() {
     setInvoices(await Promise.all(((invRes.data || []) as InvoiceOpt[]).map(row => ensureConvertedInvoiceAmounts(supabase, row))))
     setPayments((payRes.data || []) as PaymentRow[])
     setAccounts((accRes.data || []) as Array<{ id: string; iban: string }>)
+    const autoRes = await supabase.from('companies').select('bank_auto_apply').eq('id', company.id).maybeSingle()
+    setAutoApply(autoRes.error ? null : (autoRes.data as { bank_auto_apply?: boolean } | null)?.bank_auto_apply === true)
     setLoading(false)
   }
 
@@ -139,6 +144,14 @@ function BancaPageInner() {
     txs.filter(tx => (!accountId || tx.bank_account_id === accountId) && (dir === 'all' || (dir === 'in' ? tx.amount > 0 : tx.amount < 0))),
     payments
   ), [txs, payments, accountId, dir])
+  const toggleAutoApply = async () => {
+    if (!company?.id || autoApply === null || savingAuto) return
+    const next = !autoApply
+    setSavingAuto(true)
+    const { error } = await supabase.from('companies').update({ bank_auto_apply: next }).eq('id', company.id)
+    setSavingAuto(false)
+    if (!error) setAutoApply(next)
+  }
   const pct = (rate: number | null) => rate === null ? '—' : `${Math.round(rate * 100)}%`
 
   const inbox = useMemo(
@@ -262,6 +275,27 @@ function BancaPageInner() {
             <p className="text-xs text-[color:var(--color-muted-foreground)] mt-2">
               {stats.total === 1 ? t('bank.stats.hintOne') : t('bank.stats.hint', { count: countWord(stats.total, locale) })}
             </p>
+          </div>
+        )}
+
+        {autoApply !== null && (
+          <div className="card p-4 mb-4 flex items-start gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoApply}
+              aria-label={t('bank.auto.title')}
+              className="switch mt-0.5"
+              disabled={!isOwner || savingAuto}
+              onClick={toggleAutoApply}
+            />
+            <div>
+              <p className="text-sm font-medium">{t('bank.auto.title')}</p>
+              <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">
+                {autoApply ? t('bank.auto.on') : t('bank.auto.off')}
+                {!isOwner ? ` ${t('bank.auto.ownerOnly')}` : ''}
+              </p>
+            </div>
           </div>
         )}
 
