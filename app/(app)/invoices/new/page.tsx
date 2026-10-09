@@ -13,11 +13,14 @@ import AppNav from '@/components/AppNav'
 import { useLocale } from '@/components/LocaleProvider'
 import { useCompany } from '@/components/CompanyProvider'
 import { calendarDateInBucharest, DEFAULT_DUE_DAYS, defaultDueDate } from '@/lib/dates'
-import { nextInvoiceNumber } from '@/lib/invoiceNumber'
+import { nextInvoiceNumber, withFreshInvoiceNumber } from '@/lib/invoiceNumber'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
 import { defaultInvoiceNotes } from '@/lib/invoiceNotes'
 import { insertInvoiceRow, invoicePartySnapshots, persistInvoiceConvertedAmounts } from '@/lib/invoicePersist'
 import { tenantWrite } from '@/lib/portfolio'
+import RecurringFields from '@/components/RecurringFields'
+import { defaultSchedule, validateSchedule, type RecurringSchedule } from '@/lib/recurring'
+import { buildTemplate, createRecurring } from '@/lib/recurringClient'
 
 interface Client {
     id: string
@@ -107,7 +110,11 @@ export default function NewInvoice() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
   const [dueManual, setDueManual] = useState(false)
+  const [numberPreview, setNumberPreview] = useState('')
+  // Recurring: an optional exception to the normal flow, off by default.
+  const [recurringOn, setRecurringOn] = useState(false)
   const today = calendarDateInBucharest(0)
+  const [schedule, setSchedule] = useState<RecurringSchedule>(() => defaultSchedule(today))
   const [form, setForm] = useState({
     series: 'FCT',
     invoice_number: '',
@@ -174,7 +181,9 @@ export default function NewInvoice() {
       userId: ownerUserId || userId,
       startNumber: company?.invoice_start_number
     })
-    setForm(f => ({ ...f, series, invoice_number: next }))
+    // Only a preview: the number is taken when the invoice is issued (drafts have none).
+    setForm(f => ({ ...f, series }))
+    setNumberPreview(next)
   }
 
   const totals = computeInvoiceTotals(items, {
@@ -182,6 +191,10 @@ export default function NewInvoice() {
     prepaid_amount: form.prepaid_amount,
     exchange_rate: fx.enabled ? fx.rate : 0
   })
+
+  // The first invoice of the series is this one: the schedule follows its date.
+  const anchored = defaultSchedule(form.issue_date || today)
+  const seriesSchedule: RecurringSchedule = { ...schedule, start_date: anchored.start_date, anchor_day: anchored.anchor_day }
 
   const saveInvoice = async (status: 'draft' | 'sent') => {
     if (!selectedClient) { alert(t('inv.selectClientAlert')); return }
@@ -194,14 +207,18 @@ export default function NewInvoice() {
       alert(t('inv.fxRequired'))
       return
     }
+    if (recurringOn) {
+      const invalid = validateSchedule(seriesSchedule)
+      if (invalid) { alert(t(invalid)); return }
+    }
     setSaving(true)
 
     const { data: { user } } = await getCurrentUser()
-    const { data: invoice, error } = await insertInvoiceRow(supabase, {
+    const series = company?.invoice_series || form.series
+    const row = {
       ...tenantWrite({ ownerUserId: ownerUserId || user?.id || '', actorUserId: userId || user?.id || '', companyId: company?.id }),
       client_id: selectedClient.id,
-      invoice_number: form.invoice_number,
-      series: form.series,
+      series,
       issue_date: form.issue_date,
       due_date: form.due_date || defaultDueDate(form.issue_date),
       status,
@@ -227,9 +244,17 @@ export default function NewInvoice() {
         seller: company as unknown as Record<string, unknown>,
         buyer: selectedClient as unknown as Record<string, unknown>
       })
-    })
+    }
+    const { data: invoice, error } = status === 'sent'
+      ? await withFreshInvoiceNumber(supabase, {
+          series,
+          companyId: company?.id,
+          userId: ownerUserId || userId || user?.id || '',
+          startNumber: company?.invoice_start_number
+        }, invoice_number => insertInvoiceRow(supabase, { ...row, invoice_number }))
+      : await insertInvoiceRow(supabase, { ...row, invoice_number: '' })
 
-    if (error) { alert(t('inv.saveError')); setSaving(false); return }
+    if (error || !invoice) { alert(t('inv.saveError')); setSaving(false); return }
 
     await persistInvoiceConvertedAmounts(supabase, invoice.id, {
       subtotal: totals.subtotal,
@@ -252,6 +277,27 @@ export default function NewInvoice() {
         discount_percent: item.discount_percent || 0
       }))
     )
+
+    if (recurringOn) {
+      try {
+        await createRecurring({
+          ownerUserId: ownerUserId || userId || user?.id || '',
+          actorUserId: userId || user?.id || '',
+          companyId: company?.id,
+          clientId: selectedClient.id,
+          sourceInvoiceId: invoice.id,
+          schedule: seriesSchedule,
+          template: buildTemplate({
+            header: { ...form, series },
+            items,
+            fxRate: fx.enabled ? fx.rate : null,
+            dueManual
+          })
+        })
+      } catch (e) {
+        alert(t('recur.savedWithoutSeries', { error: e instanceof Error ? e.message : '' }))
+      }
+    }
 
     router.push(`/invoices/${invoice.id}`)
     setSaving(false)
@@ -292,7 +338,8 @@ export default function NewInvoice() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.number')}</label>
                 <input
                   type="text"
-                  value={form.invoice_number}
+                  value=""
+                  placeholder={numberPreview ? t('inv.numberOnIssueNext', { next: numberPreview }) : t('inv.numberOnIssue')}
                   readOnly
                   aria-readonly="true"
                   className="input bg-gray-50 text-gray-500 cursor-not-allowed"
@@ -327,7 +374,29 @@ export default function NewInvoice() {
                 />
               </div>
             </div>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('inv.seriesNumberHint')}</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('inv.numberAtIssueHint')}</p>
+
+            <div className="mt-5 pt-5 border-t border-[color:var(--color-border)]">
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={recurringOn}
+                  aria-label={t('recur.toggle')}
+                  className="switch mt-0.5"
+                  onClick={() => setRecurringOn(v => !v)}
+                />
+                <div>
+                  <p className="text-sm font-medium">{t('recur.toggle')}</p>
+                  <p className="text-xs text-[color:var(--color-muted-foreground)] mt-1">{t('recur.toggleHint')}</p>
+                </div>
+              </div>
+              {recurringOn && (
+                <div className="mt-4">
+                  <RecurringFields value={seriesSchedule} onChange={setSchedule} amount={totals.total} />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Client selection */}
@@ -394,7 +463,7 @@ export default function NewInvoice() {
               disabled={saving}
               className="btn btn-primary disabled:opacity-50"
             >
-              {saving ? t('common.saving') : t('inv.issue')}
+              {saving ? t('common.saving') : recurringOn ? t('recur.issueAndSchedule') : t('inv.issue')}
             </button>
           </div>
         </div>

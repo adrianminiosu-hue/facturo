@@ -8,6 +8,8 @@ import {
   type NotificationBankEvent,
   type NotificationInvoice,
   type NotificationPayment,
+  type NotificationRecurringDraft,
+  type NotificationRecurringSeries,
   type NotificationReminder
 } from '@/lib/notifications'
 
@@ -21,12 +23,14 @@ const listeners = new Set<() => void>()
 
 async function load(companyId: string, ownerUserId: string, userId: string): Promise<Built> {
   const since = addDaysIso(calendarDateInBucharest(0), -FEED_DAYS - 1)
-  const [invoices, payments, reminders, bank, connection] = await Promise.all([
+  const [invoices, payments, reminders, bank, connection, recurringDrafts, recurringSeries] = await Promise.all([
     supabase.from('invoices').select(INVOICE_COLUMNS).eq('company_id', companyId),
     supabase.from('invoice_payments').select('id, invoice_id, amount, paid_on, created_at, source').eq('company_id', companyId).gte('paid_on', since),
     supabase.from('invoice_reminder_log').select('id, invoice_id, kind, recipient, sent_at').eq('user_id', ownerUserId).gte('sent_at', since),
     supabase.from('bank_match_events').select('id, created_at, payload').eq('company_id', companyId).eq('action', 'import').gte('created_at', since),
-    loadEfacturaConnection(userId, ownerUserId).catch(() => null)
+    loadEfacturaConnection(userId, ownerUserId).catch(() => null),
+    supabase.from('invoices').select('id, created_at, total, clients(company_name)').eq('company_id', companyId).eq('status', 'draft').not('recurring_invoice_id', 'is', null).gte('created_at', since),
+    supabase.from('recurring_invoices').select('id, paused_at, pause_reason, next_run_date, status, clients(company_name)').eq('company_id', companyId).in('status', ['active', 'paused'])
   ])
   if (invoices.error) throw new Error(invoices.error.message)
   return buildNotifications({
@@ -35,6 +39,9 @@ async function load(companyId: string, ownerUserId: string, userId: string): Pro
     payments: (payments.error ? [] : payments.data || []) as NotificationPayment[],
     reminders: (reminders.error ? [] : reminders.data || []) as NotificationReminder[],
     bankImports: (bank.error ? [] : bank.data || []) as NotificationBankEvent[],
+    // Recurring invoices may not be migrated yet: same rule, an error means nothing to report.
+    recurringDrafts: (recurringDrafts.error ? [] : recurringDrafts.data || []) as unknown as NotificationRecurringDraft[],
+    recurringSeries: (recurringSeries.error ? [] : recurringSeries.data || []) as unknown as NotificationRecurringSeries[],
     tokenExpiresAt: connection?.connected ? connection.expiresAt || null : null
   }, { today: calendarDateInBucharest(0) })
 }

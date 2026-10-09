@@ -14,7 +14,7 @@ import type { MessageKey } from '@/lib/messages'
 import { formatRon } from '@/lib/money'
 import { ensureConvertedInvoiceAmounts } from '@/lib/invoicePersist'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft, loadInvoiceForClone } from '@/lib/invoiceClone'
-import { alreadySentToSpv, canSendToEfactura, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
+import { alreadySentToSpv, canSendToEfactura, invoiceRefLabel, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isOpenReceivable, isPurchaseInvoice } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import { outcomeKey } from '@/lib/uiLabels'
 import Money from '@/components/Money'
@@ -71,7 +71,7 @@ function matchesStatusFilter(invoice: Invoice, filter: string) {
 }
 
 function invoiceRef(invoice: Invoice) {
-  return `${invoice.series}${invoice.invoice_number}`
+  return invoiceRefLabel(invoice)
 }
 
 function InvoiceStatCard({ label, value }: { label: string; value: React.ReactNode }) {
@@ -633,7 +633,7 @@ export default function Invoices() {
                         className="list-cell-check h-4 w-4 accent-[color:var(--color-foreground)] disabled:opacity-40"
                       />
                       <Link href={`/invoices/${invoice.id}`} className="list-cell-title text-sm font-medium text-[color:var(--color-foreground)] hover:underline">
-                        {invoice.series}{invoice.invoice_number}
+                        {invoice.invoice_number ? invoiceRef(invoice) : t('status.draft')}
                       </Link>
                       <span className="list-cell-sub text-sm text-[color:var(--color-muted-foreground)] truncate" title={invoice.clients?.company_name || undefined}>
                         {invoice.clients?.company_name || '—'}

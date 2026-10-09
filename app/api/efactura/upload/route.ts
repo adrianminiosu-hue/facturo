@@ -88,6 +88,16 @@ async function processOne(
 
   const invoiceRef = `${invoice.series}${invoice.invoice_number}`
 
+  // Drafts have no number until issued: nothing valid to send.
+  if (!invoice.invoice_number) {
+    return {
+      invoiceId,
+      invoiceRef,
+      outcome: 'skipped',
+      error: 'Ciornă — emite factura înainte de trimiterea în e-Factura.'
+    }
+  }
+
   if (options.skipDrafts && isDraftInvoice(invoice.status)) {
     return {
       invoiceId,

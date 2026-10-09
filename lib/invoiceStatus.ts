@@ -23,6 +23,15 @@ export const EFACTURA_PROCESSING = 'Factura este încă în prelucrare la ANAF.'
 
 export type EfacturaStatus = 'uploaded' | 'in_processing' | 'accepted' | 'rejected'
 
+/** "FCT0031" for an issued invoice; drafts have no number until they are issued. */
+export function invoiceRefLabel(
+  invoice: { series?: string | null; invoice_number?: string | null },
+  draftLabel = 'Ciornă'
+) {
+  if (!invoice.invoice_number) return draftLabel
+  return `${invoice.series || ''}${invoice.invoice_number}`
+}
+
 export function isDraftInvoice(status?: string | null) {
   return status === 'draft' || !status
 }

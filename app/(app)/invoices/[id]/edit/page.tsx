@@ -10,7 +10,8 @@ import { emptyInvoiceFx, fxPersistFields, invoiceFxFromRow } from '@/lib/invoice
 import InvoiceTotalsFields from '@/components/InvoiceTotalsFields'
 import AppNav from '@/components/AppNav'
 import { useCompany } from '@/components/CompanyProvider'
-import { isDraftInvoice, isPurchaseInvoice } from '@/lib/invoiceStatus'
+import { invoiceRefLabel, isDraftInvoice, isPurchaseInvoice } from '@/lib/invoiceStatus'
+import { withFreshInvoiceNumber } from '@/lib/invoiceNumber'
 import { applyStornoToOriginal } from '@/lib/storno'
 import { defaultDueDate } from '@/lib/dates'
 import { computeInvoiceTotals } from '@/lib/invoiceMath'
@@ -222,8 +223,10 @@ export default function EditInvoice() {
     }
     setSaving(true)
 
-    const { error } = await updateInvoiceRow(supabase, invoiceId, {
+    const series = company?.invoice_series || form.series
+    const row = {
       client_id: selectedClient.id,
+      series,
       issue_date: form.issue_date,
       due_date: form.due_date || defaultDueDate(form.issue_date),
       status,
@@ -248,9 +251,18 @@ export default function EditInvoice() {
         seller: company as unknown as Record<string, unknown>,
         buyer: selectedClient as unknown as Record<string, unknown>
       })
-    })
-    if (error) {
-      alert(error.message)
+    }
+    // The number is taken only now, at issue; a draft keeps none (no gaps in the series).
+    const saved = status === 'sent'
+      ? await withFreshInvoiceNumber(supabase, {
+          series,
+          companyId: company?.id,
+          userId: ownerUserId || userId,
+          startNumber: company?.invoice_start_number
+        }, invoice_number => updateInvoiceRow(supabase, invoiceId, { ...row, invoice_number }))
+      : { ...(await updateInvoiceRow(supabase, invoiceId, { ...row, invoice_number: '' })), invoiceNumber: '' }
+    if (saved.error) {
+      alert(saved.error.message)
       setSaving(false)
       return
     }
@@ -283,7 +295,7 @@ export default function EditInvoice() {
         originalId: creditedInvoiceId,
         userId: ownerUserId || userId,
         amount: totals.total,
-        creditRef: `${form.series}${form.invoice_number}`
+        creditRef: `${series}${saved.invoiceNumber}`
       })
     }
 
@@ -305,7 +317,7 @@ export default function EditInvoice() {
         <div className="flex items-start justify-between mb-8">
           <div>
             <h2 className="page-title text-[color:var(--color-foreground)]">{t('inv.editTitle')}</h2>
-            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{form.series}{form.invoice_number}{form.invoice_type_code === '381' ? ` · ${t(invoiceTypeKey('381'))}` : ''}</p>
+            <p className="mt-1 text-[color:var(--color-muted-foreground)]">{invoiceRefLabel(form, t('status.draft'))}{form.invoice_type_code === '381' ? ` · ${t(invoiceTypeKey('381'))}` : ''}</p>
           </div>
           <Link href={`/invoices/${invoiceId}`} className="text-sm text-[color:var(--color-muted-foreground)] hover:text-[color:var(--color-foreground)] transition">
             {t('inv.backToDoc')}
@@ -330,7 +342,8 @@ export default function EditInvoice() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('inv.number')}</label>
                 <input
                   type="text"
-                  value={form.invoice_number}
+                  value=""
+                  placeholder={t('inv.numberOnIssue')}
                   readOnly
                   aria-readonly="true"
                   className="input bg-gray-50 text-gray-500 cursor-not-allowed"
@@ -357,7 +370,7 @@ export default function EditInvoice() {
                   className="input" />
               </div>
             </div>
-            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('inv.seriesNumberHint')}</p>
+            <p className="text-xs text-[color:var(--color-muted-foreground)] mt-3">{t('inv.numberAtIssueHint')}</p>
           </div>
 
           <div className="card p-6">

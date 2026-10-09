@@ -28,6 +28,10 @@ export async function POST(request: NextRequest) {
     if (!invoice) {
       return NextResponse.json({ error: 'Factura nu a fost găsită' }, { status: 404 })
     }
+    // A draft has no number yet (it is allocated at issue), so it cannot go out by email.
+    if (invoice.status === 'draft' || !invoice.status || !invoice.invoice_number) {
+      return NextResponse.json({ error: 'Emite factura înainte de a o trimite pe email.' }, { status: 400 })
+    }
 
     const { data: client } = await supabase
       .from('clients')
@@ -108,14 +112,6 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Resend error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    // Keep SPV / paid status; only mark ciornă as issued after email.
-    if (invoice.status === 'draft' || !invoice.status) {
-      await supabase
-        .from('invoices')
-        .update({ status: 'sent' })
-        .eq('id', invoiceId)
     }
 
     return NextResponse.json({ success: true })

@@ -18,7 +18,7 @@ import { loadNotifications, notificationsSeenAt, onNotificationsSeen } from '@/l
 const SETTINGS = ['profile', 'companies', 'account', 'team', 'nomenclator'] as const
 const DASHBOARD_SLOTS = visibleDashboardSlots()
 
-export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' | 'notifications' }) {
+export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1' | 'dashboard-2' | 'dashboard-3' | 'dashboard-4' | 'dashboard-5' | 'clients' | 'invoices' | 'recurring' | 'purchase-invoices' | 'receivables' | 'banca' | 'nomenclator' | 'profile' | 'companies' | 'account' | 'team' | 'efactura' | 'notifications' }) {
   const router = useRouter()
   const pathname = usePathname()
   const { t } = useLocale()
@@ -28,7 +28,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
   const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const dashboardActive = active === 'dashboard' || active.startsWith('dashboard-')
-  const invoicesActive = active === 'invoices' || active === 'purchase-invoices'
+  const invoicesActive = active === 'invoices' || active === 'recurring' || active === 'purchase-invoices'
   const settingsActive = SETTINGS.includes(active as typeof SETTINGS[number])
   const [dashboardOpen, setDashboardOpen] = useState(dashboardActive)
   const [invoicesOpen, setInvoicesOpen] = useState(invoicesActive)
@@ -170,6 +170,7 @@ export default function AppNav({ active }: { active: 'dashboard' | 'dashboard-1'
           {invoicesOpen && (
             <div className="side-group">
               <Link href="/invoices" className={subClass(active === 'invoices')}>{t('nav.issuedInvoices')}</Link>
+              <Link href="/invoices/recurente" className={subClass(active === 'recurring')}>{t('nav.recurringInvoices')}</Link>
               <Link href="/facturi-achizitie" className={subClass(active === 'purchase-invoices')}>{t('nav.purchaseInvoices')}</Link>
             </div>
           )}

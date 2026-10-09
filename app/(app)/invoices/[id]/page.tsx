@@ -10,7 +10,7 @@ import InvoicePaymentsSection from '@/components/InvoicePaymentsSection'
 import PaymentModal from '@/components/PaymentModal'
 import { formatRoDate } from '@/lib/dates'
 import { downloadInvoicePdf, downloadInvoiceXml, sendInvoiceEmail, simulateSpvUpload, checkInvoiceAtAnaf } from '@/lib/invoiceClient'
-import { alreadySentToSpv, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isEfacturaQueued, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
+import { alreadySentToSpv, invoiceRefLabel, invoiceStatusAppearance, isCreditNote, isDraftInvoice, isEfacturaProcessing, isEfacturaQueued, isPurchaseInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
 import { useLocale } from '@/components/LocaleProvider'
 import { invoiceTypeKey } from '@/lib/uiLabels'
 import { formatAmount, formatRon } from '@/lib/money'
@@ -18,6 +18,11 @@ import { invoiceConvertedHeader, remainingOf, roundMoney } from '@/lib/invoiceMa
 import { fxRateLine, notesWithFxMention } from '@/lib/invoiceFx'
 import { persistInvoiceConvertedAmounts } from '@/lib/invoicePersist'
 import { canCreateStorno, copyInvoiceAsDraft, createStornoDraft } from '@/lib/invoiceClone'
+import RecurringModal from '@/components/RecurringModal'
+import { createRecurring, loadRecurring, templateFromInvoice } from '@/lib/recurringClient'
+import type { RecurringRow } from '@/lib/recurring'
+import { issueDraft, overdueInSeries } from '@/lib/invoiceIssue'
+import { calendarDateInBucharest } from '@/lib/dates'
 
 type Line = {
   id: string
@@ -67,6 +72,8 @@ type Invoice = {
   efactura_index?: string | null
   efactura_error?: string | null
   efactura_environment?: string | null
+  recurring_invoice_id?: string | null
+  recurring_occurrence_date?: string | null
   clients?: { company_name?: string; cui?: string; email?: string; city?: string } | null
   invoice_items?: Line[]
 }
@@ -87,6 +94,9 @@ export default function InvoiceViewPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [payOpen, setPayOpen] = useState(false)
+  const [recurring, setRecurring] = useState<RecurringRow | null>(null)
+  const [recurringOpen, setRecurringOpen] = useState(false)
+  const [seriesOverdue, setSeriesOverdue] = useState<{ count: number; amount: number } | null>(null)
 
   const load = async () => {
     const { data } = await supabase
@@ -120,6 +130,15 @@ export default function InvoiceViewPage() {
       loaded.exchange_rate = converted.exchange_rate
     }
     setInvoice(loaded)
+    if (loaded.recurring_invoice_id) {
+      loadRecurring(loaded.recurring_invoice_id).then(setRecurring).catch(() => setRecurring(null))
+      if (isDraftInvoice(loaded.status)) {
+        overdueInSeries(supabase, loaded.recurring_invoice_id).then(setSeriesOverdue).catch(() => setSeriesOverdue(null))
+      }
+    } else {
+      setRecurring(null)
+      setSeriesOverdue(null)
+    }
     if (data.credited_invoice_id) {
       const { data: original } = await supabase
         .from('invoices')
@@ -177,6 +196,41 @@ export default function InvoiceViewPage() {
     }
   }
 
+  const issueNow = async () => {
+    if (!invoice) return
+    if (!confirm(t('recur.confirmIssue'))) return
+    setBusy('issue')
+    try {
+      const ref = await issueDraft(supabase, {
+        invoice,
+        company: company as unknown as Parameters<typeof issueDraft>[1]['company'],
+        ownerUserId: ownerUserId || userId
+      })
+      alert(t('recur.issued', { ref }))
+      await load()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : t('inv.saveError'))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const makeRecurring = async (schedule: Parameters<typeof createRecurring>[0]['schedule']) => {
+    if (!invoice?.client_id) throw new Error(t('inv.selectClientAlert'))
+    const created = await createRecurring({
+      ownerUserId: ownerUserId || userId,
+      actorUserId: userId,
+      companyId: invoice.company_id || company?.id,
+      clientId: invoice.client_id,
+      sourceInvoiceId: invoice.id,
+      schedule,
+      template: templateFromInvoice({ ...invoice, series: invoice.series })
+    })
+    setRecurringOpen(false)
+    setRecurring(created)
+    setInvoice(prev => prev ? { ...prev, recurring_invoice_id: created.id, recurring_occurrence_date: schedule.start_date } : prev)
+  }
+
   const converted = invoice ? invoiceConvertedHeader(invoice.invoice_items || [], invoice) : null
   const viewTotals = converted?.totals || null
   const fxRate = converted?.exchange_rate || 0
@@ -218,7 +272,7 @@ export default function InvoiceViewPage() {
           <div>
             <p className="kicker mb-2">{typeLabel}</p>
             <h2 className="page-title text-[color:var(--color-foreground)]">
-              {invoice.series}{invoice.invoice_number}
+              {invoiceRefLabel(invoice, t('status.draft'))}
             </h2>
             <p className="mt-1 text-[color:var(--color-muted-foreground)]">
               {invoice.clients?.company_name || '—'} · {formatRoDate(invoice.issue_date)}
@@ -254,6 +308,28 @@ export default function InvoiceViewPage() {
           )}
           {hasStorno && <span className="text-xs text-[color:var(--color-muted-foreground)]">{t('inv.hasStorno')}</span>}
         </div>
+        {recurring && (
+          <div className="rounded-xl border border-[color:var(--color-border)] px-4 py-3 mb-6 text-sm">
+            <p>
+              <span className="font-medium">{t(`recur.badge.${recurring.frequency}`)}</span>
+              {' · '}
+              {recurring.status === 'active' && recurring.next_run_date
+                ? t('recur.nextOn', { date: formatRoDate(recurring.next_run_date) })
+                : t(`recur.status.${recurring.status}`)}
+              {' · '}
+              <Link href="/invoices/recurente" className="underline">{t('recur.manage')}</Link>
+            </p>
+            {draft && invoice.recurring_occurrence_date && invoice.recurring_occurrence_date !== recurring.start_date && (
+              <p className="text-[color:var(--color-muted-foreground)] mt-1">{t('recur.generatedDraft')}</p>
+            )}
+            {draft && invoice.issue_date < calendarDateInBucharest(0) && (
+              <p className="text-amber-800 mt-1">{t('recur.pastDate', { date: formatRoDate(invoice.issue_date) })}</p>
+            )}
+            {draft && seriesOverdue && seriesOverdue.count > 0 && (
+              <p className="text-amber-800 mt-1">{t('recur.overdueWarn', { count: seriesOverdue.count, amount: ron(seriesOverdue.amount) })}</p>
+            )}
+          </div>
+        )}
         {invoice.efactura_error && (
           <p className={`text-sm rounded-xl px-3 py-2 mb-6 border ${isEfacturaQueued(invoice) ? 'text-amber-800 bg-amber-50 border-amber-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
             {invoice.efactura_error}
@@ -261,8 +337,13 @@ export default function InvoiceViewPage() {
         )}
 
         <div className="flex flex-wrap gap-2 mb-8">
+          {draft && !credit && (
+            <button className="btn btn-primary" disabled={busy === 'issue'} onClick={issueNow}>
+              {busy === 'issue' ? '...' : t('inv.issue')}
+            </button>
+          )}
           {draft ? (
-            <Link href={`/invoices/${invoice.id}/edit`} className="btn btn-primary">
+            <Link href={`/invoices/${invoice.id}/edit`} className={credit ? 'btn btn-primary' : 'btn btn-outline'}>
               {t('common.edit')}
             </Link>
           ) : (
@@ -307,6 +388,10 @@ export default function InvoiceViewPage() {
           )}
           <InvoiceOverflow
             actions={[
+              ...(!invoice.recurring_invoice_id && !credit && invoice.client_id ? [{
+                label: t('recur.makeRecurring'),
+                onClick: () => setRecurringOpen(true)
+              }] : []),
               {
                 label: t('inv.anafCheck'),
                 onClick: async () => {
@@ -449,6 +534,15 @@ export default function InvoiceViewPage() {
           </div>
         )}
       </div>
+      {recurringOpen && (
+        <RecurringModal
+          issueDate={invoice.issue_date}
+          amount={viewTotals?.taxInclusive}
+          title={`${invoiceRefLabel(invoice, t('status.draft'))} · ${invoice.clients?.company_name || ''}`}
+          onClose={() => setRecurringOpen(false)}
+          onSave={makeRecurring}
+        />
+      )}
       {payOpen && (
         <PaymentModal
           invoice={billedInvoice || invoice}

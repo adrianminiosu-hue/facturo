@@ -66,7 +66,20 @@ export type NotificationPayment = {
 export type NotificationReminder = { id: string; invoice_id: string; kind?: string | null; recipient?: string | null; sent_at: string }
 export type NotificationBankEvent = { id: string; created_at: string; payload?: Record<string, unknown> | null }
 
+/** Recurring invoices: drafts generated, series paused by the app, drafts coming up. */
+export type NotificationRecurringDraft = { id: string; created_at: string; total?: number | string | null; clients?: { company_name?: string | null } | null }
+export type NotificationRecurringSeries = {
+  id: string
+  paused_at?: string | null
+  pause_reason?: string | null
+  next_run_date?: string | null
+  status?: string | null
+  clients?: { company_name?: string | null } | null
+}
+
 export type NotificationSources = {
+  recurringDrafts?: NotificationRecurringDraft[]
+  recurringSeries?: NotificationRecurringSeries[]
   invoices: NotificationInvoice[]
   payments: NotificationPayment[]
   reminders: NotificationReminder[]
@@ -262,6 +275,37 @@ export function buildNotifications(sources: NotificationSources, opts: { today: 
     })
   }
 
+  // Recurring invoices: a draft waiting to be issued, or a series the app had to pause.
+  for (const draft of sources.recurringDrafts || []) {
+    if (!draft.created_at || bucharestDay(draft.created_at) < since) continue
+    const amount = round2(Number(draft.total || 0))
+    raw.push({
+      id: `recDraft:${draft.id}`,
+      category: 'receivables',
+      kind: 'recurringDraft',
+      tone: 'neutral',
+      at: draft.created_at,
+      day: bucharestDay(draft.created_at),
+      refs: [{ label: String(draft.clients?.company_name || ''), href: `/invoices/${draft.id}`, amount }],
+      amount,
+      action: { key: 'ntf.act.review', href: `/invoices/${draft.id}` }
+    })
+  }
+  for (const series of sources.recurringSeries || []) {
+    if (series.status !== 'paused' || !series.paused_at || series.pause_reason === 'manual') continue
+    if (bucharestDay(series.paused_at) < since) continue
+    raw.push({
+      id: `recPaused:${series.id}:${series.paused_at}`,
+      category: 'receivables',
+      kind: 'recurringPaused',
+      tone: 'warn',
+      at: series.paused_at,
+      day: bucharestDay(series.paused_at),
+      refs: [{ label: String(series.clients?.company_name || ''), href: '/invoices/recurente' }],
+      action: { key: 'ntf.act.check', href: '/invoices/recurente' }
+    })
+  }
+
   // Bank statements imported.
   for (const event of sources.bankImports) {
     if (bucharestDay(event.created_at) < since) continue
@@ -299,6 +343,20 @@ export function buildNotifications(sources: NotificationSources, opts: { today: 
       refs: [refOf(invoice, round2(left))],
       amount: round2(left),
       action: purchase ? { key: 'ntf.act.pay', href: `/facturi-achizitie/${invoice.id}` } : undefined
+    })
+  }
+  for (const series of sources.recurringSeries || []) {
+    if (series.status !== 'active' || !series.next_run_date) continue
+    if (series.next_run_date < opts.today || series.next_run_date > until) continue
+    upcomingRaw.push({
+      id: `recNext:${series.id}`,
+      category: 'receivables',
+      kind: 'recurringNext',
+      tone: 'neutral',
+      date: series.next_run_date,
+      key: '',
+      vars: {},
+      refs: [{ label: String(series.clients?.company_name || ''), href: '/invoices/recurente' }]
     })
   }
   for (const row of efactura.dueSoon) {

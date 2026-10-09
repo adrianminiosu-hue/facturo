@@ -1,5 +1,4 @@
 import { calendarDateInBucharest, defaultDueDate } from '@/lib/dates'
-import { nextInvoiceNumber } from '@/lib/invoiceNumber'
 import { computeInvoiceTotals, invoiceConvertedHeader, resolveExchangeRate } from '@/lib/invoiceMath'
 import { insertInvoiceRow, invoicePartySnapshots } from '@/lib/invoicePersist'
 import { isCreditNote, isDraftInvoice, notesWithoutSpvMark } from '@/lib/invoiceStatus'
@@ -87,12 +86,8 @@ export async function copyInvoiceAsDraft(
 ) {
   const { invoice, company, userId } = opts
   const series = company?.invoice_series || invoice.series
-  const invoice_number = await nextInvoiceNumber(client, {
-    series,
-    companyId: company?.id || invoice.company_id,
-    userId,
-    startNumber: company?.invoice_start_number ?? undefined
-  })
+  // Drafts carry no number; it is allocated when the draft is issued.
+  const invoice_number = ''
   const today = calendarDateInBucharest(0)
   const items = invoice.invoice_items || []
   const exchange_rate = resolveExchangeRate(items, invoice)
@@ -148,12 +143,8 @@ export async function createStornoDraft(
 ) {
   const { invoice, company, userId } = opts
   const series = company?.invoice_series || invoice.series
-  const invoice_number = await nextInvoiceNumber(client, {
-    series,
-    companyId: company?.id || invoice.company_id,
-    userId,
-    startNumber: company?.invoice_start_number ?? undefined
-  })
+  // Drafts carry no number; it is allocated when the draft is issued.
+  const invoice_number = ''
   const today = calendarDateInBucharest(0)
   const items = invoice.invoice_items || []
   const converted = invoiceConvertedHeader(items, invoice)
