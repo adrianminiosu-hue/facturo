@@ -2002,3 +2002,19 @@ html[data-theme="nocturne"] .border-gray-300 { border-color: var(--border); }
   text-align: center;
   box-shadow: 0 0 0 2px var(--background);
 }
+
+
+/* Veyro ribbon colours (components/VeyroLogo.tsx): night cobalt on light surfaces, lighter pair on dark ones. */
+:root {
+  --veyro-ribbon-light: #4357D9;
+  --veyro-ribbon-deep: #1A2580;
+}
+.app-sidebar,
+html[data-theme="nocturne"] {
+  --veyro-ribbon-light: #8C9BFF;
+  --veyro-ribbon-deep: #4357D9;
+}
+html[data-nav="light"]:not([data-theme="nocturne"]) .app-sidebar {
+  --veyro-ribbon-light: #4357D9;
+  --veyro-ribbon-deep: #1A2580;
+}
